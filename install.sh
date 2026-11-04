@@ -29,6 +29,7 @@ if ! grep -qF "$loader" ~/.config/hypr/monitors.lua; then
   echo "added hdr.lua loader to ~/.config/hypr/monitors.lua"
 fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
+link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link systemd-user/expertbook-mute-leds.service.d ~/.config/systemd/user/expertbook-mute-leds.service.d
 link wluma                              ~/.config/wluma
