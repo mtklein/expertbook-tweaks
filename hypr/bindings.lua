@@ -41,3 +41,10 @@ for _, b in ipairs({
   hl.unbind(b[1])
   o.bind(b[1], b[2], "hdr-brightness " .. b[3], { locked = true, repeating = true })
 end
+
+-- Fn+F9 (media-mode F9) arrives from the Asus WMI hotkeys device as F14, keycode 192,
+-- as an instant press+release with no hold information, so push-to-talk is impossible
+-- there. Make it a dictation toggle instead; plain F9 stays Omarchy's push-to-talk.
+if o.cmd_present("voxtype") then
+  o.bind("code:192", "Toggle dictation (Fn+F9)", "voxtype record toggle")
+end
