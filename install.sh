@@ -31,7 +31,6 @@ fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
-link systemd-user/expertbook-mute-leds.service.d ~/.config/systemd/user/expertbook-mute-leds.service.d
 link wluma                              ~/.config/wluma
 link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
 
@@ -45,7 +44,6 @@ if [[ ${1:-} == --system ]]; then
     find . -type f | while read -r f; do
       install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
     done
-    udevadm control --reload
     systemctl daemon-reload
     systemctl enable rapl-sync.service
     systemctl restart rapl-sync.service

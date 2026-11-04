@@ -1,8 +1,8 @@
 # expertbook-tweaks
 
 Personal tweaks for an ASUS ExpertBook Ultra (B9406CAA) running Omarchy, on top
-of the community fixes in `~/asus-expertbook-linux` (whose own changes live on
-its `mute-led-invert` branch).
+of the community fixes in [asus-expertbook-linux](https://github.com/burakgon/asus-expertbook-linux),
+used unmodified from upstream `main`.
 
 Files here are the real copies; `./install.sh` symlinks them into place, so
 editing either path edits the tracked file. `./install.sh --system` also copies
@@ -21,16 +21,13 @@ editing either path edits the tracked file. `./install.sh --system` also copies
 | `omarchy-plugins/mtklein.monitor/` | `~/.config/omarchy/plugins/` | Clone of the bar's Display panel; `Panel.qml` reads/sets brightness through the two scripts above. Doesn't receive upstream `omarchy.monitor` updates. |
 | `fingerprint/omarchy-hw-fingerprint` | `~/.local/share/fp-shim/` | Detection shim: Omarchy misses the FocalTech FT9349 (`2808:a97a`), which libfprint supports. Run setup as `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. |
 | `fingerprint/fp-storage.py` | `~/.local/share/fp-shim/` | List (`sudo python3 fp-storage.py`) or wipe (`--clear`) templates stored on the sensor chip. Stale Windows Hello templates there made every verify fail. |
-| `systemd-user/expertbook-mute-leds.service.d/invert.conf` | `~/.config/systemd/user/` | `MUTE_LED_INVERT=1`: mute LEDs lit while audio is live. |
 | `wluma/config.toml` | `~/.config/wluma/` | Ambient-light screen brightness, keyboard excluded. **Unused** (wluma isn't installed): it drives the backlight, which does nothing in HDR; `hdr-auto-brightness` replaces it. |
-| `system/etc/udev/rules.d/90-b9406-mute-led-userspace.rules` | `/etc/udev/rules.d/` | Detaches the speaker mute LED from the kernel trigger so the sync service can invert it. |
 | `system/usr/local/bin/rapl-sync`, `system/etc/systemd/system/rapl-sync.service` | `/usr/local/bin/`, `/etc/systemd/system/` | Copies the firmware's (MMIO) PL1/PL2 onto the MSR RAPL limits every 2 s, as Windows does. The BIOS leaves MSR PL1 at 15 W and the CPU obeys the lower copy, so without this every profile sustains only 15 W. |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | `/etc/systemd/system/ollama.service.d/` | Ollama on the Arc B390 iGPU, flash attention, q8_0 KV cache, 32k context. |
 
 ## Known quirks
 
 - `sdrbrightness` doesn't reach window borders, so `monitors.lua` dims the theme's border colours by the same factor (linear light), re-reading the theme each time.
-- Before login, the mute LEDs keep whatever state they were last in.
 
 ## License
 

@@ -1,1 +1,0 @@
-ACTION=="add", SUBSYSTEM=="leds", KERNEL=="platform::mute", ATTR{trigger}="none"
