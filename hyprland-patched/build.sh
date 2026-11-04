@@ -4,6 +4,8 @@
 # to colour-managed clients (Chromium, Electron) follow the monitor's
 # sdr_max_luminance instead of a hard-coded 203 nits; 02 notifies those clients when
 # sdr_max_luminance changes at runtime, so they follow brightness changes live.
+# 03 applies sdrbrightness to colour-managed surfaces too (not just SDR ones), so
+# 0% brightness (sdrbrightness ~0, hypr/hdr.lua) blacks out Chromium and HDR video as well.
 # Upstream: https://github.com/hyprwm/Hyprland/discussions/14999 (francomeisterm),
 # tracked in https://github.com/hyprwm/Hyprland/issues/16329.
 #
@@ -43,5 +45,5 @@ assert "patch -Np1" in p, "prepare() layout changed; update build.sh"
 open("PKGBUILD", "w").write(p)
 PY
 
-makepkg --cleanbuild --noconfirm
+makepkg --cleanbuild --force --noconfirm   # --force: rebuild when only the patches changed
 ls -1t "$work"/hyprland-[0-9]*.pkg.tar.zst | head -1
