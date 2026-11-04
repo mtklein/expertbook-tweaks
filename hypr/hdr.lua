@@ -46,9 +46,9 @@ local function dim_color(c, factor)
 end
 
 -- Luminance (nits) that SDR white maps to in HDR, i.e. what "100%" means.
--- Hyprland's default is 80; 160 is a comfortable 100%; the panel peaks at 1600.
+-- Hyprland's default is 80; 200 is a comfortable 100%; the panel peaks at 1600.
 -- Try others live: hyprctl eval 'edp_sdr_white = N; edp_hdr_monitor(<0-1>)'
-edp_sdr_white = 160
+edp_sdr_white = 200
 
 function edp_hdr_monitor(sdr_brightness)
   hl.monitor({
