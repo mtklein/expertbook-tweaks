@@ -12,11 +12,56 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy
 -- via sdrbrightness. ~/.local/bin/hdr-brightness (bound to the brightness keys)
 -- calls edp_hdr_monitor() and saves the level to ~/.local/state/hdr-brightness.
 -- To turn HDR off, comment out the edp_hdr_monitor(...) call at the bottom of this block.
+-- sdrbrightness doesn't reach window borders, so dim the theme's border colours
+-- by the same factor (in linear light). Colours are re-read from the current
+-- theme each time, so theme switches keep working.
+local function theme_border_colors()
+  local f = io.open((os.getenv("HOME") or "") .. "/.local/state/omarchy/current/theme/hyprland.lua")
+  if not f then return nil end
+  local src = f:read("a")
+  f:close()
+  local function value(name)
+    local expr = src:match("local%s+" .. name .. "%s*=%s*(.-)\n")
+    local chunk = expr and load("return " .. expr, name, "t", {})
+    local ok, v = pcall(chunk or error)
+    return ok and v or nil
+  end
+  return value("active_border_color"), value("inactive_border_color")
+end
+
+local function dim_color(c, factor)
+  if type(c) == "table" then
+    local out = {}
+    for k, v in pairs(c) do out[k] = (k == "colors") and dim_color(v, factor) or v end
+    if c[1] then for i, v in ipairs(c) do out[i] = dim_color(v, factor) end end
+    return out
+  end
+  if type(c) ~= "string" then return c end
+  local hex = c:match("^#(%x+)$") or c:match("^rgba?%((%x+)%)$")
+  if not hex or (#hex ~= 6 and #hex ~= 8) then return c end
+  local function channel(i)
+    local s = tonumber(hex:sub(i, i + 1), 16) / 255
+    local lin = s <= 0.04045 and s / 12.92 or ((s + 0.055) / 1.055) ^ 2.4
+    lin = lin * factor
+    s = lin <= 0.0031308 and lin * 12.92 or 1.055 * lin ^ (1 / 2.4) - 0.055
+    return string.format("%02x", math.floor(s * 255 + 0.5))
+  end
+  return "rgba(" .. channel(1) .. channel(3) .. channel(5) .. (#hex == 8 and hex:sub(7, 8) or "ff") .. ")"
+end
+
 function edp_hdr_monitor(sdr_brightness)
   hl.monitor({
     output = "eDP-1", mode = "preferred", position = "auto", scale = omarchy_monitor_scale,
     bitdepth = 10, cm = "hdr", sdrbrightness = sdr_brightness,
   })
+  local active, inactive = theme_border_colors()
+  if active and inactive then
+    active, inactive = dim_color(active, sdr_brightness), dim_color(inactive, sdr_brightness)
+    hl.config({
+      general = { col = { active_border = active, inactive_border = inactive } },
+      group = { col = { border_active = active, border_inactive = inactive } },
+    })
+  end
 end
 
 local function saved_hdr_brightness()

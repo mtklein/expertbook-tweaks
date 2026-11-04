@@ -26,5 +26,5 @@ editing either path edits the tracked file. `./install.sh --system` also copies
 
 ## Known quirks
 
-- In HDR the active-window border doesn't dim with brightness.
+- `sdrbrightness` doesn't reach window borders, so `monitors.lua` dims the theme's border colours by the same factor (linear light), re-reading the theme each time.
 - Before login, the mute LEDs keep whatever state they were last in.
