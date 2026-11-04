@@ -1,0 +1,26 @@
+#!/bin/bash
+# Keep the MSR RAPL power limits (intel-rapl:0) equal to the firmware's MMIO
+# ones (intel-rapl-mmio:0), the way Windows' Intel/ASUS drivers do.
+#
+# The firmware moves the MMIO PL1/PL2 with the platform profile (power-saver
+# 15/25 W, balanced 25/65 W, performance 50/65 W), but nothing on Linux updates
+# the MSR copy, which the BIOS leaves at PL1 15 W. The CPU obeys the lower of
+# the two, so without this every profile sustains only 15 W.
+#
+# Polls every 2 s (plain RAPL reads, no ACPI), which also catches resets on
+# AC/DC changes and resume.
+MSR=/sys/class/powercap/intel-rapl:0
+MMIO=/sys/class/powercap/intel-rapl-mmio:0
+
+while :; do
+  for c in 0 1; do   # 0 = long_term (PL1), 1 = short_term (PL2)
+    want=$(<"$MMIO/constraint_${c}_power_limit_uw") || continue
+    have=$(<"$MSR/constraint_${c}_power_limit_uw") || continue
+    if [[ $want != "$have" ]]; then
+      if echo "$want" > "$MSR/constraint_${c}_power_limit_uw"; then
+        echo "$(<"$MSR/constraint_${c}_name"): $((have / 1000000)) W -> $((want / 1000000)) W"
+      fi
+    fi
+  done
+  sleep 2
+done

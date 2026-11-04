@@ -43,6 +43,8 @@ if [[ ${1:-} == --system ]]; then
     done
     udevadm control --reload
     systemctl daemon-reload
+    systemctl enable rapl-sync.service
+    systemctl restart rapl-sync.service
   ' _ "$R"
   echo "restart affected services if needed: sudo systemctl restart ollama"
 fi

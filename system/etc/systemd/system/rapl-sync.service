@@ -1,0 +1,12 @@
+[Unit]
+Description=Keep MSR RAPL power limits in step with the firmware's (MMIO) limits
+ConditionPathExists=/sys/class/powercap/intel-rapl-mmio:0
+ConditionPathExists=/sys/class/powercap/intel-rapl:0
+
+[Service]
+ExecStart=/bin/bash /usr/local/bin/rapl-sync
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
