@@ -38,3 +38,21 @@ MIT; see `LICENSE`.
 `omarchy-plugins/mtklein.monitor/` is a modified copy of Omarchy's `omarchy.monitor`
 plugin, Copyright (c) David Heinemeier Hansson, MIT licensed; see
 `omarchy-plugins/mtklein.monitor/LICENSE.omarchy`.
+
+## Packages added on top of Omarchy
+
+Installed by us (2026-11-04):
+
+| Package | Why |
+|---|---|
+| `libfprint-git`, `fprintd` | Fingerprint reader (via `omarchy-setup-security-fingerprint` with the shim). |
+| `ollama`, `ollama-vulkan` | Local LLMs on the Arc iGPU (see the Ollama override). |
+| `cmake`, `glaze`, `hyprland-protocols`, `hyprwayland-scanner` | Build deps for `hyprland-patched/` (installed `--asdeps`). |
+| `hyprland` `<ver>-<rel>.1` | Patched build from `hyprland-patched/` (replaces the official package until the next official update). |
+
+Installed by `asus-expertbook-linux` modules: `thermald`, `dkms`, `v4l2loopback-dkms`, `obs-studio`, `libinput-tools`, `fwupd`, `meson`, `ninja`, plus its files under `/usr/local` and `/etc` (see `./patch.sh status`).
+
+## Tools
+
+- `tools/power-profile-loadtest.sh`: 60 s all-core load in each power profile, reporting package power. Run on AC and on battery to compare (`pkexec bash tools/power-profile-loadtest.sh`).
+- `tools/power-trace.sh`: 50 s load in Performance, printing power, temperature and PL1 every 5 s.

@@ -2,8 +2,9 @@
 # Brightness that also works in HDR mode.
 #
 # With HDR on, the internal OLED ignores its backlight, so brightness is applied
-# in Hyprland as the eDP-1 sdrbrightness (via edp_hdr_monitor() in
-# ~/.config/hypr/monitors.lua) and saved to ~/.local/state/hdr-brightness.
+# in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
+# hypr/hdr.lua). The level (0-1) is saved to ~/.local/state/hdr-brightness,
+# which is also where the current level is read from.
 # Anything else (HDR off, another monitor, on/off) is handed to
 # omarchy-brightness-display unchanged.
 #
@@ -37,8 +38,11 @@ passthrough() {
 [[ -n $monitor ]] || monitor="$(omarchy-hyprland-monitor-focused 2>/dev/null)"
 [[ $monitor == eDP-1 ]] || passthrough
 
-current=$(hyprctl monitors -j | jq -r '.[] | select(.name == "eDP-1" and .colorManagementPreset == "hdr") | .sdrBrightness')
-[[ -n $current ]] || passthrough
+hdr=$(hyprctl monitors -j | jq -r '.[] | select(.name == "eDP-1" and .colorManagementPreset == "hdr") | .name')
+[[ -n $hdr ]] || passthrough
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}"
+current=$(cat "$state/hdr-brightness" 2>/dev/null || echo 1.00)
 
 current=$(awk -v b="$current" 'BEGIN { printf "%d", b * 100 + 0.5 }')
 if [[ -z $step ]]; then
@@ -61,7 +65,6 @@ esac
 value=$(awk -v t="$target" 'BEGIN { printf "%.2f", t / 100 }')
 hyprctl eval "edp_hdr_monitor($value)" >/dev/null
 
-state="${XDG_STATE_HOME:-$HOME/.local/state}"
 mkdir -p "$state" && echo "$value" > "$state/hdr-brightness"
 
 (( no_osd )) || omarchy-osd -i brightness -p "$target"

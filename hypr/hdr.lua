@@ -6,9 +6,9 @@ return function(omarchy_monitor_scale)
 
 -- Internal Samsung OLED: HDR (needs asus-expertbook-linux hdr-fix so aquamarine sees the PQ/BT.2020 EDID data).
 -- In HDR the panel ignores its backlight, so brightness is done in the compositor
--- via sdrbrightness. ~/.local/bin/hdr-brightness (bound to the brightness keys)
+-- by scaling the SDR white level (sdr_max_luminance). ~/.local/bin/hdr-brightness (bound to the brightness keys)
 -- calls edp_hdr_monitor() and saves the level to ~/.local/state/hdr-brightness.
--- sdrbrightness doesn't reach window borders, so dim the theme's border colours
+-- The SDR white level doesn't reach window borders, so dim the theme's border colours
 -- by the same factor (in linear light). Colours are re-read from the current
 -- theme each time, so theme switches keep working.
 local function theme_border_colors()
@@ -53,8 +53,12 @@ edp_sdr_white = 160
 function edp_hdr_monitor(sdr_brightness)
   hl.monitor({
     output = "eDP-1", mode = "preferred", position = "auto", scale = omarchy_monitor_scale,
-    bitdepth = 10, cm = "hdr", sdrbrightness = sdr_brightness,
-    sdr_max_luminance = edp_sdr_white,
+    bitdepth = 10, cm = "hdr",
+    -- Brightness is the SDR white level itself rather than sdrbrightness, so
+    -- colour-managed clients (Chromium, Electron) follow it too; that needs
+    -- the patched Hyprland in hyprland-patched/. Stock Hyprland still dims
+    -- everything else the same way.
+    sdr_max_luminance = math.max(1, math.floor(edp_sdr_white * sdr_brightness + 0.5)),
   })
   local active, inactive = theme_border_colors()
   if active and inactive then
