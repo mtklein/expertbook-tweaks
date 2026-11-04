@@ -31,3 +31,9 @@ editing either path edits the tracked file. `./install.sh --system` also copies
 
 - `sdrbrightness` doesn't reach window borders, so `monitors.lua` dims the theme's border colours by the same factor (linear light), re-reading the theme each time.
 - Before login, the mute LEDs keep whatever state they were last in.
+
+## Third-party code
+
+`omarchy-plugins/mtklein.monitor/` is a modified copy of Omarchy's `omarchy.monitor`
+plugin, Copyright (c) David Heinemeier Hansson, MIT licensed; see
+`omarchy-plugins/mtklein.monitor/LICENSE.omarchy`.
