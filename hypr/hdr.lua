@@ -63,6 +63,8 @@ function edp_hdr_monitor(sdr_brightness)
     -- 0% is "off": sdr_max_luminance can't go below 1 (0 means default), so
     -- scale SDR output to black instead. (Exactly 0 would also mean default.)
     sdrbrightness = sdr_brightness > 0 and 1 or 0.0001,
+    -- SDR black defaults to 0.2 nits, which glows on the OLED (borders, Chromium).
+    sdr_min_luminance = 0,
   })
   -- Publish what 100% means, so hdr-auto-brightness can turn nits into percent.
   local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-sdr-white", "w")
