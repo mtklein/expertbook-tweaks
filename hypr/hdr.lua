@@ -61,6 +61,9 @@ function edp_hdr_monitor(sdr_brightness)
     -- everything else the same way.
     sdr_max_luminance = math.max(1, math.floor(edp_sdr_white * sdr_brightness + 0.5)),
   })
+  -- Publish what 100% means, so hdr-auto-brightness can turn nits into percent.
+  local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-sdr-white", "w")
+  if f then f:write(string.format("%g\n", edp_sdr_white)); f:close() end
   local active, inactive = theme_border_colors()
   if active and inactive then
     active, inactive = dim_color(active, sdr_brightness), dim_color(inactive, sdr_brightness)

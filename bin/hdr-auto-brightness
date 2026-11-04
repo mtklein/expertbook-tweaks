@@ -5,8 +5,9 @@ Reads the iio "als" sensor and drives brightness through hdr-brightness (so it
 works in HDR, where the panel ignores its backlight, and keeps the keys, bar
 slider and border dimming consistent).
 
-Learning (like wluma): every manual adjustment becomes a (lux, brightness)
-point. Brightness is interpolated between points on a log-lux scale. A new
+Learning (like wluma): every manual adjustment becomes a (lux, nits) point,
+where nits is the SDR white level Hyprland is actually using (so the curve
+survives changes to edp_sdr_white in hypr/hdr.lua, i.e. what "100%" means). Brightness is interpolated between points on a log-lux scale. A new
 point replaces nearby ones and evicts any that would make the curve
 non-monotonic, so brighter rooms never mean a dimmer screen.
 
@@ -16,6 +17,9 @@ it darkens), small differences are ignored, and changes fade in 1% steps.
 Manual changes are detected when the brightness differs from what this daemon
 last set; it then pauses, and learns the new level once it's been left alone
 for SETTLE seconds.
+
+Brightness is still set through hdr-brightness as a percent of edp_sdr_white,
+which hdr.lua publishes to ~/.local/state/hdr-sdr-white.
 
 State: ~/.local/state/hdr-auto-brightness.json (delete it to forget learning).
 """
@@ -27,11 +31,13 @@ import time
 from pathlib import Path
 
 SENSOR = None  # resolved at startup
-STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "hdr-auto-brightness.json"
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+STATE = STATE_DIR / "hdr-auto-brightness.json"
+WHITE = STATE_DIR / "hdr-sdr-white"
 MONITOR = "eDP-1"
 
-DEFAULT_POINTS = [  # (lux, percent); replaced by learning over time
-    (0, 20), (5, 30), (30, 45), (120, 65), (400, 85), (1500, 100),
+DEFAULT_POINTS = [  # (lux, nits); replaced by learning over time
+    (0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300),
 ]
 TICK = 0.2              # seconds between loop iterations
 TAU_UP = 1.5            # lux smoothing time constant when brightening (s)
@@ -67,7 +73,7 @@ def L(lux):
 
 def load_points():
     try:
-        pts = json.loads(STATE.read_text())["points"]
+        pts = json.loads(STATE.read_text())["nits"]
         return sorted((float(a), float(b)) for a, b in pts)
     except (OSError, ValueError, KeyError, TypeError):
         return [(float(a), float(b)) for a, b in DEFAULT_POINTS]
@@ -76,7 +82,7 @@ def load_points():
 def save_points(points):
     STATE.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATE.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"points": [[round(a, 1), round(b)] for a, b in points]}, indent=1) + "\n")
+    tmp.write_text(json.dumps({"nits": [[round(a, 1), round(b)] for a, b in points]}, indent=1) + "\n")
     tmp.replace(STATE)
 
 
@@ -93,17 +99,17 @@ def predict(points, lux):
     return xs[-1][1]
 
 
-def learn(points, lux, pct):
+def learn(points, lux, nits):
     x = L(lux)
     kept = []
     for a, b in points:
         xa = L(a)
         if abs(xa - x) < NEAR:
             continue                    # replaced by the new point
-        if (xa < x and b > pct) or (xa > x and b < pct):
+        if (xa < x and b > nits) or (xa > x and b < nits):
             continue                    # would make the curve non-monotonic
         kept.append((a, b))
-    kept.append((lux, float(pct)))
+    kept.append((lux, float(nits)))
     return sorted(kept)
 
 
@@ -112,10 +118,21 @@ def hyprctl_json(*args):
     return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else None
 
 
-def screen_active():
+def monitor_nits():
+    """SDR white Hyprland is using right now, or None if the screen is off/missing."""
     mons = hyprctl_json("monitors") or []
     m = next((m for m in mons if m.get("name") == MONITOR), None)
-    return bool(m and not m.get("disabled") and m.get("dpmsStatus", True))
+    if not (m and not m.get("disabled") and m.get("dpmsStatus", True)):
+        return None
+    return m.get("sdrMaxLuminance")
+
+
+def sdr_white(nits, pct):
+    """Nits at 100%: published by hdr.lua, else inferred from the current level."""
+    try:
+        return float(WHITE.read_text())
+    except (OSError, ValueError):
+        return nits * 100 / pct if nits and pct else 200.0
 
 
 def get_pct():
@@ -144,6 +161,7 @@ def main():
     next_step = 0.0
     last_check = 0.0
     fading = False           # once a fade starts, finish it even inside the deadband
+    white = None             # nits at 100%, refreshed with each brightness poll
 
     while True:
         now = time.monotonic()
@@ -160,13 +178,12 @@ def main():
         # Brightness polling (spawns hyprctl) at ~1 Hz is plenty.
         if now - last_check >= 1.0 or manual_since is not None:
             last_check = now
-            if not screen_active():
-                time.sleep(1)
-                continue
-            current = get_pct()
+            nits = monitor_nits()
+            current = get_pct() if nits else None
             if current is None:
                 time.sleep(1)
                 continue
+            white = sdr_white(nits, current)
             if last_set is None:
                 last_set = current
             if current != last_set:          # someone else changed it
@@ -174,16 +191,16 @@ def main():
                 last_set = current
             if manual_since is not None:
                 if now - manual_since >= SETTLE:
-                    points = learn(points, smooth_lux, current)
+                    points = learn(points, smooth_lux, nits)
                     save_points(points)
-                    print(f"learned {smooth_lux:.0f} lux -> {current}%", flush=True)
+                    print(f"learned {smooth_lux:.0f} lux -> {nits:g} nits ({current}% of {white:g})", flush=True)
                     manual_since = None
                     fading = False
                 time.sleep(TICK)
                 continue
 
-        target = int(round(min(MAX_PCT, max(MIN_PCT, predict(points, smooth_lux)))))
-        if last_set is not None and now >= next_step:
+        if last_set is not None and white and now >= next_step:
+            target = int(round(min(MAX_PCT, max(MIN_PCT, 100 * predict(points, smooth_lux) / white))))
             diff = target - last_set
             if abs(diff) >= DEADBAND or (fading and diff != 0):
                 fading = True
