@@ -33,9 +33,11 @@ link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link wluma                              ~/.config/wluma
 link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
+link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 
 systemctl --user daemon-reload
 systemctl --user enable --now hdr-auto-brightness.service
+systemctl --user enable --now hypridle.service   # pacman: hypridle
 
 if [[ ${1:-} == --system ]]; then
   pkexec bash -c '
