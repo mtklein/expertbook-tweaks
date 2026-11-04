@@ -20,7 +20,13 @@ link() {  # link <repo path> <target path>
 link bin/hdr-brightness                 ~/.local/bin/hdr-brightness
 link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
 link fingerprint                        ~/.local/share/fp-shim
-link hypr/monitors.lua                  ~/.config/hypr/monitors.lua
+# monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
+# which would replace a symlink. It just loads hypr/hdr.lua from here.
+loader='dofile(os.getenv("HOME") .. "/expertbook-tweaks/hypr/hdr.lua")(omarchy_monitor_scale)'
+if ! grep -qF "$loader" ~/.config/hypr/monitors.lua; then
+  printf '\n-- Internal OLED: HDR, brightness keys/slider support, border dimming.\n%s\n' "$loader" >> ~/.config/hypr/monitors.lua
+  echo "added hdr.lua loader to ~/.config/hypr/monitors.lua"
+fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link systemd-user/expertbook-mute-leds.service.d ~/.config/systemd/user/expertbook-mute-leds.service.d

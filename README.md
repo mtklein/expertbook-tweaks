@@ -12,7 +12,7 @@ editing either path edits the tracked file. `./install.sh --system` also copies
 
 | Path | Linked to | Purpose |
 |---|---|---|
-| `hypr/monitors.lua` | `~/.config/hypr/` | Internal OLED in always-on HDR, 10-bit (`edp_hdr_monitor()`); software cursor, because the hardware cursor plane skips colour management and renders at peak brightness in HDR. |
+| `hypr/hdr.lua` | loaded by `~/.config/hypr/monitors.lua` | Internal OLED in always-on HDR, 10-bit (`edp_hdr_monitor()`), border dimming; software cursor, because the hardware cursor plane skips colour management and renders at peak brightness in HDR. `monitors.lua` itself stays a real file because Omarchy edits its scale lines with `sed -i`, which would replace a symlink. |
 | `hypr/bindings.lua` | `~/.config/hypr/` | Brightness keys (plain/Shift/Alt) call `hdr-brightness`. |
 | `bin/hdr-brightness` | `~/.local/bin/` | In HDR the panel ignores its backlight, so brightness is Hyprland's `sdrbrightness`, saved to `~/.local/state/hdr-brightness` and reapplied by `monitors.lua`. HDR off or another monitor: passes through to `omarchy-brightness-display`. No step prints the current percent. |
 | `bin/hdr-monitor-state` | `~/.local/bin/` | `omarchy-monitor-state` with the brightness line from `hdr-brightness`. |
