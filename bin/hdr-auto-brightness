@@ -1,0 +1,201 @@
+#!/usr/bin/python3
+"""Ambient-light screen brightness for the internal OLED, wluma/macOS style.
+
+Reads the iio "als" sensor and drives brightness through hdr-brightness (so it
+works in HDR, where the panel ignores its backlight, and keeps the keys, bar
+slider and border dimming consistent).
+
+Learning (like wluma): every manual adjustment becomes a (lux, brightness)
+point. Brightness is interpolated between points on a log-lux scale. A new
+point replaces nearby ones and evicts any that would make the curve
+non-monotonic, so brighter rooms never mean a dimmer screen.
+
+Motion (like macOS): lux is smoothed (faster when the room brightens than when
+it darkens), small differences are ignored, and changes fade in 1% steps.
+
+Manual changes are detected when the brightness differs from what this daemon
+last set; it then pauses, and learns the new level once it's been left alone
+for SETTLE seconds.
+
+State: ~/.local/state/hdr-auto-brightness.json (delete it to forget learning).
+"""
+import json
+import math
+import os
+import subprocess
+import time
+from pathlib import Path
+
+SENSOR = None  # resolved at startup
+STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "hdr-auto-brightness.json"
+MONITOR = "eDP-1"
+
+DEFAULT_POINTS = [  # (lux, percent); replaced by learning over time
+    (0, 20), (5, 30), (30, 45), (120, 65), (400, 85), (1500, 100),
+]
+TICK = 0.2              # seconds between loop iterations
+TAU_UP = 1.5            # lux smoothing time constant when brightening (s)
+TAU_DOWN = 6.0          # ... when darkening (s)
+DEADBAND = 3            # ignore target differences smaller than this (%)
+STEP_EVERY_UP = 0.08    # seconds per 1% step while fading up
+STEP_EVERY_DOWN = 0.2   # ... while fading down
+SETTLE = 4.0            # seconds a manual change must be left alone to be learned
+NEAR = 0.25             # log10-lux distance within which a new point replaces old ones
+MIN_PCT, MAX_PCT = 1, 100
+
+
+def find_sensor():
+    for d in Path("/sys/bus/iio/devices").glob("iio:device*"):
+        try:
+            if (d / "name").read_text().strip() == "als":
+                return d
+        except OSError:
+            pass
+    return None
+
+
+def read_lux():
+    raw = float((SENSOR / "in_illuminance_raw").read_text())
+    scale = float((SENSOR / "in_illuminance_scale").read_text()) if (SENSOR / "in_illuminance_scale").exists() else 1.0
+    offset = float((SENSOR / "in_illuminance_offset").read_text()) if (SENSOR / "in_illuminance_offset").exists() else 0.0
+    return max(0.0, (raw + offset) * scale)
+
+
+def L(lux):
+    return math.log10(lux + 1.0)
+
+
+def load_points():
+    try:
+        pts = json.loads(STATE.read_text())["points"]
+        return sorted((float(a), float(b)) for a, b in pts)
+    except (OSError, ValueError, KeyError, TypeError):
+        return [(float(a), float(b)) for a, b in DEFAULT_POINTS]
+
+
+def save_points(points):
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"points": [[round(a, 1), round(b)] for a, b in points]}, indent=1) + "\n")
+    tmp.replace(STATE)
+
+
+def predict(points, lux):
+    x = L(lux)
+    xs = [(L(a), b) for a, b in points]
+    if x <= xs[0][0]:
+        return xs[0][1]
+    if x >= xs[-1][0]:
+        return xs[-1][1]
+    for (x0, y0), (x1, y1) in zip(xs, xs[1:]):
+        if x0 <= x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
+    return xs[-1][1]
+
+
+def learn(points, lux, pct):
+    x = L(lux)
+    kept = []
+    for a, b in points:
+        xa = L(a)
+        if abs(xa - x) < NEAR:
+            continue                    # replaced by the new point
+        if (xa < x and b > pct) or (xa > x and b < pct):
+            continue                    # would make the curve non-monotonic
+        kept.append((a, b))
+    kept.append((lux, float(pct)))
+    return sorted(kept)
+
+
+def hyprctl_json(*args):
+    out = subprocess.run(["hyprctl", *args, "-j"], capture_output=True, text=True, timeout=3)
+    return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else None
+
+
+def screen_active():
+    mons = hyprctl_json("monitors") or []
+    m = next((m for m in mons if m.get("name") == MONITOR), None)
+    return bool(m and not m.get("disabled") and m.get("dpmsStatus", True))
+
+
+def get_pct():
+    out = subprocess.run(["hdr-brightness", "--monitor", MONITOR], capture_output=True, text=True, timeout=5)
+    try:
+        return int(out.stdout.strip())
+    except ValueError:
+        return None
+
+
+def set_pct(pct):
+    subprocess.run(["hdr-brightness", "--no-osd", "--monitor", MONITOR, f"{pct}%"],
+                   capture_output=True, timeout=5)
+
+
+def main():
+    global SENSOR
+    SENSOR = find_sensor()
+    if SENSOR is None:
+        raise SystemExit("no iio 'als' sensor found")
+
+    points = load_points()
+    smooth = L(read_lux())
+    last_set = None          # what we last wrote; None until first sync
+    manual_since = None      # time of the most recent manual change still settling
+    next_step = 0.0
+    last_check = 0.0
+    fading = False           # once a fade starts, finish it even inside the deadband
+
+    while True:
+        now = time.monotonic()
+        try:
+            lux = read_lux()
+        except (OSError, ValueError):
+            time.sleep(1)
+            continue
+        x = L(lux)
+        tau = TAU_UP if x > smooth else TAU_DOWN
+        smooth += (x - smooth) * (1 - math.exp(-TICK / tau))
+        smooth_lux = 10 ** smooth - 1
+
+        # Brightness polling (spawns hyprctl) at ~1 Hz is plenty.
+        if now - last_check >= 1.0 or manual_since is not None:
+            last_check = now
+            if not screen_active():
+                time.sleep(1)
+                continue
+            current = get_pct()
+            if current is None:
+                time.sleep(1)
+                continue
+            if last_set is None:
+                last_set = current
+            if current != last_set:          # someone else changed it
+                manual_since = now
+                last_set = current
+            if manual_since is not None:
+                if now - manual_since >= SETTLE:
+                    points = learn(points, smooth_lux, current)
+                    save_points(points)
+                    print(f"learned {smooth_lux:.0f} lux -> {current}%", flush=True)
+                    manual_since = None
+                    fading = False
+                time.sleep(TICK)
+                continue
+
+        target = int(round(min(MAX_PCT, max(MIN_PCT, predict(points, smooth_lux)))))
+        if last_set is not None and now >= next_step:
+            diff = target - last_set
+            if abs(diff) >= DEADBAND or (fading and diff != 0):
+                fading = True
+                step = 1 if diff > 0 else -1
+                last_set += step
+                set_pct(last_set)
+                next_step = now + (STEP_EVERY_UP if step > 0 else STEP_EVERY_DOWN)
+            else:
+                fading = False
+
+        time.sleep(TICK)
+
+
+if __name__ == "__main__":
+    main()

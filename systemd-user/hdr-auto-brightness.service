@@ -1,0 +1,13 @@
+[Unit]
+Description=Ambient-light screen brightness (HDR-aware, learns from manual changes)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/bin/hdr-auto-brightness
+Environment=PATH=%h/.local/bin:/usr/share/omarchy/bin:/usr/local/bin:/usr/bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
