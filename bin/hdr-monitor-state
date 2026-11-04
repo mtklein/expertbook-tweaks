@@ -1,0 +1,9 @@
+#!/bin/bash
+# omarchy-monitor-state, but with the brightness line (line 1) taken from
+# hdr-brightness so the bar's Display panel shows the HDR brightness level.
+state="$(omarchy-monitor-state)"
+focused="$(sed -n 6p <<<"$state")"
+brightness="$(hdr-brightness --monitor "$focused" 2>/dev/null)"
+[[ -n $brightness ]] || brightness="$(sed -n 1p <<<"$state")"
+printf '%s\n' "$brightness"
+tail -n +2 <<<"$state"

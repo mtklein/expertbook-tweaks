@@ -1,0 +1,67 @@
+#!/bin/bash
+# Brightness that also works in HDR mode.
+#
+# With HDR on, the internal OLED ignores its backlight, so brightness is applied
+# in Hyprland as the eDP-1 sdrbrightness (via edp_hdr_monitor() in
+# ~/.config/hypr/monitors.lua) and saved to ~/.local/state/hdr-brightness.
+# Anything else (HDR off, another monitor, on/off) is handed to
+# omarchy-brightness-display unchanged.
+#
+# Used by the brightness keys (~/.config/hypr/bindings.lua) and the bar's
+# Display panel (~/.config/omarchy/plugins/*.monitor and hdr-monitor-state).
+#
+# Usage: hdr-brightness [--no-osd] [--monitor NAME] [+5% | 5%- | +1% | 1%- | N%]
+#        With no step, prints the current brightness percent.
+
+no_osd=0
+monitor=""
+while (( $# > 0 )); do
+  case $1 in
+    --no-osd) no_osd=1; shift ;;
+    --monitor) monitor="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
+step="$1"
+
+passthrough() {
+  local args=()
+  (( no_osd )) && args+=(--no-osd)
+  [[ -n $monitor ]] && args+=(--monitor "$monitor")
+  [[ -n $step ]] && args+=("$step")
+  exec omarchy-brightness-display "${args[@]}"
+}
+
+[[ -z $step || $step =~ ^(\+?[0-9]+%|[0-9]+%-)$ ]] || passthrough
+
+[[ -n $monitor ]] || monitor="$(omarchy-hyprland-monitor-focused 2>/dev/null)"
+[[ $monitor == eDP-1 ]] || passthrough
+
+current=$(hyprctl monitors -j | jq -r '.[] | select(.name == "eDP-1" and .colorManagementPreset == "hdr") | .sdrBrightness')
+[[ -n $current ]] || passthrough
+
+current=$(awk -v b="$current" 'BEGIN { printf "%d", b * 100 + 0.5 }')
+if [[ -z $step ]]; then
+  echo "$current"
+  exit 0
+fi
+
+exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/hdr-brightness.lock"
+flock -n "$lock_fd" || exit 0
+
+n=${step//[^0-9]/}
+case $step in
+  +*) small=$(( n == 5 && current < 5 )); target=$(( small ? current + 1 : current + n )) ;;
+  *-) small=$(( n == 5 && current <= 5 )); target=$(( small ? current - 1 : current - n )) ;;
+  *)  target=$n ;;
+esac
+(( target > 100 )) && target=100
+(( target < 1 )) && target=1
+
+value=$(awk -v t="$target" 'BEGIN { printf "%.2f", t / 100 }')
+hyprctl eval "edp_hdr_monitor($value)" >/dev/null
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}"
+mkdir -p "$state" && echo "$value" > "$state/hdr-brightness"
+
+(( no_osd )) || omarchy-osd -i brightness -p "$target"
