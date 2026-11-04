@@ -184,6 +184,11 @@ def main():
                 time.sleep(1)
                 continue
             white = sdr_white(nits, current)
+            if current == 0:                 # user turned the screen off: hands off,
+                last_set = 0                 # and don't learn 0 as a preference
+                manual_since = None
+                time.sleep(1)
+                continue
             if last_set is None:
                 last_set = current
             if current != last_set:          # someone else changed it

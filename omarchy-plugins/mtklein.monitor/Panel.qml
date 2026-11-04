@@ -638,7 +638,7 @@ Panel {
                 anchors.fill: parent
                 anchors.leftMargin: Style.space(6)
                 anchors.rightMargin: Style.space(6)
-                minimum: 1
+                minimum: 0
                 maximum: 100
                 step: 1
                 value: root.brightnessPercent
