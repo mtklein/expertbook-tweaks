@@ -13,7 +13,7 @@
 # Run daily and at login by systemd-user/nightlight-sun.timer.
 set -euo pipefail
 
-NIGHT_TEMP=${NIGHT_TEMP:-4000}
+NIGHT_TEMP=${NIGHT_TEMP:-4500}
 CONF="$HOME/.config/hypr/hyprsunset.conf"
 LOC_FILE="$HOME/.local/state/omarchy/settings/weather.json"
 

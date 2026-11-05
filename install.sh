@@ -33,6 +33,8 @@ fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
+link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightlight
+link omarchy/omarchy-menu.jsonc         ~/.config/omarchy/extensions/omarchy-menu.jsonc
 link wluma                              ~/.config/wluma
 link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grayscale-antialias.conf
 link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
