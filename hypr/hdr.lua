@@ -4,6 +4,13 @@
 -- Remove that line to turn HDR off.
 return function(omarchy_monitor_scale)
 
+-- Greyscale text antialiasing for Qt Quick apps (the Omarchy shell/bar). Their
+-- default subpixel AA gives glyph edges per-channel coverage above the pixel's
+-- alpha: clipped invisibly in SDR, but rendered brighter than white in HDR
+-- (stray bright pixels on bar icons). Pointless on this OLED anyway. The
+-- fontconfig half is fontconfig/60-grayscale-antialias.conf.
+hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")
+
 -- Internal Samsung OLED: HDR (needs asus-expertbook-linux hdr-fix so aquamarine sees the PQ/BT.2020 EDID data).
 -- In HDR the panel ignores its backlight, so brightness is done in the compositor
 -- by scaling the SDR white level (sdr_max_luminance). ~/.local/bin/hdr-brightness (bound to the brightness keys)

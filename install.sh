@@ -34,6 +34,7 @@ link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link wluma                              ~/.config/wluma
+link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grayscale-antialias.conf
 link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link systemd-user/nightlight-sun.service ~/.config/systemd/user/nightlight-sun.service
