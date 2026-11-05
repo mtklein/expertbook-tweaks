@@ -18,6 +18,12 @@ Manual changes are detected when the brightness differs from what this daemon
 last set; it then pauses, and learns the new level once it's been left alone
 for SETTLE seconds.
 
+Floor: automatic changes never go below MIN_PCT (5%). Anything below that
+(including 0, "screen off") is manual-only: while the screen sits there the
+daemon keeps its hands off and learns nothing, and the next change back to
+MIN_PCT or above is learned as usual. brightness-wake-floor raises a dimmed
+screen to the same 5% on wake from suspend.
+
 Brightness is still set through hdr-brightness as a percent of edp_sdr_white,
 which hdr.lua publishes to ~/.local/state/hdr-sdr-white.
 
@@ -47,7 +53,7 @@ STEP_EVERY_UP = 0.08    # seconds per 1% step while fading up
 STEP_EVERY_DOWN = 0.2   # ... while fading down
 SETTLE = 4.0            # seconds a manual change must be left alone to be learned
 NEAR = 0.25             # log10-lux distance within which a new point replaces old ones
-MIN_PCT, MAX_PCT = 1, 100
+MIN_PCT, MAX_PCT = 5, 100   # below MIN_PCT is manual-only (never set or learned)
 
 
 def find_sensor():
@@ -184,8 +190,8 @@ def main():
                 time.sleep(1)
                 continue
             white = sdr_white(nits, current)
-            if current == 0:                 # user turned the screen off: hands off,
-                last_set = 0                 # and don't learn 0 as a preference
+            if current < MIN_PCT:            # user dimmed below the floor: hands off,
+                last_set = current           # and don't learn it as a preference
                 manual_since = None
                 time.sleep(1)
                 continue
