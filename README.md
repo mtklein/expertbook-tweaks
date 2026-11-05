@@ -29,6 +29,7 @@ editing either path edits the tracked file. `./install.sh --system` also copies
 | `wluma/config.toml` | `~/.config/wluma/` | Ambient-light screen brightness, keyboard excluded. **Unused** (wluma isn't installed): it drives the backlight, which does nothing in HDR; `hdr-auto-brightness` replaces it. |
 | `system/usr/local/bin/rapl-sync`, `system/etc/systemd/system/rapl-sync.service` | `/usr/local/bin/`, `/etc/systemd/system/` | Copies the firmware's (MMIO) PL1/PL2 onto the MSR RAPL limits every 2 s, as Windows does. The BIOS leaves MSR PL1 at 15 W and the CPU obeys the lower copy, so without this every profile sustains only 15 W. |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | `/etc/systemd/system/ollama.service.d/` | Ollama on the Arc B390 iGPU, flash attention, q8_0 KV cache, 32k context. |
+| `system/etc/modules-load.d/uinput.conf` | `/etc/modules-load.d/` | Loads `uinput` at boot. steam-devices grants `/dev/uinput` access (uaccess) only once the module is loaded; without it Steam Input can't create virtual controllers, so Proton games get no input from controllers Steam itself reads fine. |
 
 ## Known quirks
 
