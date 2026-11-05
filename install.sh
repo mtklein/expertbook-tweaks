@@ -22,6 +22,7 @@ link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
 link bin/hdr-auto-brightness            ~/.local/bin/hdr-auto-brightness
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link bin/ambient-white                  ~/.local/bin/ambient-white
+link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
 # which would replace a symlink. It just loads hypr/hdr.lua from here.
@@ -41,11 +42,13 @@ link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-br
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
 link systemd-user/ambient-white.service ~/.config/systemd/user/ambient-white.service
+link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
 
 systemctl --user daemon-reload
 systemctl --user enable --now hdr-auto-brightness.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
 systemctl --user enable --now ambient-white.service
+systemctl --user enable --now sdw-clash-recover.service
 
 if [[ ${1:-} == --system ]]; then
   pkexec bash -c '

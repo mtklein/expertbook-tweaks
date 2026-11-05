@@ -1,0 +1,30 @@
+#!/bin/bash
+# Re-sync the speaker amps after a SoundWire bus glitch.
+#
+# The CS35L56 woofer amps sit on SoundWire link 2. A sporadic bus clash or
+# parity error there can leave them silent (no bass, tweeters still playing).
+# The kernel only logs these errors and never recovers, but closing and
+# reopening the PCM re-programs the stream and brings the bass back. This
+# follows the kernel log and does that by suspending and resuming the
+# speaker sink, a sub-second blip.
+set -uo pipefail
+
+LINK='soundwire_intel.link.2'
+
+recover() {
+  local sink
+  sink=$(pactl list short sinks | awk '/HiFi__Speaker__sink/ {print $2; exit}')
+  [[ -n $sink ]] || { echo "no speaker sink; nothing to do"; return; }
+  pactl suspend-sink "$sink" 1 && sleep 0.3 && pactl suspend-sink "$sink" 0
+  echo "re-synced $sink"
+}
+
+journalctl -k -f -n 0 -o cat | while IFS= read -r line; do
+  [[ $line == *"$LINK"* && $line =~ Bus\ clash|Parity\ error ]] || continue
+  echo "kernel: $line"
+  # Errors come in bursts; let the burst finish, then recover once.
+  while IFS= read -r -t 1 line; do
+    [[ $line == *"$LINK"* ]] && echo "kernel: $line"
+  done
+  recover
+done

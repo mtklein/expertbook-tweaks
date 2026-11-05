@@ -1,0 +1,11 @@
+[Unit]
+Description=Re-sync speaker amps after SoundWire bus clashes (lost bass)
+After=pipewire-pulse.service
+
+[Service]
+ExecStart=%h/.local/bin/sdw-clash-recover
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
