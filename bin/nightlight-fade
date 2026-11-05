@@ -1,0 +1,51 @@
+#!/bin/bash
+# Fade hyprsunset's night light so the sunrise/sunset switch isn't a jump.
+#
+#   nightlight-fade sunrise|sunset END_EPOCH [SECONDS]
+#
+# Scheduled by nightlight-sun to start SECONDS (default 30) before each of
+# hyprsunset's profile switches and finish at END_EPOCH, the switch itself:
+#   sunrise: NIGHT_TEMP -> DAY_TEMP, then hyprsunset's identity profile takes over
+#   sunset:  DAY_TEMP -> NIGHT_TEMP, which hyprsunset's night profile then holds
+# Steps are even in mireds (1e6/K), which look more even than kelvin steps.
+#
+# Skips when it would fight the user or the clock: a sunrise fade when the
+# night light is already off, a sunset fade when it's already on (manual
+# toggles), and any run more than a minute off schedule (a timer that fired
+# late after suspend).
+set -uo pipefail
+
+NIGHT_TEMP=${NIGHT_TEMP:-4500}
+DAY_TEMP=6000      # Omarchy's threshold: >= 6000 K counts as "off"
+
+kind=${1:?sunrise|sunset}
+end=${2:?end epoch}
+secs=${3:-30}
+
+now=$(date +%s.%N)
+start=$(awk -v e="$end" -v s="$secs" 'BEGIN { printf "%.3f", e - s }')
+late=$(awk -v n="$now" -v s="$start" 'BEGIN { print (n - s > 60 || s - n > 60) }')
+(( late )) && { echo "nightlight-fade: $kind run is off schedule; skipping"; exit 0; }
+
+current=$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+' | head -1)
+[[ -n $current ]] || { echo "nightlight-fade: hyprsunset not answering; skipping"; exit 0; }
+
+case $kind in
+  sunrise) (( current < DAY_TEMP )) || { echo "nightlight-fade: already off; skipping"; exit 0; }
+           from=$current to=$DAY_TEMP ;;
+  sunset)  (( current >= DAY_TEMP )) || { echo "nightlight-fade: already on; skipping"; exit 0; }
+           from=$DAY_TEMP to=$NIGHT_TEMP ;;
+  *) echo "usage: nightlight-fade sunrise|sunset END_EPOCH [SECONDS]" >&2; exit 2 ;;
+esac
+
+echo "nightlight-fade: $kind ${from}K -> ${to}K over ${secs}s"
+steps=$(( secs * 4 ))   # 4 Hz
+for (( i = 1; i <= steps; i++ )); do
+  t=$(awk -v f="$from" -v to="$to" -v i="$i" -v n="$steps" \
+        'BEGIN { m = 1e6/f + (1e6/to - 1e6/f) * i / n; printf "%d", 1e6/m + 0.5 }')
+  hyprctl hyprsunset temperature "$t" >/dev/null 2>&1
+  # Sleep to the step's wall-clock time so the fade ends on schedule.
+  wake=$(awk -v s="$start" -v i="$i" -v n="$steps" -v d="$secs" 'BEGIN { printf "%.3f", s + d * i / n }')
+  pause=$(awk -v w="$wake" -v n="$(date +%s.%N)" 'BEGIN { p = w - n; printf "%.3f", (p > 0 ? p : 0) }')
+  sleep "$pause"
+done

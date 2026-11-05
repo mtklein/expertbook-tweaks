@@ -41,6 +41,24 @@ fi
 sunrise=${sunrise:0:5}
 sunset=${sunset:0:5}
 
+# Schedule today's fades (bin/nightlight-fade) to finish exactly at each of
+# hyprsunset's switches, which happen at hh:mm:00. Transient user timers,
+# replaced on every run; switches already past today are skipped (the next
+# 00:05 run schedules tomorrow's).
+FADE_SECS=${FADE_SECS:-30}
+for kind in sunrise sunset; do
+  [[ $kind == sunrise ]] && at=$sunrise || at=$sunset
+  unit="nightlight-fade-$kind"
+  systemctl --user stop "$unit.timer" 2>/dev/null || true
+  end=$(date -d "today $at" +%s)
+  start=$(( end - FADE_SECS ))
+  (( start > $(date +%s) )) || continue
+  systemd-run --user --quiet --collect --unit="$unit" \
+    --on-calendar="$(date -d "@$start" '+%F %T')" --timer-property=AccuracySec=100ms \
+    --setenv=NIGHT_TEMP="$NIGHT_TEMP" \
+    "$HOME/.local/bin/nightlight-fade" "$kind" "$end" "$FADE_SECS"
+done
+
 new=$(cat <<EOF
 # Written by ~/expertbook-tweaks/bin/nightlight-sun — edits here are overwritten.
 # ${place}: sunrise ${sunrise}, sunset ${sunset} (updated $(date +%F))

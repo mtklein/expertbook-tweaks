@@ -88,6 +88,16 @@ Item {
     }
   }
 
+  // hyprsunset switches profiles on its own (sunrise/sunset from
+  // ~/expertbook-tweaks/bin/nightlight-sun) without telling anyone, so re-read
+  // its temperature every 30 s to keep the bar indicator honest.
+  Timer {
+    interval: 30000
+    running: true
+    repeat: true
+    onTriggered: if (!applyProcess.running) root.refresh()
+  }
+
   Component.onCompleted: refresh()
 
   ShellIpc {

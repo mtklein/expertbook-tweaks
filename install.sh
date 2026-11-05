@@ -21,6 +21,7 @@ link bin/hdr-brightness                 ~/.local/bin/hdr-brightness
 link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
 link bin/hdr-auto-brightness            ~/.local/bin/hdr-auto-brightness
 link bin/nightlight-sun                 ~/.local/bin/nightlight-sun
+link bin/nightlight-fade                ~/.local/bin/nightlight-fade
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
