@@ -28,10 +28,15 @@ Brightness is still set through hdr-brightness as a percent of edp_sdr_white,
 which hdr.lua publishes to ~/.local/state/hdr-sdr-white.
 
 State: ~/.local/state/hdr-auto-brightness.json (delete it to forget learning).
+
+Cost: the once-a-second check reads Hyprland's socket and the hdr-brightness
+state file directly; spawning hyprctl + hdr-brightness (+ jq, awk) for it cost
+~3% of a core. Subprocesses are only used to set brightness.
 """
 import json
 import math
 import os
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -40,6 +45,7 @@ SENSOR = None  # resolved at startup
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE = STATE_DIR / "hdr-auto-brightness.json"
 WHITE = STATE_DIR / "hdr-sdr-white"
+LEVEL = STATE_DIR / "hdr-brightness"     # written by hdr-brightness
 MONITOR = "eDP-1"
 
 DEFAULT_POINTS = [  # (lux, nits); replaced by learning over time
@@ -66,11 +72,17 @@ def find_sensor():
     return None
 
 
+def sensor_attr(name, default):
+    try:
+        return float((SENSOR / name).read_text())
+    except (OSError, ValueError):
+        return default
+
+
 def read_lux():
+    # Blocks ~0.75 s in the ISH driver (asleep, not on CPU), which paces the loop.
     raw = float((SENSOR / "in_illuminance_raw").read_text())
-    scale = float((SENSOR / "in_illuminance_scale").read_text()) if (SENSOR / "in_illuminance_scale").exists() else 1.0
-    offset = float((SENSOR / "in_illuminance_offset").read_text()) if (SENSOR / "in_illuminance_offset").exists() else 0.0
-    return max(0.0, (raw + offset) * scale)
+    return max(0.0, (raw + LUX_OFFSET) * LUX_SCALE)
 
 
 def L(lux):
@@ -119,18 +131,39 @@ def learn(points, lux, nits):
     return sorted(kept)
 
 
-def hyprctl_json(*args):
-    out = subprocess.run(["hyprctl", *args, "-j"], capture_output=True, text=True, timeout=3)
-    return json.loads(out.stdout) if out.returncode == 0 and out.stdout.strip() else None
+def hypr_socket():
+    run = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    if sig:
+        return f"{run}/hypr/{sig}/.socket.sock"
+    socks = sorted(Path(run, "hypr").glob("*/.socket.sock"), key=lambda p: p.stat().st_mtime)
+    return str(socks[-1]) if socks else None
 
 
-def monitor_nits():
-    """SDR white Hyprland is using right now, or None if the screen is off/missing."""
-    mons = hyprctl_json("monitors") or []
-    m = next((m for m in mons if m.get("name") == MONITOR), None)
+def hypr_json(command):
+    """Like `hyprctl -j <command>`, without spawning hyprctl."""
+    path = hypr_socket()
+    if not path:
+        return None
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            s.connect(path)
+            s.sendall(f"j/{command}".encode())
+            data = b""
+            while chunk := s.recv(65536):
+                data += chunk
+        return json.loads(data)
+    except (OSError, ValueError):
+        return None
+
+
+def edp_state():
+    """eDP-1's (sdr white nits, hdr?) now, or None if the screen is off/missing."""
+    m = next((m for m in hypr_json("monitors") or [] if m.get("name") == MONITOR), None)
     if not (m and not m.get("disabled") and m.get("dpmsStatus", True)):
         return None
-    return m.get("sdrMaxLuminance")
+    return m.get("sdrMaxLuminance"), m.get("colorManagementPreset") == "hdr"
 
 
 def sdr_white(nits, pct):
@@ -141,7 +174,15 @@ def sdr_white(nits, pct):
         return nits * 100 / pct if nits and pct else 200.0
 
 
-def get_pct():
+def get_pct(hdr):
+    """Current brightness percent, as `hdr-brightness` would print it."""
+    if hdr:  # hdr-brightness's own state file; reading it is what the script does
+        try:
+            return int(float(LEVEL.read_text()) * 100 + 0.5)
+        except OSError:
+            return 100
+        except ValueError:
+            return None
     out = subprocess.run(["hdr-brightness", "--monitor", MONITOR], capture_output=True, text=True, timeout=5)
     try:
         return int(out.stdout.strip())
@@ -155,10 +196,12 @@ def set_pct(pct):
 
 
 def main():
-    global SENSOR
+    global SENSOR, LUX_SCALE, LUX_OFFSET
     SENSOR = find_sensor()
     if SENSOR is None:
         raise SystemExit("no iio 'als' sensor found")
+    LUX_SCALE = sensor_attr("in_illuminance_scale", 1.0)
+    LUX_OFFSET = sensor_attr("in_illuminance_offset", 0.0)
 
     points = load_points()
     smooth = L(read_lux())
@@ -184,8 +227,9 @@ def main():
         # Brightness polling (spawns hyprctl) at ~1 Hz is plenty.
         if now - last_check >= 1.0 or manual_since is not None:
             last_check = now
-            nits = monitor_nits()
-            current = get_pct() if nits else None
+            state = edp_state()
+            nits = state[0] if state else None
+            current = get_pct(state[1]) if nits else None
             if current is None:
                 time.sleep(1)
                 continue

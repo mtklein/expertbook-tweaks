@@ -17,6 +17,13 @@ The result goes to hyprsunset over its IPC (hyprctl hyprsunset temperature K,
 hyprsunset report a temperature that matches the screen (the bar reads it).
 Changes move at most RATE mired/s, so dark<->lit takes ~30 s.
 
+Calm: the screen only moves once the ramped value is HOLD_K (150 K) away from
+what it shows, and then by one 100 K step, so sensor noise around a rounding
+boundary no longer flips it 6200 <-> 6300 K (that happened ~100 times an
+hour). Ramps still step through every 100 K, and snap exactly onto the night,
+neutral and lit-warmest endpoints; elsewhere a settled value can sit up to
+150 K off.
+
 Manual override: the bar/menu night light toggle (omarchy-plugins/
 mtklein.nightlight) writes "night" or "day" to OVERRIDE. It holds until the
 room changes between dark and lit, then automatic control resumes.
@@ -41,12 +48,13 @@ LIT_WARMEST_K = 5000        # lit rooms never go warmer than this (night light i
 NEUTRAL_K = 6600            # hyprsunset's curve is ~identity here (1, 1, 0.99)
 D65 = 1e6 / 6500
 ADAPT = 0.35                # fraction of the ambient-vs-D65 mired offset to follow
-TAU = 10.0                  # ambient colour smoothing time constant (s)
+TAU = 30.0                  # ambient colour smoothing time constant (s)
 DARK_AFTER = 15.0           # seconds of default readings before "dark"
 LIT_AFTER = 3.0             # seconds of real readings before "lit"
 RATE = 2.5                  # max mired/s of change (~30 s for neutral <-> 4500 K)
 TICK = 0.25
 RESEND = 30.0
+HOLD_K = 150                # only change the screen once this far from what it shows
 DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading (x 0.361, y 0.365)
 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
@@ -185,9 +193,11 @@ def main():
         else:
             target = None         # no reading yet
 
+        jump = False
         if target is not None:
             if current is None or (override and override != last_override):
                 current = target  # first decision, or a manual toggle: no ramp
+                jump = True
             else:
                 step = RATE * dt
                 current += max(-step, min(step, target - current))
@@ -195,6 +205,10 @@ def main():
 
         if current is not None:
             value = quantize(current)
+            at_endpoint = current == target and target in (night, neutral, lit_warmest)
+            if sent is not None and not jump and not at_endpoint:
+                k = 1e6 / current  # hysteresis: hold, then one 100 K step at a time
+                value = sent if abs(k - sent) < HOLD_K else sent + (100 if k > sent else -100)
             if (value != sent or now - last_send >= RESEND) and send(value):
                 if value != sent:
                     why = f"override {override}" if override else "dark" if dark else "lit"
