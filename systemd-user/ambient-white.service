@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen white point from the ambient light sensor (night light + True Tone style)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/bin/ambient-white
+Environment=PATH=/usr/share/omarchy/bin:/usr/local/bin:/usr/bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

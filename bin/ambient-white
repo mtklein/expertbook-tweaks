@@ -1,0 +1,208 @@
+#!/usr/bin/python3
+"""Screen white point from the ambient light sensor (True Tone / Night Shift in one).
+
+The B9406's ALS reports colour: in_colortemp_raw (K) and chromaticity, scale
+0.001. Below a dim cutoff (somewhere between 7 and 37 lux) it can't measure
+colour and reports a fixed default of 4500 K at CIE x 0.361, y 0.365. That
+default is exactly the night-light temperature we want in the dark, so:
+
+  dark (default reading for DARK_AFTER s)  -> NIGHT_K (4500 K)
+  lit                                       -> partway toward the room's colour:
+      mired = NEUTRAL + ADAPT * (ambient - D65), clamped to [NEUTRAL, LIT_WARMEST]
+      (warm lamps ~5000-5400 K, daylight ~neutral)
+
+The result goes to hyprsunset over its IPC (hyprctl hyprsunset temperature K,
+100 K steps). Neutral is 6600 K, where hyprsunset's Tanner Helland curve is
+(1, 1, 0.99): indistinguishable from identity, but unlike `identity` it makes
+hyprsunset report a temperature that matches the screen (the bar reads it).
+Changes move at most RATE mired/s, so dark<->lit takes ~30 s.
+
+Manual override: the bar/menu night light toggle (omarchy-plugins/
+mtklein.nightlight) writes "night" or "day" to OVERRIDE. It holds until the
+room changes between dark and lit, then automatic control resumes.
+
+Also re-sends the current value every RESEND s, since hyprsunset re-applies its
+own config profile once a day.
+
+Each sysfs read of an ISH sensor channel blocks ~1 s (a synchronous HID
+request), so only in_colortemp_raw is read (the default is recognisable from it
+alone), in a background thread; the 4 Hz loop that ramps the white point never
+waits on the sensor, and all timing uses measured elapsed time.
+"""
+import math
+import os
+import subprocess
+import threading
+import time
+from pathlib import Path
+
+NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
+LIT_WARMEST_K = 5000        # lit rooms never go warmer than this (night light is warmer)
+NEUTRAL_K = 6600            # hyprsunset's curve is ~identity here (1, 1, 0.99)
+D65 = 1e6 / 6500
+ADAPT = 0.35                # fraction of the ambient-vs-D65 mired offset to follow
+TAU = 10.0                  # ambient colour smoothing time constant (s)
+DARK_AFTER = 15.0           # seconds of default readings before "dark"
+LIT_AFTER = 3.0             # seconds of real readings before "lit"
+RATE = 2.5                  # max mired/s of change (~30 s for neutral <-> 4500 K)
+TICK = 0.25
+RESEND = 30.0
+DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading (x 0.361, y 0.365)
+
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+OVERRIDE = STATE_DIR / "ambient-white.override"   # "night" | "day"
+
+
+def mired(k):
+    return 1e6 / k
+
+
+def find_sensor():
+    for d in Path("/sys/bus/iio/devices").glob("iio:device*"):
+        try:
+            if (d / "name").read_text().strip() == "als":
+                return d
+        except OSError:
+            pass
+    return None
+
+
+class Reader(threading.Thread):
+    """Reads in_colortemp_raw as fast as the sensor hub answers (~1 Hz)."""
+
+    def __init__(self, sensor):
+        super().__init__(daemon=True)
+        self.path = sensor / "in_colortemp_raw"
+        self.lock = threading.Lock()
+        self.samples = []         # (monotonic time, raw) since last take()
+
+    def run(self):
+        while True:
+            try:
+                raw = int(self.path.read_text())
+            except (OSError, ValueError):
+                time.sleep(1)
+                continue
+            with self.lock:
+                self.samples.append((time.monotonic(), raw))
+
+    def take(self):
+        with self.lock:
+            out, self.samples = self.samples, []
+        return out
+
+
+def hyprsunset(*args):
+    try:
+        return subprocess.run(["hyprctl", "hyprsunset", *map(str, args)],
+                              capture_output=True, text=True, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def quantize(m):
+    """Mired value -> kelvin for hyprsunset, at its 100 K resolution."""
+    return min(NEUTRAL_K, int(round(1e6 / m / 100.0) * 100))
+
+
+def send(k):
+    return hyprsunset("temperature", k)
+
+
+def read_override():
+    try:
+        v = OVERRIDE.read_text().strip()
+        return v if v in ("night", "day") else None
+    except OSError:
+        return None
+
+
+def clear_override():
+    try:
+        OVERRIDE.unlink()
+    except OSError:
+        pass
+
+
+def main():
+    sensor = find_sensor()
+    if sensor is None:
+        raise SystemExit("no iio 'als' sensor found")
+
+    neutral, night = mired(NEUTRAL_K), mired(NIGHT_K)
+    lit_warmest = mired(LIT_WARMEST_K)
+
+    ambient = None            # smoothed ambient mired while lit
+    last_sample = None        # time of the previous sensor sample
+    dark = None               # None until the first decision
+    default_since = None
+    real_since = None
+    current = None            # mired value on screen (as we last set it)
+    sent = None               # last kelvin sent
+    last_send = 0.0
+    last_override = None
+    prev = time.monotonic()
+
+    reader = Reader(sensor)
+    reader.start()
+
+    while True:
+        now = time.monotonic()
+        dt, prev = now - prev, now
+
+        for t, raw in reader.take():
+            if raw == DEFAULT_COLORTEMP_RAW:
+                default_since = default_since or t
+                real_since = None
+            else:
+                real_since = real_since or t
+                default_since = None
+                amb = mired(max(raw, 1000000) / 1000.0)
+                if ambient is None or last_sample is None:
+                    ambient = amb
+                else:
+                    ambient += (amb - ambient) * (1 - math.exp(-(t - last_sample) / TAU))
+            last_sample = t
+
+        was_dark = dark
+        if default_since is not None and (dark is None or now - default_since >= DARK_AFTER):
+            dark = True
+        elif real_since is not None and (dark is None or now - real_since >= LIT_AFTER):
+            dark = False
+        if was_dark is not None and dark != was_dark:
+            clear_override()      # the room changed: automatic control resumes
+            print(f"room is now {'dark' if dark else 'lit'}", flush=True)
+
+        override = read_override()
+        if override == "night":
+            target = night
+        elif override == "day":
+            target = neutral
+        elif dark:
+            target = night
+        elif ambient is not None:
+            target = min(max(neutral + ADAPT * (ambient - D65), neutral), lit_warmest)
+        else:
+            target = None         # no reading yet
+
+        if target is not None:
+            if current is None or (override and override != last_override):
+                current = target  # first decision, or a manual toggle: no ramp
+            else:
+                step = RATE * dt
+                current += max(-step, min(step, target - current))
+        last_override = override
+
+        if current is not None:
+            value = quantize(current)
+            if (value != sent or now - last_send >= RESEND) and send(value):
+                if value != sent:
+                    why = f"override {override}" if override else "dark" if dark else "lit"
+                    print(f"white point -> {value}K ({why})", flush=True)
+                sent, last_send = value, now
+
+        time.sleep(TICK)
+
+
+if __name__ == "__main__":
+    main()

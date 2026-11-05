@@ -12,9 +12,9 @@ Item {
   // Keep in sync with bin/omarchy-toggle-nightlight, which sets the same
   // temperatures for callers outside the shell (keybindings, menu, ssh).
   // 4500 K (Omarchy default 4000): amber rather than orange/pink. Matches
-  // ~/expertbook-tweaks/bin/nightlight-sun.
+  // NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-white; 6600 K is its neutral.
   readonly property int nightTemperature: 4500
-  readonly property int dayTemperature: 6500
+  readonly property int dayTemperature: 6600
 
   property bool stateLoaded: false
   property var temperature: null
@@ -27,7 +27,14 @@ Item {
     if (!statusProbe.running) statusProbe.running = true
   }
 
+  // ~/expertbook-tweaks/bin/ambient-white owns the white point; a manual toggle
+  // records an override it honours until the room next changes dark <-> lit.
+  // The temperature is also applied here so the toggle feels instant.
   function setNightlight(value) {
+    overrideProcess.command = ["sh", "-c",
+      "mkdir -p \"${XDG_STATE_HOME:-$HOME/.local/state}\" && printf %s " + (value ? "night" : "day") +
+      " > \"${XDG_STATE_HOME:-$HOME/.local/state}/ambient-white.override\""]
+    overrideProcess.running = true
     applyTemperature(value ? nightTemperature : dayTemperature)
   }
 
@@ -76,6 +83,10 @@ Item {
   }
 
   Process {
+    id: overrideProcess
+  }
+
+  Process {
     id: applyProcess
     onExited: function() {
       if (root.hasPendingTemperature) {
@@ -88,9 +99,9 @@ Item {
     }
   }
 
-  // hyprsunset switches profiles on its own (sunrise/sunset from
-  // ~/expertbook-tweaks/bin/nightlight-sun) without telling anyone, so re-read
-  // its temperature every 30 s to keep the bar indicator honest.
+  // ~/expertbook-tweaks/bin/ambient-white changes hyprsunset's temperature on
+  // its own (dark room -> night light) without telling the bar, so re-read it
+  // every 30 s to keep the indicator honest.
   Timer {
     interval: 30000
     running: true
