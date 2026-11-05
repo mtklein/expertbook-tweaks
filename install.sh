@@ -20,6 +20,7 @@ link() {  # link <repo path> <target path>
 link bin/hdr-brightness                 ~/.local/bin/hdr-brightness
 link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
 link bin/hdr-auto-brightness            ~/.local/bin/hdr-auto-brightness
+link bin/nightlight-sun                 ~/.local/bin/nightlight-sun
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
 # which would replace a symlink. It just loads hypr/hdr.lua from here.
@@ -34,10 +35,13 @@ link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monito
 link wluma                              ~/.config/wluma
 link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
+link systemd-user/nightlight-sun.service ~/.config/systemd/user/nightlight-sun.service
+link systemd-user/nightlight-sun.timer   ~/.config/systemd/user/nightlight-sun.timer
 
 systemctl --user daemon-reload
 systemctl --user enable --now hdr-auto-brightness.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
+systemctl --user enable --now nightlight-sun.timer
 
 if [[ ${1:-} == --system ]]; then
   pkexec bash -c '

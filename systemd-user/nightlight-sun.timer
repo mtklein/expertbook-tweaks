@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily and at-login night light sunset/sunrise update
+
+[Timer]
+# Shortly after login, then just after midnight each day. A run missed while
+# asleep fires on wake; one missed while off fires at next login (Persistent).
+OnStartupSec=30s
+OnCalendar=*-*-* 00:05
+Persistent=true
+
+[Install]
+WantedBy=timers.target

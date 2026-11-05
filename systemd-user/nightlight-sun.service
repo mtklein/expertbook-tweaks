@@ -1,0 +1,7 @@
+[Unit]
+Description=Set night light to today's sunset/sunrise (hyprsunset)
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/nightlight-sun
