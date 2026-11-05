@@ -6,10 +6,15 @@ The B9406's ALS reports colour: in_colortemp_raw (K) and chromaticity, scale
 colour and reports a fixed default of 4500 K at CIE x 0.361, y 0.365. That
 default is exactly the night-light temperature we want in the dark, so:
 
-  dark (default reading for DARK_AFTER s)  -> NIGHT_K (4500 K)
   lit                                       -> partway toward the room's colour:
       mired = NEUTRAL + ADAPT * (ambient - D65), clamped to [NEUTRAL, LIT_WARMEST]
       (warm lamps ~5000-5400 K, daylight ~neutral)
+  dark (default reading for DARK_AFTER s)  -> fade by brightness toward NIGHT_K:
+      the sensor still measures lux without colour, so the white point slides
+      (in mireds, linear in log-lux) from the last lit value at the lux where
+      colour was lost down to NIGHT_K (4500 K) at NIGHT_LUX (3 lux, a room lit
+      mostly by the screen). Dusk and a dim lamp stay near the lit colour;
+      only real darkness is full amber. Lux is smoothed over TAU_LUX.
 
 The result goes to hyprsunset over its IPC (hyprctl hyprsunset temperature K,
 100 K steps). Neutral is 6600 K, where hyprsunset's Tanner Helland curve is
@@ -32,10 +37,11 @@ Also re-sends the current value every RESEND s, since hyprsunset re-applies its
 own config profile once a day.
 
 Each sysfs read of an ISH sensor channel blocks ~1 s (a synchronous HID
-request), so only in_colortemp_raw is read (the default is recognisable from it
-alone), in a background thread; the 4 Hz loop that ramps the white point never
+request), so only in_colortemp_raw (the default is recognisable from it alone)
+and in_illuminance_raw are read, in a background thread; the 4 Hz loop that ramps the white point never
 waits on the sensor, and all timing uses measured elapsed time.
 """
+import json
 import math
 import os
 import subprocess
@@ -49,6 +55,9 @@ NEUTRAL_K = 6600            # hyprsunset's curve is ~identity here (1, 1, 0.99)
 D65 = 1e6 / 6500
 ADAPT = 0.35                # fraction of the ambient-vs-D65 mired offset to follow
 TAU = 30.0                  # ambient colour smoothing time constant (s)
+TAU_LUX = 30.0              # ambient brightness smoothing (log lux) while fading in the dark
+NIGHT_LUX = 3.0             # lux at and below which the dark fade reaches NIGHT_K
+CUTOFF_LUX = 20.0           # assumed colour cutoff when starting up already dark
 DARK_AFTER = 15.0           # seconds of default readings before "dark"
 LIT_AFTER = 3.0             # seconds of real readings before "lit"
 RATE = 2.5                  # max mired/s of change (~30 s for neutral <-> 4500 K)
@@ -59,6 +68,7 @@ DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading (x 0.361, 
 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 OVERRIDE = STATE_DIR / "ambient-white.override"   # "night" | "day"
+FADE_STATE = STATE_DIR / "ambient-white.json"     # dark-fade start, kept across restarts
 
 
 def mired(k):
@@ -75,14 +85,24 @@ def find_sensor():
     return None
 
 
+def sensor_attr(sensor, name, default):
+    try:
+        return float((sensor / name).read_text())
+    except (OSError, ValueError):
+        return default
+
+
 class Reader(threading.Thread):
-    """Reads in_colortemp_raw as fast as the sensor hub answers (~1 Hz)."""
+    """Reads colour temperature and lux as fast as the sensor hub answers (~0.5 Hz)."""
 
     def __init__(self, sensor):
         super().__init__(daemon=True)
         self.path = sensor / "in_colortemp_raw"
+        self.lux_path = sensor / "in_illuminance_raw"
+        self.lux_scale = sensor_attr(sensor, "in_illuminance_scale", 1.0)
+        self.lux_offset = sensor_attr(sensor, "in_illuminance_offset", 0.0)
         self.lock = threading.Lock()
-        self.samples = []         # (monotonic time, raw) since last take()
+        self.samples = []         # (monotonic time, colortemp raw, lux or None) since last take()
 
     def run(self):
         while True:
@@ -91,8 +111,12 @@ class Reader(threading.Thread):
             except (OSError, ValueError):
                 time.sleep(1)
                 continue
+            try:
+                lux = max(0.0, (float(self.lux_path.read_text()) + self.lux_offset) * self.lux_scale)
+            except (OSError, ValueError):
+                lux = None
             with self.lock:
-                self.samples.append((time.monotonic(), raw))
+                self.samples.append((time.monotonic(), raw, lux))
 
     def take(self):
         with self.lock:
@@ -115,6 +139,24 @@ def quantize(m):
 
 def send(k):
     return hyprsunset("temperature", k)
+
+
+def load_fade():
+    try:
+        d = json.loads(FADE_STATE.read_text())
+        return float(d["lit_mired"]), float(d["cutoff_loglux"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, None
+
+
+def save_fade(lit_mired, cutoff_loglux):
+    try:
+        tmp = FADE_STATE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"lit_mired": round(lit_mired, 2),
+                                   "cutoff_loglux": round(cutoff_loglux, 3)}) + "\n")
+        tmp.replace(FADE_STATE)
+    except OSError:
+        pass
 
 
 def read_override():
@@ -142,6 +184,12 @@ def main():
 
     ambient = None            # smoothed ambient mired while lit
     last_sample = None        # time of the previous sensor sample
+    loglux = None             # smoothed log10(lux + 1)
+    lit_target, fade_hi = load_fade()  # where the dark fade starts: last lit target (mired),
+                                       # and loglux at the last colour reading
+    saved = (lit_target, fade_hi)
+    last_save = 0.0
+    night_lo = math.log10(NIGHT_LUX + 1)
     dark = None               # None until the first decision
     default_since = None
     real_since = None
@@ -158,7 +206,13 @@ def main():
         now = time.monotonic()
         dt, prev = now - prev, now
 
-        for t, raw in reader.take():
+        for t, raw, lux in reader.take():
+            if lux is not None:
+                x = math.log10(lux + 1)
+                if loglux is None or last_sample is None:
+                    loglux = x
+                else:
+                    loglux += (x - loglux) * (1 - math.exp(-(t - last_sample) / TAU_LUX))
             if raw == DEFAULT_COLORTEMP_RAW:
                 default_since = default_since or t
                 real_since = None
@@ -170,6 +224,7 @@ def main():
                     ambient = amb
                 else:
                     ambient += (amb - ambient) * (1 - math.exp(-(t - last_sample) / TAU))
+                fade_hi = loglux
             last_sample = t
 
         was_dark = dark
@@ -181,15 +236,27 @@ def main():
             clear_override()      # the room changed: automatic control resumes
             print(f"room is now {'dark' if dark else 'lit'}", flush=True)
 
+        if (lit_target is not None and fade_hi is not None and now - last_save >= 60
+                and (saved[0] is None or abs(lit_target - saved[0]) >= 1 or abs(fade_hi - saved[1]) >= 0.02)):
+            save_fade(lit_target, fade_hi)
+            saved, last_save = (lit_target, fade_hi), now
+
         override = read_override()
         if override == "night":
             target = night
         elif override == "day":
             target = neutral
         elif dark:
-            target = night
+            start = lit_target if lit_target is not None else lit_warmest
+            hi = fade_hi if fade_hi is not None else math.log10(CUTOFF_LUX + 1)
+            if loglux is None or hi - night_lo < 0.05:
+                f = 1.0
+            else:
+                f = min(1.0, max(0.0, (hi - loglux) / (hi - night_lo)))
+            target = night if f >= 1.0 else start + f * (night - start)
         elif ambient is not None:
             target = min(max(neutral + ADAPT * (ambient - D65), neutral), lit_warmest)
+            lit_target = target
         else:
             target = None         # no reading yet
 
@@ -211,7 +278,9 @@ def main():
                 value = sent if abs(k - sent) < HOLD_K else sent + (100 if k > sent else -100)
             if (value != sent or now - last_send >= RESEND) and send(value):
                 if value != sent:
-                    why = f"override {override}" if override else "dark" if dark else "lit"
+                    why = (f"override {override}" if override else
+                           f"dark, {10 ** loglux - 1:.0f} lux" if dark and loglux is not None else
+                           "dark" if dark else "lit")
                     print(f"white point -> {value}K ({why})", flush=True)
                 sent, last_send = value, now
 
