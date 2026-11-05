@@ -58,6 +58,7 @@ if [[ ${1:-} == --system ]]; then
       install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
     done
     systemctl daemon-reload
+    systemd-hwdb update && udevadm trigger -s input
     systemctl enable rapl-sync.service
     systemctl restart rapl-sync.service
   ' _ "$R"
