@@ -31,7 +31,8 @@
   // Night light at 4500 K: the stock rows run omarchy-toggle-nightlight, which
   // hard-codes 4000 K. Route them through the shell's night light service
   // instead, whose clone (~/expertbook-tweaks/omarchy-plugins/mtklein.nightlight)
-  // uses 4500 K. "when" is inherited from the stock rows.
-  "trigger.toggle.nightlight-on": {"action":"omarchy-shell nightlight enable"},
-  "trigger.toggle.nightlight-off": {"action":"omarchy-shell nightlight disable"},
+  // uses 4500 K. Overrides don't inherit the stock rows' icon/label/when here,
+  // so they're repeated in full.
+  "trigger.toggle.nightlight-on": {"icon":"󰔎","label":"Nightlight On","when":"[[ $(omarchy-shell nightlight status) != *'\"enabled\":true'* ]]","action":"omarchy-shell nightlight enable"},
+  "trigger.toggle.nightlight-off": {"icon":"󰔎","label":"Nightlight Off","when":"[[ $(omarchy-shell nightlight status) == *'\"enabled\":true'* ]]","action":"omarchy-shell nightlight disable"},
 }
