@@ -23,6 +23,7 @@ link bin/ambient-display                ~/.local/bin/ambient-display
 link bin/white-point                    ~/.local/bin/white-point
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
+link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
 # which would replace a symlink. It just loads hypr/hdr.lua from here.
@@ -42,6 +43,7 @@ link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
+link systemd-user/game-touchpad-guard.service ~/.config/systemd/user/game-touchpad-guard.service
 
 # Replaced by ambient-display (2026-11-06).
 for old in hdr-auto-brightness ambient-white; do
@@ -55,6 +57,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
 systemctl --user enable --now sdw-clash-recover.service
+systemctl --user enable --now game-touchpad-guard.service
 
 if [[ ${1:-} == --system ]]; then
   pkexec bash -c '

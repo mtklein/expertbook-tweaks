@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+"""Turn the touchpad off while a keyboard/controller-only game is focused.
+
+Follows Hyprland's event socket and disables the touchpad (silently, not
+persisted) whenever the focused window's class or title is in GAMES, and
+re-enables it when focus moves elsewhere. A touchpad you turned off yourself
+(omarchy-toggle-touchpad, which persists its choice in NAME_FILE) stays off.
+
+Add a game by putting its window class or title in GAMES; under gamescope the
+class is "gamescope" and the title is the game's name.
+"""
+import json
+import os
+import signal
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+GAMES = {
+    "FINAL FANTASY RESONANCE",   # title, also under gamescope
+    "steam_app_3259780",         # class without gamescope
+}
+NAME_FILE = Path.home() / ".local/state/omarchy/toggles/hypr/touchpad-disabled-name"
+
+
+def hypr_dir():
+    run = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    return f"{run}/hypr/{os.environ['HYPRLAND_INSTANCE_SIGNATURE']}"
+
+
+def hyprctl(*args):
+    return subprocess.run(["hyprctl", *args], capture_output=True, text=True, timeout=5).stdout
+
+
+def touchpad():
+    out = subprocess.run(["omarchy-hw-touchpad"], capture_output=True, text=True, timeout=10).stdout.strip()
+    return out or None
+
+
+def set_enabled(device, on):
+    if on and NAME_FILE.exists():       # the user turned it off; leave it off
+        return
+    quoted = device.replace("\\", "\\\\").replace('"', '\\"')
+    hyprctl("eval", f'hl.device({{ name = "{quoted}", enabled = {"true" if on else "false"} }})')
+
+
+def is_game(cls, title):
+    return cls.strip() in GAMES or title.strip() in GAMES   # FFRS's title ends in spaces
+
+
+def main():
+    device = touchpad()
+    if not device:
+        sys.exit("no touchpad found")
+    state = None                        # True = we disabled it
+
+    def apply(game):
+        nonlocal state
+        if game != state:
+            set_enabled(device, not game)
+            print(f"touchpad {'off' if game else 'on'}", flush=True)
+            state = game
+
+    def restore(*_):
+        if state:
+            set_enabled(device, True)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, restore)
+    signal.signal(signal.SIGINT, restore)
+
+    try:
+        w = json.loads(hyprctl("-j", "activewindow") or "{}")
+        apply(is_game(w.get("class", ""), w.get("title", "")))
+    except ValueError:
+        pass
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.connect(f"{hypr_dir()}/.socket2.sock")
+        buf = b""
+        while chunk := s.recv(4096):
+            buf += chunk
+            *lines, buf = buf.split(b"\n")
+            for line in lines:
+                event, _, data = line.decode(errors="replace").partition(">>")
+                if event == "activewindow":
+                    cls, _, title = data.partition(",")
+                    apply(is_game(cls, title))
+                elif event == "configreloaded" and state:
+                    set_enabled(device, False)   # a reload re-applies device config
+    restore()
+
+
+if __name__ == "__main__":
+    main()
