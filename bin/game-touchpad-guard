@@ -6,8 +6,8 @@ persisted) whenever the focused window's class or title is in GAMES, and
 re-enables it when focus moves elsewhere. A touchpad you turned off yourself
 (omarchy-toggle-touchpad, which persists its choice in NAME_FILE) stays off.
 
-Add a game by putting its window class or title in GAMES; under gamescope the
-class is "gamescope" and the title is the game's name.
+Add a game by putting its window class in GAMES (Proton games: steam_app_<id>);
+under gamescope the class is "gamescope", so the game's title is matched instead.
 """
 import json
 import os
@@ -18,8 +18,8 @@ import sys
 from pathlib import Path
 
 GAMES = {
-    "FINAL FANTASY RESONANCE",   # title, also under gamescope
-    "steam_app_3259780",         # class without gamescope
+    "steam_app_3259780",         # FF Resonance: its window class (Proton)
+    "FINAL FANTASY RESONANCE",   # ... and its title, used only under gamescope
 }
 NAME_FILE = Path.home() / ".local/state/omarchy/toggles/hypr/touchpad-disabled-name"
 
@@ -46,7 +46,10 @@ def set_enabled(device, on):
 
 
 def is_game(cls, title):
-    return cls.strip() in GAMES or title.strip() in GAMES   # FFRS's title ends in spaces
+    # Titles only count for gamescope windows: Steam's properties window for a
+    # game is titled with the game's name too. (FFRS's title ends in spaces.)
+    cls = cls.strip()
+    return cls in GAMES or (cls == "gamescope" and title.strip() in GAMES)
 
 
 def main():
