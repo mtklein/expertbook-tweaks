@@ -30,16 +30,18 @@
 
 -- Brightness keys that also work with HDR on (see ~/.local/bin/hdr-brightness).
 -- With HDR off or an external monitor focused they behave exactly like Omarchy's defaults.
+-- Shift + the same keys moves the white point (dim = warmer, bright = cooler;
+-- ~/.local/bin/white-point). ambient-display learns from both.
 for _, b in ipairs({
-  { "XF86MonBrightnessUp", "Brightness up", "+5%" },
-  { "XF86MonBrightnessDown", "Brightness down", "5%-" },
-  { "SHIFT + XF86MonBrightnessUp", "Brightness maximum", "100%" },
-  { "SHIFT + XF86MonBrightnessDown", "Brightness minimum", "1%" },
-  { "ALT + XF86MonBrightnessUp", "Brightness up precise", "+1%" },
-  { "ALT + XF86MonBrightnessDown", "Brightness down precise", "1%-" },
+  { "XF86MonBrightnessUp", "Brightness up", "hdr-brightness +5%" },
+  { "XF86MonBrightnessDown", "Brightness down", "hdr-brightness 5%-" },
+  { "ALT + XF86MonBrightnessUp", "Brightness up precise", "hdr-brightness +1%" },
+  { "ALT + XF86MonBrightnessDown", "Brightness down precise", "hdr-brightness 1%-" },
+  { "SHIFT + XF86MonBrightnessUp", "White point cooler", "white-point +200" },
+  { "SHIFT + XF86MonBrightnessDown", "White point warmer", "white-point -200" },
 }) do
   hl.unbind(b[1])
-  o.bind(b[1], b[2], "hdr-brightness " .. b[3], { locked = true, repeating = true })
+  o.bind(b[1], b[2], b[3], { locked = true, repeating = true })
 end
 
 

@@ -1,0 +1,574 @@
+#!/usr/bin/python3
+"""Ambient-light screen brightness and white point for the internal OLED.
+
+One daemon, one light sensor reader, two controllers that work the same way:
+a model predicts the setting from the sensors, the screen glides toward it
+calmly, and manual changes (brightness keys, Shift + brightness keys for the
+white point) are learned as corrections at the room's light level.
+
+Sensor (iio "als", Intel ISH): every sysfs read blocks ~1 s (a synchronous HID
+request), so a background thread reads lux every cycle and colour temperature
+every COLOR_EVERY cycles (~1 Hz lux, ~1/3 Hz colour); the control loop never
+waits on it, and all smoothing uses the samples' real timestamps.
+
+Brightness (through hdr-brightness, so it works in HDR, where the panel ignores
+its backlight):
+  model: learned (lux, nits) points, interpolated on log lux, kept monotonic
+         (brighter room never means a dimmer screen). Nits = the SDR white
+         level Hyprland uses, so the curve survives changing edp_sdr_white
+         (hdr.lua publishes what 100% means to ~/.local/state/hdr-sdr-white).
+  learn: a level that differs from what we last set is a manual change; once
+         left alone for SETTLE s it becomes a point (replacing points within
+         NEAR, evicting any that would break monotonicity).
+  move:  lux smoothed (TAU_UP when the room brightens, TAU_DOWN when it
+         darkens), DEADBAND % ignored, fades in 1% steps.
+  floor: never auto-sets below MIN_PCT (5%); below that (including 0) is
+         manual-only: left alone and never learned. SIGUSR1 (sent by
+         brightness-wake-floor) adopts the current level without learning it.
+
+White point (through hyprsunset's IPC, 100 K resolution):
+  model: lit room (sensor measures colour) -> partway (ADAPT, in mireds) toward
+         the room's colour, clamped to NEUTRAL..LIT_WARMEST (6600..5000 K).
+         Dark room (the sensor's fixed "can't measure" 4500 K reading for
+         DARK_AFTER s; colour is lost somewhere around 7-37 lux) -> it still
+         measures lux, so fade (linear in log lux) from the last lit value at
+         the lux where colour was lost to NIGHT_K (4500 K) at NIGHT_LUX.
+  learn: `white-point` (the Shift + brightness keys) sets hyprsunset itself
+         and writes the value to MANUAL_WHITE; once left alone for SETTLE s
+         the difference from the model (mireds) is learned at the room's lux.
+         Corrections are interpolated on log lux and fade back to the plain
+         model over WHITE_REACH decades beyond the outermost learned points.
+  move:  colour smoothed over TAU s, lux over TAU_LUX s; ramps at most RATE
+         mired/s; hysteresis: the screen moves one 100 K step only once the
+         target is HOLD_K away (snapping onto endpoints and exact targets).
+  night light toggle (omarchy-plugins/mtklein.nightlight) writes "night" or
+         "day" to OVERRIDE; honoured until the room changes dark <-> lit or a
+         manual white point change.
+  6600 K is neutral: hyprsunset's curve is ~identity there (1, 1, 0.99) but,
+  unlike `identity`, it reports a temperature matching the screen. The value
+  is re-sent every RESEND s (hyprsunset re-applies its profile daily).
+
+State: ~/.local/state/ambient-display.json (learned brightness points, white
+corrections, dark-fade start). Delete a key (or the file) to forget it.
+Migrates hdr-auto-brightness.json / ambient-white.json on first run.
+"""
+import json
+import math
+import os
+import signal
+import socket
+import subprocess
+import threading
+import time
+from pathlib import Path
+
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+STATE = STATE_DIR / "ambient-display.json"
+OLD_BRIGHTNESS = STATE_DIR / "hdr-auto-brightness.json"
+OLD_WHITE = STATE_DIR / "ambient-white.json"
+WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from hdr.lua
+LEVEL = STATE_DIR / "hdr-brightness"           # current level, from hdr-brightness
+MANUAL_WHITE = STATE_DIR / "white-point.manual"  # kelvin, from white-point
+OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the bar toggle
+MONITOR = "eDP-1"
+
+TICK = 0.2               # control loop period (s)
+SETTLE = 4.0             # seconds a manual change must be left alone to be learned
+NEAR = 0.25              # log10-lux distance within which a new point replaces old ones
+COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
+
+# Brightness
+DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
+TAU_UP = 7.5             # lux smoothing when the room brightens (s)
+TAU_DOWN = 30.0          # ... when it darkens
+DEADBAND = 3             # ignore target differences smaller than this (%)
+STEP_EVERY_UP = 0.7      # seconds per 1% step while fading up
+STEP_EVERY_DOWN = 1.0    # ... while fading down
+MIN_PCT, MAX_PCT = 5, 100
+
+# White point
+NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
+LIT_WARMEST_K = 5000     # the lit-room model never goes warmer than this
+NEUTRAL_K = 6600         # ~identity in hyprsunset
+MIN_K, MAX_K = 2500, 6600  # overall limits, manual corrections included
+D65 = 1e6 / 6500
+ADAPT = 0.35             # fraction of the ambient-vs-D65 mired offset to follow
+TAU = 30.0               # ambient colour smoothing (s)
+TAU_LUX = 30.0           # lux smoothing for the white point (s)
+NIGHT_LUX = 3.0          # dark fade reaches NIGHT_K at and below this
+CUTOFF_LUX = 20.0        # assumed colour cutoff when starting up already dark
+DARK_AFTER = 15.0        # seconds of "can't measure" readings before dark
+LIT_AFTER = 3.0          # seconds of real readings before lit
+RATE = 2.5               # max mired/s of change
+RESEND = 30.0
+HOLD_K = 150
+WHITE_REACH = 1.0        # decades over which a correction fades out past the last point
+DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading
+
+
+def L(lux):
+    return math.log10(lux + 1.0)
+
+
+def mired(k):
+    return 1e6 / k
+
+
+def log(msg):
+    print(msg, flush=True)
+
+
+# ---------------------------------------------------------------- state
+
+class Store:
+    def __init__(self):
+        try:
+            self.d = json.loads(STATE.read_text())
+        except (OSError, ValueError):
+            self.d = {}
+        if "brightness" not in self.d:
+            try:
+                self.d["brightness"] = json.loads(OLD_BRIGHTNESS.read_text())["nits"]
+            except (OSError, ValueError, KeyError):
+                pass
+        if "dark_fade" not in self.d:
+            try:
+                self.d["dark_fade"] = json.loads(OLD_WHITE.read_text())
+            except (OSError, ValueError):
+                pass
+
+    def save(self):
+        try:
+            STATE.parent.mkdir(parents=True, exist_ok=True)
+            tmp = STATE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.d, indent=1) + "\n")
+            tmp.replace(STATE)
+        except OSError as e:
+            log(f"couldn't save state: {e}")
+
+
+def replace_near(points, lux, value, monotonic=False):
+    """points: [(lux, value)]. Add (lux, value), dropping points within NEAR
+    and, if monotonic, points that would make value decrease with lux."""
+    x = L(lux)
+    kept = []
+    for a, b in points:
+        xa = L(a)
+        if abs(xa - x) < NEAR:
+            continue
+        if monotonic and ((xa < x and b > value) or (xa > x and b < value)):
+            continue
+        kept.append((a, b))
+    kept.append((lux, float(value)))
+    return sorted(kept)
+
+
+def interpolate(points, lux, reach=None):
+    """Linear in log lux between points. Past the ends: flat, or (with reach)
+    fading linearly to 0 over `reach` decades."""
+    if not points:
+        return 0.0
+    x = L(lux)
+    xs = [(L(a), b) for a, b in points]
+    if x <= xs[0][0]:
+        y = xs[0][1]
+        return y if reach is None else y * max(0.0, 1 - (xs[0][0] - x) / reach)
+    if x >= xs[-1][0]:
+        y = xs[-1][1]
+        return y if reach is None else y * max(0.0, 1 - (x - xs[-1][0]) / reach)
+    for (x0, y0), (x1, y1) in zip(xs, xs[1:]):
+        if x0 <= x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
+    return xs[-1][1]
+
+
+# ---------------------------------------------------------------- sensor
+
+def find_sensor():
+    for d in Path("/sys/bus/iio/devices").glob("iio:device*"):
+        try:
+            if (d / "name").read_text().strip() == "als":
+                return d
+        except OSError:
+            pass
+    return None
+
+
+def sensor_attr(sensor, name, default):
+    try:
+        return float((sensor / name).read_text())
+    except (OSError, ValueError):
+        return default
+
+
+class Sensor(threading.Thread):
+    """Samples (time, lux, colortemp raw or None), as fast as the hub answers."""
+
+    def __init__(self, path):
+        super().__init__(daemon=True)
+        self.lux_path = path / "in_illuminance_raw"
+        self.color_path = path / "in_colortemp_raw"
+        self.scale = sensor_attr(path, "in_illuminance_scale", 1.0)
+        self.offset = sensor_attr(path, "in_illuminance_offset", 0.0)
+        self.lock = threading.Lock()
+        self.samples = []
+
+    def run(self):
+        n = 0
+        while True:
+            raw = None
+            if n % COLOR_EVERY == 0:
+                try:
+                    raw = int(self.color_path.read_text())
+                except (OSError, ValueError):
+                    pass
+            n += 1
+            try:
+                lux = max(0.0, (float(self.lux_path.read_text()) + self.offset) * self.scale)
+            except (OSError, ValueError):
+                time.sleep(1)
+                continue
+            with self.lock:
+                self.samples.append((time.monotonic(), lux, raw))
+
+    def take(self):
+        with self.lock:
+            out, self.samples = self.samples, []
+        return out
+
+
+# ---------------------------------------------------------------- hyprland
+
+def hypr_socket():
+    run = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    if sig:
+        return f"{run}/hypr/{sig}/.socket.sock"
+    socks = sorted(Path(run, "hypr").glob("*/.socket.sock"), key=lambda p: p.stat().st_mtime)
+    return str(socks[-1]) if socks else None
+
+
+def hypr_json(command):
+    """Like `hyprctl -j <command>`, without spawning hyprctl."""
+    path = hypr_socket()
+    if not path:
+        return None
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            s.connect(path)
+            s.sendall(f"j/{command}".encode())
+            data = b""
+            while chunk := s.recv(65536):
+                data += chunk
+        return json.loads(data)
+    except (OSError, ValueError):
+        return None
+
+
+def run(*cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+# ---------------------------------------------------------------- brightness
+
+class Brightness:
+    def __init__(self, store):
+        self.store = store
+        pts = store.d.get("brightness") or DEFAULT_POINTS
+        self.points = sorted((float(a), float(b)) for a, b in pts)
+        self.smooth = None       # smoothed log lux
+        self.last_t = None
+        self.last_set = None     # what we last set; None = adopt the current level
+        self.manual_since = None
+        self.next_step = 0.0
+        self.last_check = 0.0
+        self.fading = False
+        self.white = None        # nits at 100%
+
+    def adopt(self):
+        """Take the current level as ours without learning it (SIGUSR1)."""
+        self.last_set = None
+        self.manual_since = None
+        self.fading = False
+
+    def feed(self, t, lux):
+        x = L(lux)
+        if self.smooth is None:
+            self.smooth = x
+        else:
+            tau = TAU_UP if x > self.smooth else TAU_DOWN
+            self.smooth += (x - self.smooth) * (1 - math.exp(-(t - self.last_t) / tau))
+        self.last_t = t
+
+    def edp_state(self):
+        m = next((m for m in hypr_json("monitors") or [] if m.get("name") == MONITOR), None)
+        if not (m and not m.get("disabled") and m.get("dpmsStatus", True)):
+            return None
+        return m.get("sdrMaxLuminance"), m.get("colorManagementPreset") == "hdr"
+
+    def get_pct(self, hdr):
+        if hdr:
+            try:
+                return int(float(LEVEL.read_text()) * 100 + 0.5)
+            except OSError:
+                return 100
+            except ValueError:
+                return None
+        try:
+            out = subprocess.run(["hdr-brightness", "--monitor", MONITOR],
+                                 capture_output=True, text=True, timeout=5)
+            return int(out.stdout.strip())
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return None
+
+    def tick(self, now):
+        if self.smooth is None:
+            return
+        lux = 10 ** self.smooth - 1
+
+        if now - self.last_check >= 1.0 or self.manual_since is not None:
+            self.last_check = now
+            state = self.edp_state()
+            nits = state[0] if state else None
+            current = self.get_pct(state[1]) if nits else None
+            if current is None:
+                return
+            try:
+                self.white = float(WHITE.read_text())
+            except (OSError, ValueError):
+                self.white = nits * 100 / current if current else 200.0
+            if current < MIN_PCT:            # manual-only range: hands off, don't learn
+                self.last_set, self.manual_since = current, None
+                return
+            if self.last_set is None:
+                self.last_set = current
+            if current != self.last_set:     # someone else changed it
+                self.manual_since, self.last_set = now, current
+            if self.manual_since is not None:
+                if now - self.manual_since >= SETTLE:
+                    self.points = replace_near(self.points, lux, nits, monotonic=True)
+                    self.store.d["brightness"] = [[round(a, 1), round(b)] for a, b in self.points]
+                    self.store.save()
+                    log(f"brightness: learned {lux:.0f} lux -> {nits:g} nits ({current}% of {self.white:g})")
+                    self.manual_since, self.fading = None, False
+                return
+
+        if self.last_set is None or not self.white or now < self.next_step:
+            return
+        target = int(round(min(MAX_PCT, max(MIN_PCT, 100 * interpolate(self.points, lux) / self.white))))
+        diff = target - self.last_set
+        if abs(diff) >= DEADBAND or (self.fading and diff != 0):
+            self.fading = True
+            step = 1 if diff > 0 else -1
+            self.last_set += step
+            run("hdr-brightness", "--no-osd", "--monitor", MONITOR, f"{self.last_set}%")
+            self.next_step = now + (STEP_EVERY_UP if step > 0 else STEP_EVERY_DOWN)
+        else:
+            self.fading = False
+
+
+# ---------------------------------------------------------------- white point
+
+class WhitePoint:
+    def __init__(self, store):
+        self.store = store
+        self.neutral, self.night = mired(NEUTRAL_K), mired(NIGHT_K)
+        self.lit_warmest = mired(LIT_WARMEST_K)
+        self.lo, self.hi = mired(MAX_K), mired(MIN_K)
+        self.night_lo = L(NIGHT_LUX)
+        self.offsets = sorted((float(a), float(b)) for a, b in store.d.get("white_offsets", []))
+        fade = store.d.get("dark_fade") or {}
+        self.lit_target = fade.get("lit_mired")      # dark fade starts here (mired) ...
+        self.fade_hi = fade.get("cutoff_loglux")     # ... at this log lux (colour lost)
+        self.saved_fade = (self.lit_target, self.fade_hi)
+        self.last_fade_save = 0.0
+        self.ambient = None      # smoothed ambient mired while lit
+        self.loglux = None       # smoothed log lux
+        self.last_t = None
+        self.last_color_t = None
+        self.dark = None
+        self.default_since = None
+        self.real_since = None
+        self.current = None      # mired value on screen (as last set)
+        self.sent = None         # kelvin last sent
+        self.last_send = 0.0
+        self.last_override = None
+        self.manual = None       # (mired, since) while a manual change settles
+        self.manual_mtime = self.mtime()
+
+    @staticmethod
+    def mtime():
+        try:
+            return MANUAL_WHITE.stat().st_mtime_ns
+        except OSError:
+            return None
+
+    def feed(self, t, lux, raw):
+        x = L(lux)
+        a = None if self.last_t is None else 1 - math.exp(-(t - self.last_t) / TAU_LUX)
+        self.loglux = x if a is None else self.loglux + (x - self.loglux) * a
+        if raw is not None:
+            if raw == DEFAULT_COLORTEMP_RAW:
+                self.default_since = self.default_since or t
+                self.real_since = None
+            else:
+                self.real_since = self.real_since or t
+                self.default_since = None
+                amb = mired(max(raw, 1000000) / 1000.0)
+                if self.ambient is None or self.last_color_t is None:
+                    self.ambient = amb
+                else:
+                    self.ambient += (amb - self.ambient) * (1 - math.exp(-(t - self.last_color_t) / TAU))
+                self.fade_hi = self.loglux
+            self.last_color_t = t
+        self.last_t = t
+
+    def model(self):
+        """The plain model's target (mired), before learned corrections."""
+        if self.dark:
+            start = self.lit_target if self.lit_target is not None else self.lit_warmest
+            hi = self.fade_hi if self.fade_hi is not None else L(CUTOFF_LUX)
+            if self.loglux is None or hi - self.night_lo < 0.05:
+                f = 1.0
+            else:
+                f = min(1.0, max(0.0, (hi - self.loglux) / (hi - self.night_lo)))
+            return self.night if f >= 1.0 else start + f * (self.night - start)
+        if self.ambient is not None:
+            t = min(max(self.neutral + ADAPT * (self.ambient - D65), self.neutral), self.lit_warmest)
+            self.lit_target = t
+            return t
+        return None
+
+    def correction(self):
+        if self.loglux is None:
+            return 0.0
+        return interpolate(self.offsets, 10 ** self.loglux - 1, reach=WHITE_REACH)
+
+    def send(self, k):
+        return run("hyprctl", "hyprsunset", "temperature", str(k))
+
+    def tick(self, now, dt):
+        was_dark = self.dark
+        if self.default_since is not None and (self.dark is None or now - self.default_since >= DARK_AFTER):
+            self.dark = True
+        elif self.real_since is not None and (self.dark is None or now - self.real_since >= LIT_AFTER):
+            self.dark = False
+        if was_dark is not None and self.dark != was_dark:
+            clear_override()
+            log(f"white: room is now {'dark' if self.dark else 'lit'}")
+
+        if (self.lit_target is not None and self.fade_hi is not None and now - self.last_fade_save >= 60
+                and (self.saved_fade[0] is None or self.saved_fade[1] is None
+                     or abs(self.lit_target - self.saved_fade[0]) >= 1
+                     or abs(self.fade_hi - self.saved_fade[1]) >= 0.02)):
+            self.store.d["dark_fade"] = {"lit_mired": round(self.lit_target, 2),
+                                         "cutoff_loglux": round(self.fade_hi, 3)}
+            self.store.save()
+            self.saved_fade, self.last_fade_save = (self.lit_target, self.fade_hi), now
+
+        # A manual change from `white-point`: it already set hyprsunset.
+        m = self.mtime()
+        if m != self.manual_mtime:
+            self.manual_mtime = m
+            try:
+                k = int(MANUAL_WHITE.read_text().split()[0])
+                self.manual = (mired(k), now)
+                self.current, self.sent, self.last_send = mired(k), k, now
+                clear_override()
+            except (OSError, ValueError, IndexError):
+                pass
+
+        base = self.model()
+        if self.manual is not None:
+            value, since = self.manual
+            if now - since < SETTLE:
+                return
+            self.manual = None
+            if base is not None and self.loglux is not None:
+                lux = 10 ** self.loglux - 1
+                self.offsets = replace_near(self.offsets, lux, value - base)
+                self.store.d["white_offsets"] = [[round(a, 1), round(b, 1)] for a, b in self.offsets]
+                self.store.save()
+                log(f"white: learned {lux:.0f} lux -> {round(1e6 / value)}K "
+                    f"({value - base:+.1f} mired vs model {round(1e6 / base)}K)")
+
+        override = read_override()
+        if override == "night":
+            target = self.night
+        elif override == "day":
+            target = self.neutral
+        elif base is not None:
+            target = min(self.hi, max(self.lo, base + self.correction()))
+        else:
+            target = None
+
+        jump = False
+        if target is not None:
+            if self.current is None or (override and override != self.last_override):
+                self.current, jump = target, True
+            else:
+                step = RATE * dt
+                self.current += max(-step, min(step, target - self.current))
+        self.last_override = override
+        if self.current is None:
+            return
+
+        value = min(MAX_K, max(MIN_K, int(round(1e6 / self.current / 100.0) * 100)))
+        settled = self.current == target and target in (self.night, self.neutral, self.lit_warmest)
+        if self.sent is not None and not jump and not settled:
+            k = 1e6 / self.current      # hysteresis: hold, then one 100 K step at a time
+            value = self.sent if abs(k - self.sent) < HOLD_K else self.sent + (100 if k > self.sent else -100)
+        if (value != self.sent or now - self.last_send >= RESEND) and self.send(value):
+            if value != self.sent:
+                lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
+                why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
+                log(f"white: -> {value}K ({why})")
+            self.sent, self.last_send = value, now
+
+
+def read_override():
+    try:
+        v = OVERRIDE.read_text().strip()
+        return v if v in ("night", "day") else None
+    except OSError:
+        return None
+
+
+def clear_override():
+    try:
+        OVERRIDE.unlink()
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------- main
+
+def main():
+    path = find_sensor()
+    if path is None:
+        raise SystemExit("no iio 'als' sensor found")
+    store = Store()
+    brightness = Brightness(store)
+    white = WhitePoint(store)
+    signal.signal(signal.SIGUSR1, lambda *_: brightness.adopt())
+
+    sensor = Sensor(path)
+    sensor.start()
+    prev = time.monotonic()
+    while True:
+        now = time.monotonic()
+        dt, prev = now - prev, now
+        for t, lux, raw in sensor.take():
+            brightness.feed(t, lux)
+            white.feed(t, lux, raw)
+        brightness.tick(now)
+        white.tick(now, dt)
+        time.sleep(TICK)
+
+
+if __name__ == "__main__":
+    main()

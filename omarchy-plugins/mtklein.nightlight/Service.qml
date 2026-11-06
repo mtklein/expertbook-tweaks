@@ -12,7 +12,7 @@ Item {
   // Keep in sync with bin/omarchy-toggle-nightlight, which sets the same
   // temperatures for callers outside the shell (keybindings, menu, ssh).
   // 4500 K (Omarchy default 4000): amber rather than orange/pink. Matches
-  // NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-white; 6600 K is its neutral.
+  // NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-display; 6600 K is its neutral.
   readonly property int nightTemperature: 4500
   readonly property int dayTemperature: 6600
 
@@ -27,7 +27,7 @@ Item {
     if (!statusProbe.running) statusProbe.running = true
   }
 
-  // ~/expertbook-tweaks/bin/ambient-white owns the white point; a manual toggle
+  // ~/expertbook-tweaks/bin/ambient-display owns the white point; a manual toggle
   // records an override it honours until the room next changes dark <-> lit.
   // The temperature is also applied here so the toggle feels instant.
   function setNightlight(value) {
@@ -99,7 +99,7 @@ Item {
     }
   }
 
-  // ~/expertbook-tweaks/bin/ambient-white changes hyprsunset's temperature on
+  // ~/expertbook-tweaks/bin/ambient-display changes hyprsunset's temperature on
   // its own (dark room -> night light) without telling the bar, so re-read it
   // every 30 s to keep the indicator honest.
   Timer {

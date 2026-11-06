@@ -3,10 +3,10 @@
 # the lock screen: raise brightness to FLOOR% if it's below that (e.g. dimmed
 # to 0 before sleeping). Called from after_sleep_cmd in hypr/hypridle.conf.
 #
-# hdr-auto-brightness ignores a screen at 0% and would learn any other change
-# it didn't make as a manual preference, so restart it after raising: it
-# starts by adopting the current level without learning, then fades to its
-# usual level for the room.
+# ambient-display ignores a screen below 5% and would learn any other change
+# it didn't make as a manual preference, so after raising, SIGUSR1 tells it to
+# adopt the current level without learning it; it then fades to its usual
+# level for the room.
 set -uo pipefail
 
 FLOOR=${FLOOR:-5}
@@ -26,6 +26,4 @@ done
 hdr-brightness --no-osd --monitor eDP-1 "${FLOOR}%"
 echo "brightness-wake-floor: raised brightness ${current}% -> ${FLOOR}%"
 
-if systemctl --user -q is-active hdr-auto-brightness.service; then
-  systemctl --user restart hdr-auto-brightness.service
-fi
+systemctl --user kill -s USR1 ambient-display.service 2>/dev/null || true

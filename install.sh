@@ -19,9 +19,9 @@ link() {  # link <repo path> <target path>
 
 link bin/hdr-brightness                 ~/.local/bin/hdr-brightness
 link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
-link bin/hdr-auto-brightness            ~/.local/bin/hdr-auto-brightness
+link bin/ambient-display                ~/.local/bin/ambient-display
+link bin/white-point                    ~/.local/bin/white-point
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
-link bin/ambient-white                  ~/.local/bin/ambient-white
 link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
@@ -38,16 +38,22 @@ link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightl
 link omarchy/omarchy-menu.jsonc         ~/.config/omarchy/extensions/omarchy-menu.jsonc
 link wluma                              ~/.config/wluma
 link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grayscale-antialias.conf
-link systemd-user/hdr-auto-brightness.service ~/.config/systemd/user/hdr-auto-brightness.service
+link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
-link systemd-user/ambient-white.service ~/.config/systemd/user/ambient-white.service
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
 
+# Replaced by ambient-display (2026-11-06).
+for old in hdr-auto-brightness ambient-white; do
+  if [[ -L ~/.config/systemd/user/$old.service ]]; then
+    systemctl --user stop $old.service || true
+    rm -f ~/.config/systemd/user/$old.service ~/.config/systemd/user/*.wants/$old.service ~/.local/bin/$old
+    echo "removed $old"
+  fi
+done
 systemctl --user daemon-reload
-systemctl --user enable --now hdr-auto-brightness.service
+systemctl --user enable --now ambient-display.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
-systemctl --user enable --now ambient-white.service
 systemctl --user enable --now sdw-clash-recover.service
 
 if [[ ${1:-} == --system ]]; then

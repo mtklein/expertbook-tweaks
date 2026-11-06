@@ -73,7 +73,7 @@ function edp_hdr_monitor(sdr_brightness)
     -- SDR black defaults to 0.2 nits, which glows on the OLED (borders, Chromium).
     sdr_min_luminance = 0,
   })
-  -- Publish what 100% means, so hdr-auto-brightness can turn nits into percent.
+  -- Publish what 100% means, so ambient-display can turn nits into percent.
   local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-sdr-white", "w")
   if f then f:write(string.format("%g\n", edp_sdr_white)); f:close() end
   local active, inactive = theme_border_colors()

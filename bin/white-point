@@ -1,0 +1,42 @@
+#!/bin/bash
+# Manual white point, for the Shift + brightness keys (hypr/bindings.lua).
+#
+# Sets hyprsunset right away and records the value in
+# ~/.local/state/white-point.manual, where ambient-display picks it up: it
+# holds the new value and, once it's been left alone for a few seconds, learns
+# it as a correction for the room's light level.
+#
+# Usage: white-point [--no-osd] [+N | -N | N]   (kelvin; no argument prints the current value)
+#        Shift + dim = warmer (-200), Shift + bright = cooler (+200).
+
+MIN=2500 MAX=6600   # keep in step with MIN_K/MAX_K in ambient-display
+
+no_osd=0
+[[ ${1:-} == --no-osd ]] && { no_osd=1; shift; }
+
+current=$(hyprctl hyprsunset temperature 2>/dev/null)
+[[ $current =~ ^[0-9]+$ ]] || current=$MAX
+if [[ -z ${1:-} ]]; then
+  echo "$current"
+  exit 0
+fi
+
+case $1 in
+  [+-][0-9]*) target=$(( current + $1 )) ;;
+  [0-9]*) target=$1 ;;
+  *) echo "usage: white-point [--no-osd] [+N | -N | N]" >&2; exit 1 ;;
+esac
+target=$(( (target + 50) / 100 * 100 ))   # hyprsunset's 100 K grid
+(( target > MAX )) && target=$MAX
+(( target < MIN )) && target=$MIN
+
+hyprctl hyprsunset temperature "$target" >/dev/null
+state="${XDG_STATE_HOME:-$HOME/.local/state}"
+mkdir -p "$state" && echo "$target" > "$state/white-point.manual"
+
+if (( ! no_osd )); then
+  pct=$(( (target - MIN) * 100 / (MAX - MIN) ))
+  payload=$(jq -cn --arg icon $'\U000F050F' --arg value "$pct" --arg text "${target}K" \
+    '{icon:$icon,message:"",value:$value,progressText:$text,max:"100",duration:""}')
+  omarchy-shell -q osd show "$payload"
+fi
