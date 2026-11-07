@@ -45,9 +45,11 @@ White point (through hyprsunset's IPC, 100 K resolution):
          current lux it borrows the other's. Location: wttr.in's IP lookup,
          once, cached in the state file (no network: the clock decides,
          07:00-18:00 day).
-  move:  colour smoothed over TAU s, lux over TAU_LUX s; ramps at most RATE
-         mired/s; hysteresis: the screen moves one 100 K step only once the
-         target is HOLD_K away (snapping onto endpoints and exact targets).
+  move:  colour smoothed over TAU s, lux over TAU_LUX s. The screen holds
+         still until the target is HOLD_K away (so sensor wobble never shows),
+         then glides all the way there at most RATE mired/s in STEP_K steps
+         (hyprsunset takes any kelvin; 20 K steps are invisible where 100 K
+         ones read as a series of jumps), and holds again.
   night light toggle (omarchy-plugins/mtklein.nightlight) writes "night" or
          "day" to OVERRIDE; honoured until the room changes dark <-> lit or a
          manual white point change.
@@ -102,15 +104,16 @@ NEUTRAL_K = 6600         # ~identity in hyprsunset
 MIN_K, MAX_K = 2500, 6600  # overall limits, manual corrections included
 D65 = 1e6 / 6500
 ADAPT = 0.35             # fraction of the ambient-vs-D65 mired offset to follow
-TAU = 30.0               # ambient colour smoothing (s)
+TAU = 90.0               # ambient colour smoothing (s)
 TAU_LUX = 30.0           # lux smoothing for the white point (s)
 NIGHT_LUX = 3.0          # dark fade reaches NIGHT_K at and below this
 CUTOFF_LUX = 20.0        # assumed colour cutoff when starting up already dark
 DARK_AFTER = 15.0        # seconds of "can't measure" readings before dark
 LIT_AFTER = 3.0          # seconds of real readings before lit
-RATE = 2.5               # max mired/s of change
+RATE = 0.8               # max mired/s of change (a dark<->lit swing takes ~90 s)
 RESEND = 30.0
-HOLD_K = 150
+HOLD_K = 150             # a glide starts only once the target is this far from the screen
+STEP_K = 20              # glide resolution: steps small enough not to see
 WHITE_REACH = 1.0        # decades over which a correction fades out past the last point
 DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading
 
@@ -451,6 +454,7 @@ class WhitePoint:
         self.sent = None         # kelvin last sent
         self.last_send = 0.0
         self.last_override = None
+        self.gliding = False     # moving toward the target (vs holding still)
         self.manual = None       # (mired, since) while a manual change settles
         self.manual_mtime = self.mtime()
 
@@ -556,6 +560,7 @@ class WhitePoint:
                 k = int(MANUAL_WHITE.read_text().split()[0])
                 self.manual = (mired(k), now)
                 self.current, self.sent, self.last_send = mired(k), k, now
+                self.gliding = False
                 clear_override()
             except (OSError, ValueError, IndexError):
                 pass
@@ -597,24 +602,29 @@ class WhitePoint:
         jump = False
         if target is not None:
             if self.current is None or (override and override != self.last_override):
-                self.current, jump = target, True
+                self.current, jump, self.gliding = target, True, False
             else:
-                step = RATE * dt
-                self.current += max(-step, min(step, target - self.current))
+                if not self.gliding and self.sent is not None:
+                    if abs(1e6 / target - self.sent) >= HOLD_K:
+                        self.gliding = True
+                        lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
+                        why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
+                        log(f"white: gliding {self.sent}K -> {round(1e6 / target)}K ({why})")
+                    else:
+                        self.current = mired(self.sent)   # hold still: wobble isn't change
+                if self.gliding:
+                    step = RATE * dt
+                    self.current += max(-step, min(step, target - self.current))
+                    if self.current == target:
+                        self.gliding = False
         self.last_override = override
         if self.current is None:
             return
 
-        value = min(MAX_K, max(MIN_K, int(round(1e6 / self.current / 100.0) * 100)))
-        settled = self.current == target and target in (self.night, self.neutral, self.lit_warmest)
-        if self.sent is not None and not jump and not settled:
-            k = 1e6 / self.current      # hysteresis: hold, then one 100 K step at a time
-            value = self.sent if abs(k - self.sent) < HOLD_K else self.sent + (100 if k > self.sent else -100)
+        value = min(MAX_K, max(MIN_K, int(round(1e6 / self.current / STEP_K) * STEP_K)))
         if (value != self.sent or now - self.last_send >= RESEND) and self.send(value):
-            if value != self.sent:
-                lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
-                why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
-                log(f"white: -> {value}K ({why})")
+            if jump:
+                log(f"white: -> {value}K" + (f" (override {override})" if override else ""))
             self.sent, self.last_send = value, now
 
 
