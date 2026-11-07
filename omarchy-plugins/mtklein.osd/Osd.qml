@@ -113,18 +113,33 @@ Item {
     text: OsdModel.widestIcon
   }
 
+  // Instead of the launcher's "Launching <app>…" box, a flag the bar's app-name
+  // widget (mtklein.active-window) shows as a spinner. Cleared when the
+  // launcher closes the box: the window appeared, or its 15 s timeout.
+  property bool launching: false
+  FileView {
+    id: launchFlag
+    path: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchy-launching"
+    printErrors: false
+  }
+  function setLaunching(on) {
+    if (on === root.launching) return
+    root.launching = on
+    launchFlag.setText(on ? "1\n" : "0\n")
+  }
+
   ShellIpc {
     target: "osd"
     function show(payloadJson: string): string {
       // Skip the app launcher's "Launching <app>…" box (AppLibrary shows it when
       // a window takes over 2 s to appear): it only says what was asked for.
       try {
-        if (JSON.parse(payloadJson).icon === "\udb85\udcde") return "ok"
+        if (JSON.parse(payloadJson).icon === "\udb85\udcde") { root.setLaunching(true); return "ok" }
       } catch (e) {}
       root.open(payloadJson)
       return "ok"
     }
-    function close(): string { root.close(); return "ok" }
+    function close(): string { root.setLaunching(false); root.close(); return "ok" }
     function state(): string { return root.opened ? "open" : "closed" }
     function ping(): string { return "ok" }
   }
