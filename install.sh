@@ -39,6 +39,7 @@ link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightl
 link omarchy-plugins/mtklein.workspaces ~/.config/omarchy/plugins/mtklein.workspaces
 link omarchy-plugins/mtklein.active-window ~/.config/omarchy/plugins/mtklein.active-window
 link omarchy-plugins/mtklein.clock      ~/.config/omarchy/plugins/mtklein.clock
+link omarchy-plugins/mtklein.tray       ~/.config/omarchy/plugins/mtklein.tray
 link omarchy-themes/tiger               ~/.config/omarchy/themes/tiger
 # Tiger's wallpaper is Apple's artwork, so it isn't in the repo: fetch it (and
 # the theme picker's preview) the first time.
