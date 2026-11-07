@@ -54,6 +54,9 @@ for _, b in ipairs({
   o.bind(b[1], b[2], b[3])
 end
 
+-- Super alone: tap toggles the Quake console, hold peeks it (hypr/super-console.lua).
+dofile(os.getenv("HOME") .. "/expertbook-tweaks/hypr/super-console.lua")
+
 -- Dictation keys from before Alt + Space and Right Alt became the defaults.
 -- Remove these lines to give the keys back to applications.
 if o.dictation_installed and o.dictation_installed() then
