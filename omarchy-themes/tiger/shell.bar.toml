@@ -1,0 +1,11 @@
+[bar]
+# Tiger's bar is OLED black (pixels off), with light-grey text and the
+# stoplight red for modules calling attention to themselves. The rest of the
+# shell (popups, panels) stays Tiger-light.
+background       = "#000000"
+background-alpha = 1.0
+text             = "#d8d8d8"
+active           = "#ff5f57"
+scale-with-font  = true
+size-horizontal  = 26
+size-vertical    = 28
