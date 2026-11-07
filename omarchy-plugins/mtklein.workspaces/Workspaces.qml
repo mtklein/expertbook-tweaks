@@ -179,7 +179,7 @@ BarWidget {
   // monitor's bar focuses that monitor first.
   function cycleLayout() {
     if (!root.bar) return
-    var command = "omarchy-hyprland-workspace-layout-toggle"
+    var command = "workspace-layout-toggle"   // ~/.local/bin: the same cycle, without its notification
     if (root.monitor && !root.monitor.focused) {
       command = "hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ monitor = \"" + root.monitorName + "\" })") + " >/dev/null && " + command
     }

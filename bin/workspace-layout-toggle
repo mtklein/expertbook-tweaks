@@ -1,0 +1,10 @@
+#!/bin/bash
+# Omarchy's workspace layout cycle (tiling -> scrolling -> floating), without
+# the notification it posts on every change. Bound to Super+L / Super+Alt+L
+# (hypr/bindings.lua) and the bar's current-desktop click (mtklein.workspaces).
+#
+# The script notifies through omarchy-notification-send; an exported bash
+# function of that name shadows the command in the child bash script.
+omarchy-notification-send() { :; }
+export -f omarchy-notification-send
+exec omarchy-hyprland-workspace-layout-toggle "$@"

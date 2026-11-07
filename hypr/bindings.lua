@@ -45,6 +45,15 @@ for _, b in ipairs({
 end
 
 
+-- Workspace layout cycling without Omarchy's notification on every change.
+for _, b in ipairs({
+  { "SUPER + L", "Cycle workspace layout", "workspace-layout-toggle" },
+  { "SUPER + ALT + L", "Cycle workspace layout back", "workspace-layout-toggle back" },
+}) do
+  hl.unbind(b[1])
+  o.bind(b[1], b[2], b[3])
+end
+
 -- Dictation keys from before Alt + Space and Right Alt became the defaults.
 -- Remove these lines to give the keys back to applications.
 if o.dictation_installed and o.dictation_installed() then
