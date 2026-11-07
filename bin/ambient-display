@@ -38,6 +38,13 @@ White point (through hyprsunset's IPC, 100 K resolution):
          the difference from the model (mireds) is learned at the room's lux.
          Corrections are interpolated on log lux and fade back to the plain
          model over WHITE_REACH decades beyond the outermost learned points.
+         Day and night keep separate corrections, blended by the sun's
+         elevation (all day above +6 deg, all night below -6 deg, i.e. through
+         civil twilight), so a dark room can learn to be warmer at night and
+         cooler by day, or the reverse. Where one has no correction near the
+         current lux it borrows the other's. Location: wttr.in's IP lookup,
+         once, cached in the state file (no network: the clock decides,
+         07:00-18:00 day).
   move:  colour smoothed over TAU s, lux over TAU_LUX s; ramps at most RATE
          mired/s; hysteresis: the screen moves one 100 K step only once the
          target is HOLD_K away (snapping onto endpoints and exact targets).
@@ -49,7 +56,7 @@ White point (through hyprsunset's IPC, 100 K resolution):
   is re-sent every RESEND s (hyprsunset re-applies its profile daily).
 
 State: ~/.local/state/ambient-display.json (learned brightness points, white
-corrections, dark-fade start). Delete a key (or the file) to forget it.
+corrections by day and night, dark-fade start, location). Delete a key (or the file) to forget it.
 Migrates hdr-auto-brightness.json / ambient-white.json on first run.
 """
 import json
@@ -60,6 +67,8 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
@@ -180,6 +189,44 @@ def interpolate(points, lux, reach=None):
         if x0 <= x <= x1:
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
     return xs[-1][1]
+
+
+def curve(points, lux, reach):
+    """(value, confidence): flat-extended interpolation, and how much to trust
+    it: 1 within the learned points, fading to 0 over `reach` decades outside."""
+    if not points:
+        return 0.0, 0.0
+    x, lo, hi = L(lux), L(points[0][0]), L(points[-1][0])
+    out = lo - x if x < lo else x - hi if x > hi else 0.0
+    return interpolate(points, lux), max(0.0, 1 - out / reach)
+
+
+# ---------------------------------------------------------------- sun
+
+def solar_elevation(lat, lon, when=None):
+    """Degrees above the horizon (NOAA's approximation; a fraction of a degree)."""
+    t = when or datetime.now(timezone.utc)
+    day = t.timetuple().tm_yday
+    hour = t.hour + t.minute / 60 + t.second / 3600
+    g = 2 * math.pi / 365 * (day - 1 + (hour - 12) / 24)
+    eqtime = 229.18 * (0.000075 + 0.001868 * math.cos(g) - 0.032077 * math.sin(g)
+                       - 0.014615 * math.cos(2 * g) - 0.040849 * math.sin(2 * g))
+    decl = (0.006918 - 0.399912 * math.cos(g) + 0.070257 * math.sin(g) - 0.006758 * math.cos(2 * g)
+            + 0.000907 * math.sin(2 * g) - 0.002697 * math.cos(3 * g) + 0.00148 * math.sin(3 * g))
+    ha = math.radians((hour * 60 + eqtime + 4 * lon) / 4 - 180)
+    la = math.radians(lat)
+    cos_zenith = math.sin(la) * math.sin(decl) + math.cos(la) * math.cos(decl) * math.cos(ha)
+    return 90 - math.degrees(math.acos(max(-1.0, min(1.0, cos_zenith))))
+
+
+def lookup_location():
+    """(lat, lon) from wttr.in's IP lookup, or None."""
+    try:
+        with urllib.request.urlopen("https://wttr.in/?format=j1", timeout=15) as r:
+            area = json.load(r)["nearest_area"][0]
+        return float(area["latitude"]), float(area["longitude"])
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
 
 
 # ---------------------------------------------------------------- sensor
@@ -380,7 +427,14 @@ class WhitePoint:
         self.lit_warmest = mired(LIT_WARMEST_K)
         self.lo, self.hi = mired(MAX_K), mired(MIN_K)
         self.night_lo = L(NIGHT_LUX)
-        self.offsets = sorted((float(a), float(b)) for a, b in store.d.get("white_offsets", []))
+        wo = store.d.get("white_offsets") or {}
+        if isinstance(wo, list):         # before day/night: all learned at night so far
+            wo = {"night": wo}
+        self.offsets = {k: sorted((float(a), float(b)) for a, b in wo.get(k, [])) for k in ("day", "night")}
+        loc = store.d.get("location")
+        self.location = (loc["lat"], loc["lon"]) if loc else None
+        if self.location is None:
+            threading.Thread(target=self.find_location, daemon=True).start()
         fade = store.d.get("dark_fade") or {}
         self.lit_target = fade.get("lit_mired")      # dark fade starts here (mired) ...
         self.fade_hi = fade.get("cutoff_loglux")     # ... at this log lux (colour lost)
@@ -443,10 +497,34 @@ class WhitePoint:
             return t
         return None
 
-    def correction(self):
+    def find_location(self):
+        for wait in (0, 60, 300, 1800):
+            time.sleep(wait)
+            loc = lookup_location()
+            if loc:
+                self.location = loc
+                self.store.d["location"] = {"lat": loc[0], "lon": loc[1]}
+                self.store.save()
+                log(f"white: location {loc[0]:.2f}, {loc[1]:.2f}")
+                return
+
+    def nightness(self):
+        """0 = day, 1 = night, in between through civil twilight."""
+        if self.location:
+            elev = solar_elevation(*self.location)
+            return min(1.0, max(0.0, (6 - elev) / 12))
+        return 0.0 if 7 <= time.localtime().tm_hour < 18 else 1.0
+
+    def correction(self, w=None):
+        """Learned mired correction at the current lux and time of day."""
         if self.loglux is None:
             return 0.0
-        return interpolate(self.offsets, 10 ** self.loglux - 1, reach=WHITE_REACH)
+        w = self.nightness() if w is None else w
+        lux = 10 ** self.loglux - 1
+        (d, cd), (n, cn) = curve(self.offsets["day"], lux, WHITE_REACH), curve(self.offsets["night"], lux, WHITE_REACH)
+        day = cd * d + (1 - cd) * cn * n         # each borrows the other where it has nothing
+        night = cn * n + (1 - cn) * cd * d
+        return (1 - w) * day + w * night
 
     def send(self, k):
         return run("hyprctl", "hyprsunset", "temperature", str(k))
@@ -490,11 +568,21 @@ class WhitePoint:
             self.manual = None
             if base is not None and self.loglux is not None:
                 lux = 10 ** self.loglux - 1
-                self.offsets = replace_near(self.offsets, lux, value - base)
-                self.store.d["white_offsets"] = [[round(a, 1), round(b, 1)] for a, b in self.offsets]
+                # Learn into whichever of day/night dominates now, solving for the
+                # value that makes the blended correction exactly what was chosen.
+                w = self.nightness()
+                mine, other = ("night", "day") if w >= 0.5 else ("day", "night")
+                wm = w if mine == "night" else 1 - w
+                desired = value - base
+                o, co = curve(self.offsets[other], lux, WHITE_REACH)
+                # blended = (1-wm)*(co*o + (1-co)*v) + wm*v, with v's own confidence 1 here
+                v = (desired - (1 - wm) * co * o) / ((1 - wm) * (1 - co) + wm)
+                self.offsets[mine] = replace_near(self.offsets[mine], lux, v)
+                self.store.d["white_offsets"] = {k: [[round(a, 1), round(b, 1)] for a, b in pts]
+                                                 for k, pts in self.offsets.items()}
                 self.store.save()
-                log(f"white: learned {lux:.0f} lux -> {round(1e6 / value)}K "
-                    f"({value - base:+.1f} mired vs model {round(1e6 / base)}K)")
+                log(f"white: learned {lux:.0f} lux, {mine} ({w:.2f}) -> {round(1e6 / value)}K "
+                    f"({desired:+.1f} mired vs model {round(1e6 / base)}K)")
 
         override = read_override()
         if override == "night":
