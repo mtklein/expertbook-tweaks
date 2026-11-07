@@ -1,0 +1,39 @@
+# Tiger: Mac OS X 10.4 in Omarchy. Light, neutral greys, Aqua blue for focus and
+# selection, stoplight red / yellow / green for status. Every colour is meant to
+# be read as text on white: normal ones at >= 4.5:1 contrast, bright ones >= 3.4:1
+# (the stoplight hues, deepened just enough).
+mode = "light"
+
+accent = "#3875d7"        # Aqua selection blue
+selection = "#b5d5ff"     # Tiger's text-selection highlight
+muted = "#6e6e73"
+
+background = "#ffffff"
+dark_background = "#f0f0f0"
+darker_background = "#e3e3e3"
+lighter_background = "#d4d4d4"
+
+foreground = "#1d1d1f"
+dark_foreground = "#8e8e93"
+light_foreground = "#1d1d1f"
+bright_foreground = "#000000"
+
+red = "#c4261d"
+yellow = "#8f6400"
+orange = "#d9731a"
+green = "#1e7b34"
+cyan = "#0f6f80"
+blue = "#1f5fc4"
+magenta = "#8a3fae"
+brown = "#8b6b4a"
+
+bright_red = "#e0352b"     # close
+bright_yellow = "#b07d00"  # minimise
+bright_green = "#2a9a43"   # zoom
+bright_cyan = "#1a8ca0"
+bright_blue = "#3875d7"
+bright_magenta = "#a557c9"
+
+# Lickable Aqua: the focused window's border is a glossy blue, light at the top.
+hyprland_active_border = "rgba(8cc6ffff) rgba(2a6fd6ff) 90deg"
+hyprland_inactive_border = "rgba(b4b4b4aa)"

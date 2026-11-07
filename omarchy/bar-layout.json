@@ -1,0 +1,90 @@
+{
+  "bar": {
+    "position": "top",
+    "layout": {
+      "center": [],
+      "centerBegin": [],
+      "centerEnd": [],
+      "left": [
+        {
+          "id": "mtklein.workspaces"
+        },
+        {
+          "id": "mtklein.active-window"
+        },
+        {
+          "id": "omarchy.indicators"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.system-update"
+        },
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
+          "id": "omarchy.agents"
+        },
+        {
+          "id": "mtklein.monitor"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "omarchy.bluetooth"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "omarchy.power",
+          "showPercentage": false
+        },
+        {
+          "cities": [
+            {
+              "lat": 30.26715,
+              "lon": -97.74306,
+              "name": "Austin",
+              "region": "Texas, US",
+              "zone": "America/Chicago"
+            },
+            {
+              "name": "Philadelphia",
+              "zone": "America/New_York"
+            },
+            {
+              "name": "Taipei",
+              "zone": "Asia/Taipei"
+            }
+          ],
+          "here": {
+            "lat": 30.26715,
+            "lon": -97.74306,
+            "name": "Austin",
+            "region": "Texas, US",
+            "zone": "America/Chicago"
+          },
+          "hour24": true,
+          "id": "omarchy.elsewhen"
+        },
+        {
+          "format": "ddd h:mm AP",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "id": "mtklein.clock",
+          "verticalFormat": "h:mm\nAP",
+          "weekStartDay": "monday"
+        },
+        {
+          "id": "omarchy.weather"
+        }
+      ],
+      "tray": []
+    }
+  }
+}

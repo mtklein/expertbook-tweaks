@@ -36,9 +36,25 @@ link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightlight
+link omarchy-plugins/mtklein.workspaces ~/.config/omarchy/plugins/mtklein.workspaces
+link omarchy-plugins/mtklein.active-window ~/.config/omarchy/plugins/mtklein.active-window
+link omarchy-plugins/mtklein.clock      ~/.config/omarchy/plugins/mtklein.clock
+link omarchy-themes/tiger               ~/.config/omarchy/themes/tiger
+# Tiger's wallpaper is Apple's artwork, so it isn't in the repo: fetch it (and
+# the theme picker's preview) the first time.
+tiger=$R/omarchy-themes/tiger
+if [[ ! -f $tiger/backgrounds/1-tiger.jpg ]]; then
+  mkdir -p "$tiger/backgrounds"
+  curl -fsSL -o "$tiger/backgrounds/1-tiger.jpg" https://media.512pixels.net/downloads/macos-wallpapers-6k/10-4-6k.jpg &&
+    echo "fetched the Tiger wallpaper" || echo "couldn't fetch the Tiger wallpaper; the theme works without it"
+fi
+if [[ -f $tiger/backgrounds/1-tiger.jpg && ! -f $tiger/preview.png ]] && command -v magick >/dev/null; then
+  magick "$tiger/backgrounds/1-tiger.jpg" -resize 2560x1440^ -gravity center -extent 2560x1440 "$tiger/preview.png"
+fi
 link omarchy/omarchy-menu.jsonc         ~/.config/omarchy/extensions/omarchy-menu.jsonc
 link wluma                              ~/.config/wluma
 link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grayscale-antialias.conf
+link fontconfig/61-tiger-sans.conf   ~/.config/fontconfig/conf.d/61-tiger-sans.conf
 link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
