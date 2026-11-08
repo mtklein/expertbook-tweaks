@@ -24,6 +24,7 @@ link bin/white-point                    ~/.local/bin/white-point
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link bin/workspace-layout-toggle        ~/.local/bin/workspace-layout-toggle
+link bin/brightness-why                 ~/.local/bin/brightness-why
 link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,

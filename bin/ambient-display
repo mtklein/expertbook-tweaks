@@ -12,22 +12,23 @@ every COLOR_EVERY cycles (~1 Hz lux, ~1/3 Hz colour); the control loop never
 waits on it, and all smoothing uses the samples' real timestamps.
 
 Brightness (through hdr-brightness, so it works in HDR, where the panel ignores
-its backlight):
-  model: learned (lux, nits) points, interpolated on log lux, kept monotonic
-         (brighter room never means a dimmer screen). Nits = the SDR white
-         level Hyprland uses, so the curve survives changing edp_sdr_white
-         (hdr.lua publishes what 100% means to ~/.local/state/hdr-sdr-white).
-  learn: a level that differs from what we last set is a manual change; once
-         left alone for SETTLE s it becomes a point (replacing points within
-         NEAR, evicting any that would break monotonicity).
-  move:  lux smoothed (TAU_UP when the room brightens, TAU_DOWN when it
-         darkens), DEADBAND % ignored, fades in 1% steps.
-  hold:  after a manual change is learned, it doesn't move until the room's
-         light changes by HOLD_DECADES (~2x) from then, the way macOS sits still
-         after you adjust; then it follows the (corrected) curve.
-  floor: never auto-sets below MIN_PCT (5%); below that (including 0) is
-         manual-only: left alone and never learned. SIGUSR1 (sent by
-         brightness-wake-floor) adopts the current level without learning it.
+its backlight): learned from evidence, not a curve edited in place.
+  evidence: each manual choice (room light, time of day, nits, how long it was
+         kept) and "silent approvals" (an automatic level left untouched for
+         APPROVE_EVERY), kept MAX_AGE, in ~/.local/state/ambient-display.json.
+  fit:   per time of day, kernel-weighted robust medians over a log-lux grid
+         (weights: closeness in lux and in time of day on the 24 h circle, how
+         long the level was kept, recency), made non-decreasing in lux by
+         isotonic regression. One odd moment can't erase what was learned.
+  who:   hdr-brightness stamps SOURCE on every user change (keys, bar slider);
+         this daemon writes with --auto. A user change owns the level until
+         the room's light moves HOLD_DECADES (~2x) or HOLD_MAX passes; then
+         automatic control resumes from there, easing out the user's offset.
+  floor: never auto-sets below MIN_PCT (5%); a user level below that is left
+         alone indefinitely and never learned. SIGUSR1 (brightness-wake-floor)
+         hands the current level back to automatic control without learning it.
+  move:  lux smoothed TAU_UP / TAU_DOWN, DEADBAND %, 1% steps; status for
+         `brightness-why` in $XDG_RUNTIME_DIR/ambient-display-status.json.
 
 White point (through hyprsunset's IPC, 100 K resolution):
   model: lit room (sensor measures colour) -> partway (ADAPT, in mireds) toward
@@ -87,11 +88,13 @@ OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the bar
 MONITOR = "eDP-1"
 
 TICK = 0.2               # control loop period (s)
-SETTLE = 8.0             # seconds a manual change must be left alone to be learned (4 s learned passing values)
+SETTLE = 4.0             # seconds a manual white point change must be left alone to be learned
 NEAR = 0.25              # log10-lux distance within which a new point replaces old ones
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 
 # Brightness
+SOURCE = STATE_DIR / "hdr-brightness.source"   # "user <epoch> <pct>", from hdr-brightness (not --auto)
+STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
 DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
 TAU_UP = 7.5             # lux smoothing when the room brightens (s)
 TAU_DOWN = 30.0          # ... when it darkens
@@ -99,7 +102,24 @@ DEADBAND = 3             # ignore target differences smaller than this (%)
 STEP_EVERY_UP = 0.7      # seconds per 1% step while fading up
 STEP_EVERY_DOWN = 1.0    # ... while fading down
 MIN_PCT, MAX_PCT = 5, 100
-HOLD_DECADES = 0.3       # after a manual change, sit still until the room's light changes ~2x
+# Ownership: after you set a level it's yours until the room's light changes
+# this much (log10 lux, ~2x) from when you set it, or HOLD_MAX passes.
+HOLD_DECADES = 0.3
+HOLD_MAX = 3 * 3600
+OFFSET_REACH = 0.5       # decades over which "dimmer/brighter than the curve here" fades out
+OFFSET_HALF_LIFE = 1800  # ... and seconds
+# Evidence and the fit.
+MIN_DWELL = 3.0          # a level kept less than this was passed on the way: not evidence
+DWELL_CAP = 2 * 3600
+APPROVE_EVERY = 20 * 60  # an untouched stretch of automatic brightness this long is a silent approval
+APPROVE_WEIGHT = 0.3     # ... worth this much of an equally long manual choice
+SEED_DWELL = 30 * 60     # what migrated curve points count as
+HALF_LIFE = 14 * 86400   # evidence weight halves every two weeks
+MAX_AGE = 60 * 86400
+MAX_EVENTS = 2000
+BANDWIDTH = 0.25         # decades of log lux an event informs
+CROSS_PHASE = 0.15       # how much daytime evidence counts at night (and vice versa)
+GRID = [i / 10 for i in range(46)]   # log10(lux + 1), 0 .. 4.5
 
 # White point
 NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
@@ -329,28 +349,192 @@ def run(*cmd):
 
 # ---------------------------------------------------------------- brightness
 
+def hour_now():
+    t = time.localtime()
+    return t.tm_hour + t.tm_min / 60
+
+
+def hour_gap(a, b):
+    """Hours between two times of day, round the 24 h circle."""
+    d = abs(a - b) % 24
+    return min(d, 24 - d)
+
+
+def weighted_median(pairs):
+    """pairs: [(value, weight)]."""
+    pairs = sorted(pairs)
+    half = sum(w for _, w in pairs) / 2
+    acc = 0.0
+    for v, w in pairs:
+        acc += w
+        if acc >= half:
+            return v
+    return pairs[-1][0]
+
+
+def isotonic(values, weights):
+    """Weighted pool-adjacent-violators: the closest non-decreasing sequence."""
+    blocks = []   # [mean, weight, count]
+    for v, w in zip(values, weights):
+        blocks.append([v, w, 1])
+        while len(blocks) > 1 and blocks[-2][0] > blocks[-1][0]:
+            v2, w2, c2 = blocks.pop()
+            v1, w1, c1 = blocks.pop()
+            w = w1 + w2
+            blocks.append([(v1 * w1 + v2 * w2) / w if w else (v1 + v2) / 2, w, c1 + c2])
+    out = []
+    for v, _, c in blocks:
+        out += [v] * c
+    return out
+
+
 class Brightness:
+    """Learns screen brightness (in nits) as a function of room light and time of day.
+
+    Evidence, not a curve: every manual choice is kept as an event (room light,
+    time of day, nits, how long you kept it), plus "silent approvals" when an
+    automatic level goes untouched for APPROVE_EVERY. The curve is refitted
+    from all of it: kernel-weighted (by closeness in log lux and in time of day,
+    by how long a level was kept, and by recency) robust medians on a grid,
+    made non-decreasing in lux by weighted isotonic regression. One odd moment
+    is a small weight among many and can never erase what was learned.
+
+    Who changed the level is known, not guessed: hdr-brightness stamps SOURCE
+    on every user change (keys, bar slider); this daemon writes with --auto.
+    After a user change the level is the user's until the room's light moves
+    HOLD_DECADES or HOLD_MAX passes (below MIN_PCT: until the user changes it).
+    Then automatic control resumes from there, carrying the user's offset from
+    the curve and easing it out as the light keeps changing.
+    """
+
     def __init__(self, store):
         self.store = store
-        pts = store.d.get("brightness") or DEFAULT_POINTS
-        self.points = sorted((float(a), float(b)) for a, b in pts)
+        self.events = store.d.get("brightness_events")
+        if self.events is None:                 # migrate the old learned points
+            now = time.time()
+            pts = store.d.get("brightness") or []
+            self.events = [{"t": now, "x": round(L(a), 3), "h": None, "nits": float(b),
+                            "k": "seed", "d": SEED_DWELL} for a, b in pts]
+            store.d["brightness_events"] = self.events
+            store.save()
+            if pts:
+                log(f"brightness: seeded evidence from {len(pts)} learned points")
         self.smooth = None       # smoothed log lux
         self.last_t = None
-        self.last_set = None     # what we last set; None = adopt the current level
-        self.manual_since = None
-        self.next_step = 0.0
-        self.last_check = 0.0
-        self.fading = False
         self.white = None        # nits at 100%
-        self.hdr = None          # eDP-1 in HDR (from the last poll); None = unknown
-        self.hold_at = None      # log lux of the last manual change; auto waits for a real change
+        self.hdr = None
+        self.last_set = None     # the level as last seen or written (%)
+        self.owner = "auto"      # "auto" | "user"
+        self.hold_x = None       # log lux when the user took over
+        self.hold_since = 0.0
+        self.open = None         # the user's current choice, not yet closed into evidence
+        self.offset = 0.0        # nits the user wanted above/below the curve, carried on release
+        self.offset_x = None
+        self.offset_t = 0.0
+        self.source_mtime = self.mtime(SOURCE)
+        self.last_check = 0.0
+        self.next_step = 0.0
+        self.fading = False
+        self.stable_since = None # wall time automatic brightness has sat untouched since
+        self.curve = None        # (hour, grid nits) cache
+        self.curve_at = 0.0
+        self.last_status = 0.0
+        self.resume_user_hold()
+
+    # ------------------------------------------------------------ evidence and fit
+
+    @staticmethod
+    def mtime(path):
+        try:
+            return path.stat().st_mtime_ns
+        except OSError:
+            return None
+
+    def weight(self, e, now, hour):
+        dwell = math.log1p(min(e.get("d", 0), DWELL_CAP) / 30.0)
+        recency = 0.5 ** (max(0.0, now - e["t"]) / HALF_LIFE)
+        kind = APPROVE_WEIGHT if e["k"] == "approve" else 1.0
+        h = e.get("h")
+        if h is None:
+            when = 1.0                          # seeds: any time of day
+        else:
+            when = max(CROSS_PHASE, math.exp(-0.5 * (hour_gap(h, hour) / 2.0) ** 2))
+        return dwell * recency * kind * when
+
+    def fit(self, hour):
+        """Grid of nits over GRID (log lux) for this time of day."""
+        now = time.time()
+        weighted = [(e, self.weight(e, now, hour)) for e in self.events]
+        values, weights = [], []
+        for c in GRID:
+            pairs = []
+            for e, w in weighted:
+                k = math.exp(-0.5 * ((e["x"] - c) / BANDWIDTH) ** 2)
+                if k * w > 1e-4:
+                    pairs.append((e["nits"], k * w))
+            total = sum(w for _, w in pairs)
+            values.append(weighted_median(pairs) if total > 0.02 else None)
+            weights.append(total)
+        known = [i for i, v in enumerate(values) if v is not None]
+        if not known:
+            return [interpolate(DEFAULT_POINTS, 10 ** c - 1) for c in GRID]
+        for i, v in enumerate(values):          # fill gaps: interpolate, flat past the ends
+            if v is None:
+                lo = max((j for j in known if j < i), default=None)
+                hi = min((j for j in known if j > i), default=None)
+                if lo is None: values[i] = values[hi]
+                elif hi is None: values[i] = values[lo]
+                else: values[i] = values[lo] + (values[hi] - values[lo]) * (i - lo) / (hi - lo)
+                weights[i] = 1e-3
+        return isotonic(values, weights)
+
+    def model(self, x):
+        """Nits the evidence suggests at log lux x, now."""
+        hour = hour_now()
+        now = time.monotonic()
+        if self.curve is None or now - self.curve_at > 600 or hour_gap(self.curve[0], hour) > 0.25:
+            self.curve, self.curve_at = (hour, self.fit(hour)), now
+        grid = self.curve[1]
+        if x <= GRID[0]: return grid[0]
+        if x >= GRID[-1]: return grid[-1]
+        i = int(x * 10)
+        f = x * 10 - i
+        return grid[i] + (grid[i + 1] - grid[i]) * f
+
+    def add_event(self, e):
+        now = time.time()
+        self.events.append(e)
+        self.events = [ev for ev in self.events if now - ev["t"] < MAX_AGE][-MAX_EVENTS:]
+        self.store.d["brightness_events"] = self.events
+        self.store.save()
+        self.curve = None
+
+    def close_open(self):
+        if not self.open:
+            return
+        e, self.open = self.open, None
+        e["d"] = round(min(time.time() - e["t"], DWELL_CAP), 1)
+        if e["d"] < MIN_DWELL:
+            return
+        self.add_event(e)
+        log(f"brightness: kept {e['nits']:.0f} nits at {10 ** e['x'] - 1:.0f} lux, "
+            f"{e['h']:.1f} h, for {e['d']:.0f} s")
+
+    # ------------------------------------------------------------ control
 
     def adopt(self):
-        """Take the current level as ours without learning it (SIGUSR1)."""
-        self.last_set = None
-        self.manual_since = None
-        self.fading = False
-        self.hold_at = None
+        """Take the current level as automatic's without learning it (SIGUSR1)."""
+        self.owner, self.open, self.offset = "auto", None, 0.0
+        self.last_set, self.fading, self.stable_since = None, False, None
+
+    def resume_user_hold(self):
+        """After a restart, a recent user change still owns the level."""
+        try:
+            kind, when, pct = SOURCE.read_text().split()[:3]
+            if kind == "user" and time.time() - float(when) < HOLD_MAX:
+                self.owner, self.hold_since = "user", time.monotonic()
+        except (OSError, ValueError):
+            pass
 
     def feed(self, t, lux):
         x = L(lux)
@@ -382,12 +566,58 @@ class Brightness:
         except (OSError, subprocess.SubprocessError, ValueError):
             return None
 
+    def user_changed(self, pct, now):
+        self.close_open()                       # the previous choice, with its dwell
+        self.owner, self.hold_x, self.hold_since = "user", self.smooth, now
+        self.last_set, self.fading, self.stable_since, self.offset = pct, False, None, 0.0
+        if pct >= MIN_PCT and self.white:
+            self.open = {"t": time.time(), "x": round(self.smooth, 3), "h": round(hour_now(), 2),
+                         "nits": round(pct * self.white / 100, 1), "k": "user", "d": 0}
+
+    def release(self, now, why):
+        self.close_open()
+        if self.last_set is not None and self.white and self.hold_x is not None:
+            self.offset = self.last_set * self.white / 100 - self.model(self.hold_x)
+            self.offset_x, self.offset_t = self.hold_x, now
+        self.owner, self.stable_since = "auto", None
+        log(f"brightness: {why}; automatic again (carrying {self.offset:+.0f} nits)")
+
+    def target_pct(self, now):
+        nits = self.model(self.smooth)
+        if self.offset and self.offset_x is not None:
+            fade = math.exp(-abs(self.smooth - self.offset_x) / OFFSET_REACH) \
+                * 0.5 ** ((now - self.offset_t) / OFFSET_HALF_LIFE)
+            nits += self.offset * fade
+        return int(round(min(MAX_PCT, max(MIN_PCT, 100 * nits / self.white))))
+
+    def write_status(self, now, target):
+        try:
+            STATUS.write_text(json.dumps({
+                "time": time.strftime("%H:%M:%S"), "lux": round(10 ** self.smooth - 1, 1),
+                "hour": round(hour_now(), 2), "level": self.last_set, "owner": self.owner,
+                "target": target, "model_nits": round(self.model(self.smooth), 1), "white": self.white,
+                "hold_lux": None if self.hold_x is None else round(10 ** self.hold_x - 1, 1),
+                "offset_nits": round(self.offset, 1), "events": len(self.events),
+                "open": self.open}, indent=1) + "\n")
+        except OSError:
+            pass
+
     def tick(self, now):
         if self.smooth is None:
             return
-        lux = 10 ** self.smooth - 1
 
-        if now - self.last_check >= 1.0 or self.manual_since is not None:
+        # Who changed it is told, not guessed: hdr-brightness stamps SOURCE.
+        m = self.mtime(SOURCE)
+        if m != self.source_mtime:
+            self.source_mtime = m
+            try:
+                kind, _, pct = SOURCE.read_text().split()[:3]
+                if kind == "user":
+                    self.user_changed(int(pct), now)
+            except (OSError, ValueError):
+                pass
+
+        if now - self.last_check >= 1.0:
             self.last_check = now
             state = self.edp_state()
             nits = state[0] if state else None
@@ -399,48 +629,55 @@ class Brightness:
                 self.white = float(WHITE.read_text())
             except (OSError, ValueError):
                 self.white = nits * 100 / current if current else 200.0
-            if current < MIN_PCT:            # manual-only range: hands off, don't learn
-                self.last_set, self.manual_since = current, None
-                return
             if self.last_set is None:
                 self.last_set = current
-            if current != self.last_set:     # someone else changed it
-                self.manual_since, self.last_set = now, current
-            if self.manual_since is not None:
-                if now - self.manual_since >= SETTLE:
-                    self.points = replace_near(self.points, lux, nits, monotonic=True)
-                    self.store.d["brightness"] = [[round(a, 1), round(b)] for a, b in self.points]
-                    self.store.save()
-                    log(f"brightness: learned {lux:.0f} lux -> {nits:g} nits ({current}% of {self.white:g})")
-                    self.manual_since, self.fading = None, False
-                    self.hold_at = self.smooth    # like macOS: don't move until the room does
+            elif current != self.last_set:      # changed by something unannounced: don't fight it
+                self.user_changed(current, now)
+
+        if self.owner == "user":
+            if self.hold_x is None:
+                self.hold_x = self.smooth        # resumed after a restart: hold from here
+            if self.last_set is not None and self.last_set >= MIN_PCT and self.hold_x is not None:
+                if abs(self.smooth - self.hold_x) >= HOLD_DECADES:
+                    self.release(now, f"room light changed ({10 ** self.smooth - 1:.0f} lux)")
+                elif now - self.hold_since > HOLD_MAX:
+                    self.release(now, "held for 3 h")
+            if self.owner == "user":
+                if now - self.last_status > 2:
+                    self.last_status = now
+                    self.write_status(now, None)
                 return
 
-        if self.last_set is None or not self.white or now < self.next_step:
+        if self.last_set is None or not self.white:
             return
-        if self.last_set < MIN_PCT or self.manual_since is not None:
-            return                        # hands off: manual-only range, or a change settling
-        if self.hold_at is not None:
-            if abs(self.smooth - self.hold_at) < HOLD_DECADES:
-                return
-            self.hold_at = None
-            log(f"brightness: room changed ({lux:.0f} lux), following the curve again")
-        target = int(round(min(MAX_PCT, max(MIN_PCT, 100 * interpolate(self.points, lux) / self.white))))
+        target = self.target_pct(now)
+        if now - self.last_status > 2:
+            self.last_status = now
+            self.write_status(now, target)
+
         diff = target - self.last_set
-        if abs(diff) >= DEADBAND or (self.fading and diff != 0):
-            # Look again right before writing: the 1 Hz poll can be up to a second
-            # stale, and stepping from a stale level overwrote manual changes.
+        if now >= self.next_step and (abs(diff) >= DEADBAND or (self.fading and diff != 0)):
             current = self.get_pct(self.hdr) if self.hdr is not None else None
             if current is not None and current != self.last_set:
-                self.manual_since, self.last_set, self.fading = now, current, False
+                self.user_changed(current, now)
                 return
-            self.fading = True
+            self.fading, self.stable_since = True, None
             step = 1 if diff > 0 else -1
             self.last_set += step
-            run("hdr-brightness", "--no-osd", "--monitor", MONITOR, f"{self.last_set}%")
+            run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{self.last_set}%")
             self.next_step = now + (STEP_EVERY_UP if step > 0 else STEP_EVERY_DOWN)
-        else:
+            return
+        if diff == 0 or abs(diff) < DEADBAND:
             self.fading = False
+        # Untouched automatic brightness is a (weak) approval of it.
+        wall = time.time()
+        if self.stable_since is None:
+            self.stable_since = wall
+        elif wall - self.stable_since >= APPROVE_EVERY:
+            self.stable_since = wall
+            self.add_event({"t": wall, "x": round(self.smooth, 3), "h": round(hour_now(), 2),
+                            "nits": round(self.last_set * self.white / 100, 1), "k": "approve",
+                            "d": APPROVE_EVERY})
 
 
 # ---------------------------------------------------------------- white point

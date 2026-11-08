@@ -23,7 +23,7 @@ done
 
 (( current >= FLOOR )) && exit 0
 
-hdr-brightness --no-osd --monitor eDP-1 "${FLOOR}%"
+hdr-brightness --auto --no-osd --monitor eDP-1 "${FLOOR}%"
 echo "brightness-wake-floor: raised brightness ${current}% -> ${FLOOR}%"
 
 systemctl --user kill -s USR1 ambient-display.service 2>/dev/null || true
