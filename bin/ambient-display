@@ -338,6 +338,7 @@ class Brightness:
         self.last_check = 0.0
         self.fading = False
         self.white = None        # nits at 100%
+        self.hdr = None          # eDP-1 in HDR (from the last poll); None = unknown
 
     def adopt(self):
         """Take the current level as ours without learning it (SIGUSR1)."""
@@ -384,7 +385,8 @@ class Brightness:
             self.last_check = now
             state = self.edp_state()
             nits = state[0] if state else None
-            current = self.get_pct(state[1]) if nits else None
+            self.hdr = state[1] if state else None
+            current = self.get_pct(self.hdr) if nits else None
             if current is None:
                 return
             try:
@@ -412,6 +414,12 @@ class Brightness:
         target = int(round(min(MAX_PCT, max(MIN_PCT, 100 * interpolate(self.points, lux) / self.white))))
         diff = target - self.last_set
         if abs(diff) >= DEADBAND or (self.fading and diff != 0):
+            # Look again right before writing: the 1 Hz poll can be up to a second
+            # stale, and stepping from a stale level overwrote manual changes.
+            current = self.get_pct(self.hdr) if self.hdr is not None else None
+            if current is not None and current != self.last_set:
+                self.manual_since, self.last_set, self.fading = now, current, False
+                return
             self.fading = True
             step = 1 if diff > 0 else -1
             self.last_set += step
