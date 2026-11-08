@@ -22,6 +22,9 @@ its backlight):
          NEAR, evicting any that would break monotonicity).
   move:  lux smoothed (TAU_UP when the room brightens, TAU_DOWN when it
          darkens), DEADBAND % ignored, fades in 1% steps.
+  hold:  after a manual change is learned, it doesn't move until the room's
+         light changes by HOLD_DECADES (~2x) from then, the way macOS sits still
+         after you adjust; then it follows the (corrected) curve.
   floor: never auto-sets below MIN_PCT (5%); below that (including 0) is
          manual-only: left alone and never learned. SIGUSR1 (sent by
          brightness-wake-floor) adopts the current level without learning it.
@@ -84,7 +87,7 @@ OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the bar
 MONITOR = "eDP-1"
 
 TICK = 0.2               # control loop period (s)
-SETTLE = 4.0             # seconds a manual change must be left alone to be learned
+SETTLE = 8.0             # seconds a manual change must be left alone to be learned (4 s learned passing values)
 NEAR = 0.25              # log10-lux distance within which a new point replaces old ones
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 
@@ -96,6 +99,7 @@ DEADBAND = 3             # ignore target differences smaller than this (%)
 STEP_EVERY_UP = 0.7      # seconds per 1% step while fading up
 STEP_EVERY_DOWN = 1.0    # ... while fading down
 MIN_PCT, MAX_PCT = 5, 100
+HOLD_DECADES = 0.3       # after a manual change, sit still until the room's light changes ~2x
 
 # White point
 NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
@@ -339,12 +343,14 @@ class Brightness:
         self.fading = False
         self.white = None        # nits at 100%
         self.hdr = None          # eDP-1 in HDR (from the last poll); None = unknown
+        self.hold_at = None      # log lux of the last manual change; auto waits for a real change
 
     def adopt(self):
         """Take the current level as ours without learning it (SIGUSR1)."""
         self.last_set = None
         self.manual_since = None
         self.fading = False
+        self.hold_at = None
 
     def feed(self, t, lux):
         x = L(lux)
@@ -407,10 +413,18 @@ class Brightness:
                     self.store.save()
                     log(f"brightness: learned {lux:.0f} lux -> {nits:g} nits ({current}% of {self.white:g})")
                     self.manual_since, self.fading = None, False
+                    self.hold_at = self.smooth    # like macOS: don't move until the room does
                 return
 
         if self.last_set is None or not self.white or now < self.next_step:
             return
+        if self.last_set < MIN_PCT or self.manual_since is not None:
+            return                        # hands off: manual-only range, or a change settling
+        if self.hold_at is not None:
+            if abs(self.smooth - self.hold_at) < HOLD_DECADES:
+                return
+            self.hold_at = None
+            log(f"brightness: room changed ({lux:.0f} lux), following the curve again")
         target = int(round(min(MAX_PCT, max(MIN_PCT, 100 * interpolate(self.points, lux) / self.white))))
         diff = target - self.last_set
         if abs(diff) >= DEADBAND or (self.fading and diff != 0):
