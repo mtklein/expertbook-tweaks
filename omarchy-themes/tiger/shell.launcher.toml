@@ -1,19 +1,19 @@
 [launcher]
+# Tiger: dark launcher to match the black bar and its panels (terminals stay light).
 # Same six tokens as [menu], applied to the launcher overlay. Alpha
 # companions go from 0 (invisible) to 1 (opaque). scrim is the full-screen
 # dim layer behind the card; background is the card itself. Defaults
 # mirror [menu] with the card at 0.95 to preserve the legacy translucency.
-background                = "#ffffff"
+background                = "#161618"
 background-alpha          = 0.95
-text                      = "#1d1d1f"
+text                      = "#d8d8d8"
 border                    = "hyprland.active-border-foreground"
 border-alpha              = 1.0
 scrim                     = "#ffffff"
 # Tiger: no full-screen haze behind the card.
 scrim-alpha               = 0.0
-selected-background       = "#1d1d1f"
-selected-background-alpha = 0.08
-selected-text             = "#3875d7"
+selected-background       = "#d8d8d8"
+selected-background-alpha = 0.12
+selected-text             = "#6aa8ff"
 selected-border           = "hyprland.active-border-foreground"
 selected-border-alpha     = 0.25
-
