@@ -242,8 +242,11 @@ BarWidget {
 
   readonly property real trailingGap: root.vertical ? 0 : Style.spaceReal(1.5)
 
-  implicitWidth: grid.implicitWidth + trailingGap
-  implicitHeight: grid.implicitHeight
+  // A lone desktop needs no number: show the row only once there are two.
+  readonly property bool worthShowing: root.workspaceIds().length > 1
+  visible: worthShowing
+  implicitWidth: worthShowing ? grid.implicitWidth + trailingGap : 0
+  implicitHeight: worthShowing ? grid.implicitHeight : 0
 
   GridLayout {
     id: grid
