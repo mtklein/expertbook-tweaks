@@ -826,7 +826,9 @@ BarWidget {
   component TrayIcon: Item {
     id: trayIconRoot
     required property var icon
-    readonly property bool symbolic: root.iconIsSymbolic(icon)
+    // Mac menu-bar style: every tray icon is drawn as a silhouette in the bar's
+    // text colour, not just symbolic ones (Steam's dark icon was dim on the black bar).
+    readonly property bool symbolic: true
 
     Image {
       id: trayIconImage

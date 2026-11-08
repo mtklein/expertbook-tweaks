@@ -160,7 +160,9 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
       anchors.bottomMargin: Style.space(67)
-      color: Util.alpha(Commons.Color.background, 0.97)
+      // Its text is the popups' text colour, so its background is the popups' too
+      // (Omarchy uses the theme background, which with dark popups made light-on-white).
+      color: Util.alpha(Commons.Color.popups.background, 0.97)
       borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
       radius: Style.cornerRadius
       opacity: root.opened ? 1 : 0
