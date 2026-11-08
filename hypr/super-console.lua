@@ -39,3 +39,23 @@ hl.on("input.keyboard.key", function(code, _, state)
     chord = true
   end
 end)
+
+-- Apps launched from the console belong on the desktop, not in the console:
+-- a new window opens on whichever workspace has focus, which while the console
+-- is up is special:qconsole. So any new window there other than the agent
+-- terminal itself moves to the monitor's regular workspace, and the console
+-- closes to show it. Moving a window in on purpose (Super+Shift+`) is a move,
+-- not an open, so it still works.
+local CONSOLE_APPS = { ["org.omarchy.agent"] = true }
+
+hl.on("window.open", function(window)
+  if not window or not window.workspace or window.workspace.name ~= "special:" .. CONSOLE then return end
+  if CONSOLE_APPS[window.class] then return end
+  local monitor = hl.get_active_monitor()
+  local ws = monitor and monitor.active_workspace
+  if not ws then return end
+  local target = "address:" .. window.address
+  hl.dispatch(hl.dsp.window.move({ window = target, workspace = tostring(ws.id), follow = false }))
+  hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
+  hl.dispatch(hl.dsp.focus({ window = target }))
+end)
