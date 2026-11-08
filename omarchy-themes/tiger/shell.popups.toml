@@ -1,0 +1,14 @@
+[popups]
+# Tiger: dark panels to match the OLED-black bar. Omarchy draws panel text in the
+# bar's text colour (bar.foreground), so a black bar needs dark panels.
+# Shared by every bar flyout (dropdowns, OSD, popup cards).
+# Border accepts either a solid color or a Hyprland-style gradient. Border
+# widths accept one CSS-style scalar/list: N, "Y X", "T X B", or "T R B L";
+# individual border-width-top/right/bottom/left keys override the list.
+background       = "#161618"
+background-alpha = 1.0
+text             = "#d8d8d8"
+border           = "hyprland.active-border"
+border-alpha     = 1.0
+# border-width     = 2
+
