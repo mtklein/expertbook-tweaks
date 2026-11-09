@@ -26,6 +26,7 @@ link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link bin/workspace-layout-toggle        ~/.local/bin/workspace-layout-toggle
 link bin/brightness-why                 ~/.local/bin/brightness-why
 link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
+link bin/tv-mode                        ~/.local/bin/tv-mode
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
 # which would replace a symlink. It just loads hypr/hdr.lua from here.
@@ -33,6 +34,11 @@ loader='dofile(os.getenv("HOME") .. "/expertbook-tweaks/hypr/hdr.lua")(omarchy_m
 if ! grep -qF "$loader" ~/.config/hypr/monitors.lua; then
   printf '\n-- Internal OLED: HDR, brightness keys/slider support, border dimming.\n%s\n' "$loader" >> ~/.config/hypr/monitors.lua
   echo "added hdr.lua loader to ~/.config/hypr/monitors.lua"
+fi
+loader='dofile(os.getenv("HOME") .. "/expertbook-tweaks/hypr/tv-mode.lua")'
+if ! grep -qF "$loader" ~/.config/hypr/monitors.lua; then
+  printf '\n-- TV mode (bin/tv-mode): the TV'"'"'s monitor rule while one is connected.\n%s\n' "$loader" >> ~/.config/hypr/monitors.lua
+  echo "added tv-mode.lua loader to ~/.config/hypr/monitors.lua"
 fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
@@ -64,6 +70,7 @@ link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
 link systemd-user/game-touchpad-guard.service ~/.config/systemd/user/game-touchpad-guard.service
+link systemd-user/tv-mode.service       ~/.config/systemd/user/tv-mode.service
 
 # Replaced by ambient-display (2026-11-06).
 for old in hdr-auto-brightness ambient-white; do
@@ -78,6 +85,7 @@ systemctl --user enable --now ambient-display.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
 systemctl --user enable --now sdw-clash-recover.service
 systemctl --user enable --now game-touchpad-guard.service
+systemctl --user enable --now tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
   pkexec bash -c '

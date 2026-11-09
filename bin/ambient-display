@@ -95,6 +95,7 @@ COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 # Brightness
 SOURCE = STATE_DIR / "hdr-brightness.source"   # "user <epoch> <pct>", from hdr-brightness (not --auto)
 STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
+TV_MODE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "tv-mode/active"  # from tv-mode
 DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
 TAU_UP = 7.5             # lux smoothing when the room brightens (s)
 TAU_DOWN = 30.0          # ... when it darkens
@@ -810,6 +811,17 @@ class WhitePoint:
                                          "cutoff_loglux": round(self.fade_hi, 3)}
             self.store.save()
             self.saved_fade, self.last_fade_save = (self.lit_target, self.fade_hi), now
+
+        # TV mode (bin/tv-mode): the TV is the screen, so sRGB's own white,
+        # whatever the room is doing here. Nothing is learned meanwhile, and
+        # afterwards the model's target comes back at once rather than gliding.
+        if TV_MODE.exists():
+            self.manual, self.manual_mtime, self.current, self.gliding = None, self.mtime(), None, False
+            if (self.sent != "tv" or now - self.last_send >= RESEND) and run("hyprctl", "hyprsunset", "identity"):
+                if self.sent != "tv":
+                    log("white: identity for TV mode")
+                self.sent, self.last_send = "tv", now
+            return
 
         # A manual change from `white-point`: it already set hyprsunset.
         m = self.mtime()
