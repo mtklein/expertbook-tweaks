@@ -208,12 +208,25 @@ def sinks():
 
 def tv_sink():
     for s in sinks():
-        if "HDMI" not in s.get("name", "") and "hdmi" not in s.get("name", ""):
+        if not is_tv_sink(s.get("name")):
             continue
         port = next((p for p in s.get("ports", []) if p.get("name") == s.get("active_port")), None)
         if port and port.get("availability") != "not available":
             return s["name"]
     return None
+
+
+def is_tv_sink(name):
+    return "hdmi" in (name or "").lower()
+
+
+def restore_sink(saved):
+    """Where sound goes after TV mode: what it was before, unless that was a
+    TV/HDMI output (left over from an earlier dock), then the laptop's own."""
+    names = [x.get("name") for x in sinks()]
+    if saved in names and not is_tv_sink(saved):
+        return saved
+    return next((n for n in names if n and not is_tv_sink(n)), None)
 
 
 def default_sink():
@@ -378,9 +391,12 @@ class TVMode:
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             panel(True, s)
             hypr_dispatch(f'hl.dsp.focus({{ monitor = "{INTERNAL}" }})')
-        if s.get("tv_sink") and s.get("sink") and default_sink() == s["tv_sink"]:
-            if any(x.get("name") == s["sink"] for x in sinks()):
-                set_sink(s["sink"])
+        # Always set it, even if PipeWire already fell back to the speakers on
+        # unplug: otherwise the TV stays the *configured* default and grabs
+        # the sound again the moment it's next plugged in.
+        back = restore_sink(s.get("sink"))
+        if back and not dry:
+            set_sink(back)
         if s.get("profile") and s["profile"] != profile():
             run("powerprofilesctl", "set", s["profile"], quiet=False)
         self.inhibitor.release()
