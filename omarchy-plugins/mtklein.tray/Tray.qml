@@ -50,9 +50,13 @@ BarWidget {
   readonly property bool holdOpen: trayMenuOpen || managePopupOpen || barDragging || (!!bar && bar.traySectionPopoutOpen === true)
   // The mark under the bar sits under the icon whose menu is open.
   readonly property Item openPanelIndicatorItem: trayMenuOpen ? activeTrayAnchor : null
-  // Match Waybar's group/tray-expander drawer transition-duration.
-  readonly property int animationDuration: 600
-  property real revealProgress: expanded || holdOpen ? 1 : 0
+  // No chevron (mtklein): the drawer's icons appear, semi-transparent, the way
+  // the bar's inactive indicators do: while the pointer is over the tray or
+  // over the bar's empty middle. They go solid under the pointer.
+  readonly property bool barReveal: !!bar && bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true
+  property bool drawerHovered: false
+  readonly property int animationDuration: 200
+  property real revealProgress: expanded || holdOpen || barReveal ? 1 : 0
   readonly property real revealExtent: drawerExtent * revealProgress
   // The pinned icons sit against the tray's fixed edge with the chevron past
   // them. Opening, the drawer grows the tray between the two and pushes the
@@ -277,11 +281,15 @@ BarWidget {
     Item {
       id: horizontalTrayRoot
 
-      readonly property int chevronWidth: root.hasDrawer ? expandIcon.implicitWidth : 0
+      readonly property int chevronWidth: 0
       readonly property var sectionShown: root.shownSection(drawerArea.x + trayClip.x, trayClip.width, drawerArea.x + trayClip.x + drawerContent.x + section.x, section.width)
 
       implicitWidth: pinnedRow.implicitWidth + chevronWidth + root.revealExtent
       implicitHeight: root.barSize
+
+      HoverHandler {
+        onHoveredChanged: root.expanded = hovered
+      }
 
       Item {
         id: drawerArea
@@ -291,11 +299,12 @@ BarWidget {
         visible: root.hasDrawer
 
         HoverHandler {
-          onHoveredChanged: root.expanded = hovered
+          onHoveredChanged: root.drawerHovered = hovered
         }
 
         BarIconButton {
           id: expandIcon
+          visible: false
           bar: root.bar
           width: implicitWidth
           height: implicitHeight
@@ -324,6 +333,8 @@ BarWidget {
 
             Row {
               id: trayIcons
+              opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+              Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
               x: root.fixedAtStart ? root.sectionExtent : 0
               anchors.verticalCenter: parent.verticalCenter
               spacing: root.trayItemGap
@@ -367,11 +378,15 @@ BarWidget {
     Item {
       id: verticalTrayRoot
 
-      readonly property int chevronHeight: root.hasDrawer ? expandIcon.implicitHeight : 0
+      readonly property int chevronHeight: 0
       readonly property var sectionShown: root.shownSection(drawerArea.y + trayClip.y, trayClip.height, drawerArea.y + trayClip.y + drawerContent.y + section.y, section.height)
 
       implicitWidth: root.barSize
       implicitHeight: pinnedCol.implicitHeight + chevronHeight + root.revealExtent
+
+      HoverHandler {
+        onHoveredChanged: root.expanded = hovered
+      }
 
       Item {
         id: drawerArea
@@ -381,11 +396,12 @@ BarWidget {
         visible: root.hasDrawer
 
         HoverHandler {
-          onHoveredChanged: root.expanded = hovered
+          onHoveredChanged: root.drawerHovered = hovered
         }
 
         BarIconButton {
           id: expandIcon
+          visible: false
           bar: root.bar
           width: implicitWidth
           height: implicitHeight
@@ -415,6 +431,8 @@ BarWidget {
 
             Column {
               id: trayIcons
+              opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+              Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
               y: root.fixedAtStart ? root.sectionExtent : 0
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: root.trayItemGap
@@ -911,7 +929,11 @@ BarWidget {
       onEntered: if (root.bar) root.bar.showTooltip(trayItemRoot, root.trayTooltip(modelData))
       onExited: if (root.bar) root.bar.hideTooltip(trayItemRoot)
       onPressed: function(mouse) {
-        if (mouse.button === Qt.RightButton) {
+        if (mouse.button === Qt.RightButton && (mouse.modifiers & Qt.ShiftModifier)) {
+          // Shift + right-click: the pin / hide list the chevron used to open (mtklein).
+          root.managePopupOpen = !root.managePopupOpen
+          mouse.accepted = true
+        } else if (mouse.button === Qt.RightButton) {
           trayItemRoot.displayMenu(mouse)
           mouse.accepted = true
         }
