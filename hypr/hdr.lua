@@ -16,6 +16,24 @@ hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")
 -- by scaling the SDR white level (sdr_max_luminance). ~/.local/bin/hdr-brightness (bound to the brightness keys)
 -- calls edp_hdr_monitor() and saves the level to ~/.local/state/hdr-brightness.
 
+-- The panel's scale. Omarchy's Display panel (omarchy-hyprland-monitor-scaling)
+-- keeps a scale per screen as its own hl.monitor line in monitors.lua, above
+-- the line that loads this file. Our rule for eDP-1 comes after it and would
+-- override it, so take the scale from that line; without one, the general
+-- scale monitors.lua passes in.
+local edp_scale = omarchy_monitor_scale
+do
+  local f = io.open((os.getenv("HOME") or "") .. "/.config/hypr/monitors.lua")
+  if f then
+    for line in f:lines() do
+      if not line:match("^%s*%-%-") and line:match('output%s*=%s*"eDP%-1"') then
+        edp_scale = tonumber(line:match("scale%s*=%s*([%d%.]+)")) or edp_scale
+      end
+    end
+    f:close()
+  end
+end
+
 -- Luminance (nits) that SDR white maps to in HDR, i.e. what "100%" means.
 -- Hyprland's default is 80; BT.2408 reference white is 203; macOS XDR goes to ~500.
 -- 500 gives a bright ceiling (run brightness lower); the panel peaks at 1600.
@@ -46,7 +64,7 @@ function edp_hdr_level(level)
     scale = math.max(0.0001, math.min(1, nits / whole))
   end
   hl.monitor({
-    output = "eDP-1", mode = "preferred", position = "auto", scale = omarchy_monitor_scale,
+    output = "eDP-1", mode = "preferred", position = "auto", scale = edp_scale,
     bitdepth = 10, cm = "hdr",
     -- Brightness is the SDR white level itself rather than sdrbrightness, so
     -- colour-managed clients (Chromium, Electron) follow it too; that needs
