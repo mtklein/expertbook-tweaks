@@ -404,8 +404,8 @@ class TVMode:
         hypr_eval(f'hl.config({{ cursor = {{ inactive_timeout = {s.get("cursor", 0)} }} }})')
         self.saved = None
 
-    def step(self):
-        tv, ac = find_tv(), ac_online()
+    def step(self, tv):
+        ac = ac_online()
         if tv:
             apply_tv_rule(tv)
         else:
@@ -450,9 +450,30 @@ def events():
         return None
 
 
+def outputs_signature():
+    """Changes whenever a display is plugged or unplugged, or the simulation
+    changes: sysfs connector states (read in-process, no probe) and SIM."""
+    sig = []
+    try:
+        for c in sorted(Path("/sys/class/drm").glob("card*-*")):
+            try:
+                sig.append((c.name, (c / "status").read_text().strip()))
+            except OSError:
+                pass
+        sig.append(SIM.stat().st_mtime_ns)
+    except OSError:
+        pass
+    return sig
+
+
 def watch():
     import selectors
     mode = TVMode()
+    # Asking Hyprland for its monitors costs a process each time, so only do
+    # it when something about the outputs may have changed (a connector's
+    # state, the simulation, a Hyprland monitor event or reload) and while TV
+    # mode is on or about to be. Otherwise a check is a few sysfs reads.
+    tv, seen, dirty = None, None, True
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     sel = selectors.DefaultSelector()
     sock = None
@@ -462,13 +483,19 @@ def watch():
                 sock = events()
                 if sock:
                     sel.register(sock, selectors.EVENT_READ)
-            mode.step()
+            sig = outputs_signature()
+            if dirty or sig != seen or mode.saved or mode.want_since:
+                tv, seen, dirty = find_tv(), sig, False
+            mode.step(tv)
             for key, _ in sel.select(POLL):
                 try:
                     data = key.fileobj.recv(65536)
                 except BlockingIOError:
                     continue
+                if b"monitor" in data or b"configreloaded" in data:
+                    dirty = True
                 if not data:                      # Hyprland went away
+                    dirty = True
                     sel.unregister(sock)
                     sock.close()
                     sock = None

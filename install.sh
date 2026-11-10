@@ -62,7 +62,6 @@ if [[ -f $tiger/backgrounds/1-tiger.jpg && ! -f $tiger/preview.png ]] && command
   magick "$tiger/backgrounds/1-tiger.jpg" -resize 2560x1440^ -gravity center -extent 2560x1440 "$tiger/preview.png"
 fi
 link omarchy/omarchy-menu.jsonc         ~/.config/omarchy/extensions/omarchy-menu.jsonc
-link wluma                              ~/.config/wluma
 link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grayscale-antialias.conf
 link fontconfig/61-tiger-sans.conf   ~/.config/fontconfig/conf.d/61-tiger-sans.conf
 link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display.service
