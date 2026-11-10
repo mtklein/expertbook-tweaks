@@ -27,7 +27,9 @@ edp_sdr_white = 500
 -- is ~109 nits, 25% ~24, 10% ~3.
 edp_brightness_gamma = 2.2
 
-function edp_hdr_monitor(level)
+-- Just the screen: ambient-display calls this ~20 times a second while it
+-- moves the level, so it does nothing else.
+function edp_hdr_level(level)
   local nits = edp_sdr_white * level ^ edp_brightness_gamma
   -- sdr_max_luminance is a whole number of nits, which is a visible jump in a
   -- dim room (1 nit in 20 is 5%). So it's rounded up and the remaining
@@ -55,6 +57,12 @@ function edp_hdr_monitor(level)
     -- SDR black defaults to 0.2 nits, which glows on the OLED.
     sdr_min_luminance = 0,
   })
+end
+
+-- The level, plus what other programs read. The keys (hdr-brightness) and
+-- startup use this.
+function edp_hdr_monitor(level)
+  edp_hdr_level(level)
   -- Publish the curve's two numbers, so ambient-display can turn nits into percent.
   local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-sdr-white", "w")
   if f then f:write(string.format("%g\n", edp_sdr_white)); f:close() end

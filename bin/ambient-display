@@ -29,20 +29,21 @@ and modelled in nits; the level meter (percent) is perceptual, nits = WHITE *
   floor: never auto-sets below MIN_PCT (10%, ~3 nits); a user level below that is left
          alone indefinitely and never learned. SIGUSR1 (brightness-wake-floor)
          hands the current level back to automatic control without learning it.
-  move:  with restraint. It follows a slow reading of the room (TAU_CALM),
-         stays put until that asks for ~12% more or less light (START), then
-         drifts there in 0.5% steps (STEP) at 0.4-2% a second, so no moment
-         shows a change. When the screen has been off it goes straight to
-         the right level instead. Status for
+  move:  see "How a level moves" below: a steadied reading (TAU_CALM), no
+         move for less than ~12% of the light (START), then a critically
+         damped follower in ln(nits) that takes SETTLE_BRIGHT s whatever the
+         size, in steps of ~0.5% sent ~20 times a second straight to Hyprland
+         (edp_hdr_level() in hypr/hdr.lua). When the screen has been off it
+         goes straight to the right level instead. Status for
          `brightness-why` in $XDG_RUNTIME_DIR/ambient-display-status.json.
 
-White point (through hyprsunset's IPC, 100 K resolution), in true kelvin: the
-patched Hyprland (hyprland-patched/06) applies hyprsunset's matrix in linear
-light, so white really takes the colour asked for and shadows get the same
-tint as white. (Before that, KMS applied it to the PQ signal: "5100 K" was
-really ~3300 K at 50 nits, warmer still on a brighter screen, and cooler in
-the shadows. The defaults below are that era's hand-tuned ones and the user's
-own choices, restated on the real scale.)
+White point, in real kelvin, any value: the white-point-ctm helper (ctm/) hands
+Hyprland the colour matrix for it, and the patched Hyprland
+(hyprland-patched/06) applies that in linear light, so white takes exactly
+the colour asked for and shadows get the same tint as white. (hyprsunset,
+which this used before, only takes 100 K steps; it must not run alongside,
+since only one client may hold the matrix.) The kelvin on screen is
+published in $XDG_RUNTIME_DIR/white-point.
   model: lit room (sensor measures colour) -> partway (ADAPT, in mireds) toward
          the room's colour, clamped to NEUTRAL..LIT_WARMEST (6600..3400 K).
          Dark room (the sensor's fixed "can't measure" 4500 K reading for
@@ -50,7 +51,7 @@ own choices, restated on the real scale.)
          measures lux, so fade (linear in log lux) from the last lit value at
          the lux where colour was lost to NIGHT_K (3300 K) at NIGHT_LUX.
   learn: from evidence, like brightness. `white-point` (the Shift + brightness
-         keys) sets hyprsunset itself and writes the value to MANUAL_WHITE. The
+         keys) writes the value to MANUAL_WHITE and it is applied at once. The
          choice then owns the screen until the room's light moves HOLD_DECADES,
          HOLD_MAX passes, the room turns dark <-> lit or the night light toggle
          is used; then it's kept as an event (log lux, nightness, the mired
@@ -59,23 +60,19 @@ own choices, restated on the real scale.)
          APPROVE_WEIGHT). The correction at the current lux and nightness is the
          weighted median of the events (closeness in log lux and nightness, dwell,
          recency), shrunk toward the plain model by WHITE_PRIOR, so a brief odd
-         choice (or a burst of them, e.g. keys pressed while hyprsunset wasn't
-         running) can't decide it. Nightness follows the sun's elevation (0 above
+         choice (or a burst of them) can't decide it. Nightness follows the
+         sun's elevation (0 above
          +6 deg, 1 below -6 deg, i.e. through civil twilight). Location: wttr.in's
          IP lookup, once, cached in the state file (no network: the clock
-         decides, 07:00-18:00 day). First run seeds the evidence from every
-         white point choice still in the journal.
-  move:  colour smoothed over TAU s, lux over TAU_LUX s. The screen holds
-         still until the target is HOLD_K away (so sensor wobble never shows),
-         then glides all the way there at most RATE mired/s in STEP_K steps
-         (hyprsunset takes any kelvin; 20 K steps are invisible where 100 K
-         ones read as a series of jumps), and holds again.
+         decides, 07:00-18:00 day).
+  move:  the same way as brightness, in mireds: colour steadied over TAU s
+         and lux over TAU_LUX s, no move for less than HOLD_MIRED, then the
+         follower takes SETTLE_WHITE s whatever the size. At once when the
+         screen has been off, and for the keys.
   night light toggle (omarchy-plugins/mtklein.nightlight) writes "night" or
          "day" to OVERRIDE; honoured until the room changes dark <-> lit or a
          manual white point change.
-  6600 K is neutral: hyprsunset's curve is ~identity there (1, 1, 0.99) but,
-  unlike `identity`, it reports a temperature matching the screen. The value
-  is re-sent every RESEND s (hyprsunset re-applies its profile daily).
+  6600 K is neutral (gains 1, 1, 1). The value is re-sent every RESEND s.
 
 State: ~/.local/state/ambient-display.json (brightness and white point
 evidence, the white point choice currently holding the screen, dark-fade
@@ -103,7 +100,8 @@ MANUAL_WHITE = STATE_DIR / "white-point.manual"  # kelvin, from white-point
 OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the bar toggle
 MONITOR = "eDP-1"
 
-TICK = 0.2               # control loop period (s)
+TICK = 0.1               # control loop period while nothing is moving (s)
+TICK_MOVING = 0.05       # ... and while a level is on its way somewhere
 SETTLE = 4.0             # seconds a manual white point change must be left alone to be learned
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 
@@ -111,21 +109,27 @@ COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 SOURCE = STATE_DIR / "hdr-brightness.source"   # "user <epoch> <pct>", from hdr-brightness (not --auto)
 STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
 TV_MODE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "tv-mode/active"  # from tv-mode
-LEGACY = STATE_DIR / "white-point.legacy"      # pid of a running Hyprland from before patch 06
 DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
 TAU_UP = 7.5             # lux smoothing when the room brightens (s)
 TAU_DOWN = 30.0          # ... when it darkens
-# Restraint: automatic brightness would rather be a little wrong for a few
-# minutes than ever be seen to move. It follows a slow reading of the room
-# (TAU_CALM), stays put until that asks for a change worth making (START), and
-# then drifts there in steps too small to see (STEP), slowly (DRIFT_*). A
-# change nobody could have watched (the screen was off) is made at once.
-TAU_CALM = 90.0          # the room has to hold a change about this long (s) before it counts
+# How a level moves, for brightness and white point alike:
+#   whether: it follows a steadied reading of the room and stays put until that
+#            asks for a change worth making (START / HOLD_MIRED);
+#   how:     through a critically damped second-order follower (class Follower),
+#            the fastest response that never overshoots. A move starts gently,
+#            is quickest in the middle and eases in, and takes about the same
+#            time (SETTLE_*) whatever its size: small ones are too slow to see,
+#            large ones are smooth and brief. If the room changes again on the
+#            way, the path bends toward the new target without a jerk.
+#   unseen:  a change nobody could have watched (the screen was off) is made at once.
+# Brightness is followed in ln(nits) and white point in mireds, where equal
+# distances are equal visible changes.
+TAU_CALM = 20.0          # the steadied room reading automatic brightness follows (s)
 START = 0.12             # move only once the target is this far off, in ln(nits): ~12% of the light
-STEP = 0.005             # each step changes the light by 0.5%
-DRIFT_MIN = 0.004        # ln(nits) per second at the least: doubling takes ~3 min
-DRIFT_MAX = 0.02         # ... and at the most, for big changes (lights switched off)
-DRIFT_SPAN = 180.0       # aim to finish any change within about this long (s)
+SETTLE_BRIGHT = 15.0     # seconds a brightness move takes (to within 2% of the way)
+SETTLE_WHITE = 60.0      # ... and a white point move
+SEND_LN = 0.003          # smallest brightness change worth sending: 0.3% of the light
+SEND_MIRED = 0.3         # smallest white point change worth sending
 MIN_PCT, MAX_PCT = 10, 100
 # Ownership: after you set a level it's yours until the room's light changes
 # this much (log10 lux, ~2x) from when you set it, or HOLD_MAX passes.
@@ -158,16 +162,16 @@ NEUTRAL_K = 6600         # ~identity in hyprsunset
 MIN_K, MAX_K = 2500, 6600  # overall limits, manual corrections included; keep in step with white-point
 D65 = 1e6 / 6500
 ADAPT = 0.7              # fraction of the ambient-vs-D65 mired offset to follow
-TAU = 90.0               # ambient colour smoothing (s)
-TAU_LUX = 30.0           # lux smoothing for the white point (s)
+TAU = 30.0               # ambient colour smoothing (s)
+TAU_LUX = 20.0           # lux smoothing for the white point (s)
 NIGHT_LUX = 3.0          # dark fade reaches NIGHT_K at and below this
 CUTOFF_LUX = 20.0        # assumed colour cutoff when starting up already dark
 DARK_AFTER = 15.0        # seconds of "can't measure" readings before dark
 LIT_AFTER = 3.0          # seconds of real readings before lit
-RATE = 1.6               # max mired/s of change (a dark<->lit swing takes ~90 s)
-RESEND = 30.0
-HOLD_MIRED = 12          # a glide starts only once the target is this far from the screen
-STEP_K = 100             # hyprsunset floors to 100 K, so send round hundreds (Hyprland fades between them)
+RESEND = 30.0            # repeat the white point this often, in case the helper was restarted
+HOLD_MIRED = 12          # a move starts only once the target is this far from the screen
+CTM = Path.home() / ".local/bin/white-point-ctm"   # the helper that holds Hyprland's colour matrix (ctm/)
+WHITE_NOW = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "white-point"   # kelvin on screen, for white-point
 # White point learning: evidence like brightness's (dwell, recency, kind above).
 WHITE_BANDWIDTH = 0.3    # decades of log lux a white point choice informs
 PHASE_SIGMA = 0.35       # nightness (0 day .. 1 night) a choice informs
@@ -235,21 +239,6 @@ def interpolate(points, lux, reach=None):
         if x0 <= x <= x1:
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
     return xs[-1][1]
-
-
-def legacy_hyprland():
-    """A Hyprland from before patch 06 is still running (no re-login since the
-    patched one was installed). It would turn true kelvin into a far warmer
-    screen, so the white point is left alone until it's gone. The marker
-    (written when the patch was installed) holds its pid."""
-    try:
-        pid = LEGACY.read_text().split()[0]
-        if Path(f"/proc/{pid}/comm").read_text().strip() == "Hyprland":
-            return True
-        LEGACY.unlink()
-    except (OSError, IndexError):
-        pass
-    return False
 
 
 # ---------------------------------------------------------------- sun
@@ -371,28 +360,105 @@ def run(*cmd):
         return False
 
 
-_sunset_started = 0.0
+def hypr_eval(lua):
+    """Like `hyprctl eval <lua>`, without spawning hyprctl (a move sends ~20 a second)."""
+    path = hypr_socket()
+    if not path:
+        return False
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            s.connect(path)
+            s.sendall(f"eval {lua}".encode())
+            return s.recv(64).startswith(b"ok")
+    except OSError:
+        return False
 
 
-def sunset(*args):
-    """hyprctl hyprsunset ..., starting hyprsunset if it isn't running.
+class Follower:
+    """A critically damped second-order follower: y'' = w^2 (target - y) - 2 w y'.
 
-    Nothing else starts it at login (Omarchy only does when night light is
-    toggled), so after a fresh login every send would fail. Started the way
-    Omarchy's night light does it; the caller retries on its next tick."""
-    global _sunset_started
-    if run("hyprctl", "hyprsunset", *args):
+    Two first-order lags in series, tuned to the edge of oscillation: the
+    quickest path to the target that never overshoots it. From rest, a step
+    of any size is covered as 1 - (1 + wt) e^(-wt): 98% of the way at
+    wt = 5.83, which is what `settle` (seconds) sets."""
+
+    def __init__(self, settle):
+        self.w = 5.83 / settle
+        self.y, self.v = None, 0.0
+
+    def reset(self, y):
+        self.y, self.v = y, 0.0
+
+    def step(self, target, dt):
+        n = max(1, math.ceil(min(dt, 1.0) / 0.01))   # small substeps keep the integration exact enough
+        h = min(dt, 1.0) / n
+        for _ in range(n):
+            self.v += (self.w * self.w * (target - self.y) - 2 * self.w * self.v) * h
+            self.y += self.v * h
+        return self.y
+
+    def arrived(self, target, eps):
+        return abs(target - self.y) < eps and abs(self.v) < eps * self.w
+
+
+def kelvin_gains(k):
+    """Per-channel gains for a colour temperature: the display-encoded sRGB
+    colour of that white (Tanner Helland's fit, as hyprsunset uses, but for any
+    kelvin rather than hundreds). The patched Hyprland turns these into a
+    linear-light white point (hyprland-patched/06)."""
+    t = k / 100
+    if t <= 66:
+        g = min(255.0, max(0.0, 99.4708025861 * math.log(t) - 161.1195681661))
+        b = 0.0 if t <= 19 else min(255.0, max(0.0, math.log(t - 10) * 138.5177312231 - 305.0447927307))
+        return 1.0, g / 255, b / 255
+    r = min(255.0, max(0.0, 329.698727446 * (t - 60) ** -0.1332047592))
+    g = min(255.0, max(0.0, 288.1221695283 * (t - 60) ** -0.0755148492))
+    return r / 255, g / 255, 1.0
+
+
+class Ctm:
+    """The white-point-ctm helper (ctm/): it holds Hyprland's colour matrix for
+    as long as it runs, so it's kept running and restarted if it dies."""
+
+    def __init__(self):
+        self.proc = None
+        self.retry_at = 0.0
+
+    def lost(self):
+        """True once after the helper has died: whatever it held is gone."""
+        if self.proc is None or self.proc.poll() is None:
+            return False
+        now = time.monotonic()
+        if self.proc.returncode == 3:            # another client holds the matrix: hyprsunset
+            log("white: hyprsunset holds the colour matrix; stopping it")
+            run("pkill", "-x", "hyprsunset")
+            self.retry_at = now + 0.5
+        else:
+            log(f"white: helper exited ({self.proc.returncode}); restarting")
+            self.retry_at = now + 5
+        self.proc = None
         return True
-    now = time.monotonic()
-    if now - _sunset_started >= 10 and not run("pgrep", "-x", "hyprsunset"):
-        _sunset_started = now
-        log("white: hyprsunset not running; starting it")
+
+    def send(self, r, g, b):
+        now = time.monotonic()
+        self.lost()
+        if self.proc is None:
+            if now < self.retry_at:
+                return False
+            try:
+                self.proc = subprocess.Popen([str(CTM)], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL)
+            except OSError as e:
+                log(f"white: can't start {CTM}: {e}")
+                self.retry_at = now + 30
+                return False
         try:
-            subprocess.Popen(["uwsm-app", "--", "hyprsunset"], stdin=subprocess.DEVNULL,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            self.proc.stdin.write(f"{r:.5f} {g:.5f} {b:.5f}\n".encode())
+            self.proc.stdin.flush()
+            return True
         except OSError:
-            pass
-    return False
+            return False
 
 
 # ---------------------------------------------------------------- brightness
@@ -474,7 +540,12 @@ class Brightness:
         self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (hypr/hdr.lua)
         self.hdr = None
         self.last_set = None     # the level as last seen or written (%, fractional under automatic control)
-        self.calm = None         # slowly smoothed log lux: what automatic brightness follows
+        self.calm = None         # steadied log lux: what automatic brightness follows
+        self.follow = Follower(SETTLE_BRIGHT)   # in ln(nits)
+        self.sent_y = None       # ln(nits) last sent during a move
+        self.saved_pct = None    # the level as last written to LEVEL
+        self.saved_at = 0.0
+        self.last_tick = None
         self.asleep = True       # the screen was off (or we just started): nobody saw the last level
         self.screen_on = False   # as of the last check
         self.owner = "auto"      # "auto" | "user"
@@ -657,9 +728,24 @@ class Brightness:
             nits += self.offset * fade
         return min(MAX_PCT, max(MIN_PCT, self.pct_for(nits)))
 
-    def set_level(self, pct):
-        self.last_set = round(pct, 2)
-        run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{self.last_set:.2f}%")
+    def set_level(self, pct, save=True):
+        """Put the screen at pct. In HDR that's one message to Hyprland, cheap
+        enough for 20 a second; LEVEL (which the keys and a config reload read)
+        is written at the end of a move and a few times on the way."""
+        self.last_set = pct
+        if not self.hdr:                         # some other screen mode: the script knows how
+            if self.saved_pct is None or round(pct) != round(self.saved_pct):
+                run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{round(pct)}%")
+                self.saved_pct = round(pct)
+            return
+        hypr_eval(f"edp_hdr_level({pct / 100:.5f})")
+        now = time.monotonic()
+        if save or now - self.saved_at >= 0.5:
+            try:
+                LEVEL.write_text(f"{pct / 100:.4f}\n")
+                self.saved_pct, self.saved_at = round(pct, 2), now
+            except OSError:
+                pass
 
     def write_status(self, now, target):
         try:
@@ -675,6 +761,8 @@ class Brightness:
             pass
 
     def tick(self, now):
+        dt = 0.0 if self.last_tick is None else now - self.last_tick
+        self.last_tick = now
         if self.smooth is None:
             return
 
@@ -685,6 +773,9 @@ class Brightness:
             try:
                 kind, _, pct = SOURCE.read_text().split()[:3]
                 if kind == "user":
+                    if self.fading and self.hdr:     # a step of ours may have landed after the key press
+                        hypr_eval(f"edp_hdr_level({int(pct) / 100:.5f})")
+                    self.saved_pct = int(pct)
                     self.user_changed(int(pct), now)
             except (OSError, ValueError):
                 pass
@@ -708,8 +799,9 @@ class Brightness:
             except (OSError, ValueError):
                 self.white = nits / (current / 100) ** self.gamma if current else 200.0
             if self.last_set is None:
-                self.last_set = current
-            elif abs(current - self.last_set) > 0.05:   # changed by something unannounced: don't fight it
+                self.last_set = self.saved_pct = current
+            elif self.saved_pct is None or abs(current - self.saved_pct) > 0.05:
+                self.saved_pct = current             # changed by something unannounced: don't fight it
                 self.user_changed(current, now)
         if not self.screen_on:
             return
@@ -749,25 +841,22 @@ class Brightness:
             return
 
         # Distance to the target in ln(nits): the same number is the same visible change at any level.
-        gap = math.log(max(self.nits_at(target), 0.05) / max(self.nits_at(self.last_set), 0.05))
-        if not self.fading and abs(gap) >= START:
+        ln = lambda pct: math.log(max(self.nits_at(pct), 0.05))
+        goal = ln(target)
+        if not self.fading and abs(goal - ln(self.last_set)) >= START:
             self.fading, self.stable_since = True, None
-            log(f"brightness: drifting {self.last_set:.0f}% -> {target:.0f}% ({10 ** self.calm - 1:.0f} lux)")
-        if self.fading and now >= self.next_step:
-            current = self.get_pct(self.hdr) if self.hdr is not None else None
-            if current is not None and abs(current - self.last_set) > 0.05:
-                self.user_changed(current, now)
-                return
-            if abs(gap) <= STEP:
-                self.set_level(target)
-                self.fading = False
-            else:
-                rate = min(DRIFT_MAX, max(DRIFT_MIN, abs(gap) / DRIFT_SPAN))
-                nits = self.nits_at(self.last_set) * math.exp(STEP if gap > 0 else -STEP)
-                self.set_level(min(MAX_PCT, max(MIN_PCT, self.pct_for(nits))))
-                self.next_step = now + STEP / rate
-            return
+            self.follow.reset(ln(self.last_set))
+            self.sent_y = self.follow.y
+            log(f"brightness: moving {self.last_set:.0f}% -> {target:.0f}% ({10 ** self.calm - 1:.0f} lux)")
         if self.fading:
+            y = self.follow.step(goal, dt)
+            done = self.follow.arrived(goal, SEND_LN)
+            if done:
+                y = goal
+            if done or abs(y - self.sent_y) >= SEND_LN:
+                self.sent_y = y
+                self.set_level(min(MAX_PCT, max(MIN_PCT, self.pct_for(math.exp(y)))), save=done)
+            self.fading = not done
             return
         # Untouched automatic brightness is a (weak) approval of it.
         wall = time.time()
@@ -813,7 +902,10 @@ class WhitePoint:
         self.last_override = None
         self.gliding = False     # moving toward the target (vs holding still)
         self.hold = None         # the user's choice while it owns the screen (see tick)
-        self.legacy = None       # unpatched Hyprland still running? (False once it isn't)
+        self.ctm = Ctm()
+        self.follow = Follower(SETTLE_WHITE)     # in mireds
+        self.sent_mired = None   # what the helper was last given
+        self.asleep = True       # the screen was off (or we just started): nobody saw the last white
         self.send_ok = False
         self.stable_since = None # automatic white untouched since (for silent approvals)
         self.manual_mtime = self.mtime()
@@ -960,14 +1052,20 @@ class WhitePoint:
             f"{e['m']:+.1f} mired vs model, for {e['d']:.0f} s ({why})")
 
     def send(self, k):
-        self.send_ok = sunset("temperature", str(k))
+        """k: kelvin, or None for no white point at all (TV mode)."""
+        self.send_ok = self.ctm.send(*(kelvin_gains(k) if k else (1.0, 1.0, 1.0)))
+        if self.send_ok:
+            try:
+                WHITE_NOW.write_text(f"{round(k) if k else NEUTRAL_K}\n")
+            except OSError:
+                pass
         return self.send_ok
 
-    def tick(self, now, dt):
-        if self.legacy is not False:
-            self.legacy = legacy_hyprland()
-            if self.legacy:
-                return
+    def tick(self, now, dt, screen_on=True):
+        if self.ctm.lost():
+            self.sent_mired = None               # send again as soon as it's back
+        if not screen_on:
+            self.asleep = True
         was_dark = self.dark
         if self.default_since is not None and (self.dark is None or now - self.default_since >= DARK_AFTER):
             self.dark = True
@@ -997,7 +1095,7 @@ class WhitePoint:
                 self.manual_mtime = self.store.d["white_manual_seen"] = m
                 self.store.save()
             self.current, self.gliding = None, False
-            if (self.sent != "tv" or now - self.last_send >= RESEND) and sunset("identity"):
+            if (self.sent != "tv" or now - self.last_send >= RESEND) and self.send(None):
                 if self.sent != "tv":
                     log("white: identity for TV mode")
                 self.sent, self.last_send = "tv", now
@@ -1022,8 +1120,7 @@ class WhitePoint:
                 self.hold = {"value": mired(k), "since": now, "x": self.loglux, "event": None}
                 self.store.d["white_hold"] = {"k": k, "t": round(time.time(), 1),
                                               "x": None if self.loglux is None else round(self.loglux, 3)}
-                self.current, self.sent, self.last_send = mired(k), k, now
-                self.gliding = False
+                self.current, self.gliding = mired(k), False   # sent below, at once
                 clear_override()
                 self.store.save()
 
@@ -1077,31 +1174,34 @@ class WhitePoint:
 
         jump = False
         if target is not None:
-            if self.current is None or (override and override != self.last_override):
+            if self.current is None or (override and override != self.last_override) or (self.asleep and screen_on):
+                # First value, a toggle, or the screen just came on: nobody is
+                # watching a transition, so there isn't one.
                 self.current, jump, self.gliding = target, True, False
-            else:
-                if not self.gliding and self.sent is not None:
-                    if abs(target - mired(self.sent)) >= HOLD_MIRED:
-                        self.gliding = True
-                        lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
-                        why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
-                        log(f"white: gliding {self.sent}K -> {round(1e6 / target)}K ({why})")
-                    else:
-                        self.current = mired(self.sent)   # hold still: wobble isn't change
-                if self.gliding:
-                    step = RATE * dt
-                    self.current += max(-step, min(step, target - self.current))
-                    if self.current == target:
-                        self.gliding = False
+            elif not self.gliding and abs(target - self.current) >= HOLD_MIRED:
+                self.gliding = True
+                self.follow.reset(self.current)
+                lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
+                why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
+                log(f"white: moving {round(1e6 / self.current)}K -> {round(1e6 / target)}K ({why})")
+            if self.gliding:
+                self.current = self.follow.step(target, dt)
+                if self.follow.arrived(target, SEND_MIRED):
+                    self.current, self.gliding = target, False
+        if screen_on:
+            self.asleep = False
         self.last_override = override
         if self.current is None:
             return
 
-        value = min(MAX_K, max(MIN_K, int(round(1e6 / self.current / STEP_K) * STEP_K)))
-        if (value != self.sent or now - self.last_send >= RESEND) and self.send(value):
-            if jump:
-                log(f"white: -> {value}K" + (f" (override {override})" if override else ""))
-            self.sent, self.last_send = value, now
+        self.current = min(self.hi, max(self.lo, self.current))
+        if (self.sent_mired is None or self.sent == "tv" or abs(self.current - self.sent_mired) >= SEND_MIRED
+                or (not self.gliding and self.current != self.sent_mired) or now - self.last_send >= RESEND):
+            value = 1e6 / self.current
+            if self.send(value):
+                if jump:
+                    log(f"white: -> {round(value)}K" + (f" (override {override})" if override else ""))
+                self.sent, self.sent_mired, self.last_send = round(value), self.current, now
 
 
 def read_override():
@@ -1140,8 +1240,8 @@ def main():
             brightness.feed(t, lux)
             white.feed(t, lux, raw)
         brightness.tick(now)
-        white.tick(now, dt)
-        time.sleep(TICK)
+        white.tick(now, dt, brightness.screen_on)
+        time.sleep(TICK_MOVING if brightness.fading or white.gliding else TICK)
 
 
 if __name__ == "__main__":

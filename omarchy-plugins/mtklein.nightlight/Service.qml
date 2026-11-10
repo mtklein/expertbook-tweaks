@@ -56,18 +56,15 @@ Item {
     runApply(temp)
   }
 
+  // ambient-display (through its white-point-ctm helper) is the only thing that
+  // sets the screen's white point; the override file written above is all it
+  // needs. Nothing here starts hyprsunset: the two can't both hold the matrix.
   function runApply(temp) {
-    applyProcess.command = ["bash", "-lc",
-      "pgrep -x hyprsunset >/dev/null || { setsid uwsm-app -- hyprsunset >/dev/null 2>&1 & sleep 1; }; " +
-      "hyprctl hyprsunset temperature " + Number(temp) +
-      // Even daylight tints the screen, so off also restores the identity matrix
-      (temp === dayTemperature ? " && hyprctl hyprsunset identity" : "")]
-    applyProcess.running = true
   }
 
   Process {
     id: statusProbe
-    command: ["hyprctl", "hyprsunset", "temperature"]
+    command: ["sh", "-c", "cat \"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/white-point\""]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {

@@ -1,13 +1,12 @@
 #!/bin/bash
 # Manual white point, for the Shift + brightness keys (hypr/bindings.lua).
 #
-# Sets hyprsunset right away and records the value in
-# ~/.local/state/white-point.manual, where ambient-display picks it up: the
-# choice holds the screen until the room changes, then it's kept as evidence
-# of what you like in that light.
+# Records the value in ~/.local/state/white-point.manual, where ambient-display
+# picks it up at once: the choice holds the screen until the room changes, then
+# it's kept as evidence of what you like in that light.
 #
 # Kelvin here is real: the patched Hyprland (hyprland-patched/06) applies the
-# white point in linear light, so white takes the colour hyprsunset computes.
+# white point in linear light, so white takes the colour asked for.
 #
 # Usage: white-point [--no-osd] [warmer | cooler | N]   (N in kelvin; no argument prints the current value)
 #        Shift + dim = warmer, Shift + bright = cooler: to the next of nine
@@ -20,26 +19,12 @@ no_osd=0
 [[ ${1:-} == --no-osd ]] && { no_osd=1; shift; }
 state="${XDG_STATE_HOME:-$HOME/.local/state}"
 
-# A Hyprland from before patch 06 is still running (no re-login since the
-# patched one was installed): real kelvin would come out far too warm on it.
-if pid=$(cat "$state/white-point.legacy" 2>/dev/null) && [[ $(cat "/proc/$pid/comm" 2>/dev/null) == Hyprland ]]; then
-  echo "white-point: log out and back in first (Hyprland was updated)" >&2
-  exit 1
-fi
-
-current=$(hyprctl hyprsunset temperature 2>/dev/null)
-if ! [[ $current =~ ^[0-9]+$ ]]; then
-  # Nothing starts hyprsunset at login (Omarchy only does on a night light
-  # toggle; ambient-display starts it within a tick). Start it, wait briefly.
-  pgrep -x hyprsunset >/dev/null || { setsid uwsm-app -- hyprsunset >/dev/null 2>&1 & }
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    sleep 0.2
-    current=$(hyprctl hyprsunset temperature 2>/dev/null)
-    [[ $current =~ ^[0-9]+$ ]] && break
-  done
-  # Never guess: a made-up starting point would be learned as a preference.
-  [[ $current =~ ^[0-9]+$ ]] || { echo "white-point: hyprsunset isn't answering" >&2; exit 1; }
-fi
+# ambient-display owns the screen's white point (through its white-point-ctm
+# helper) and publishes the kelvin on screen; a change is handed to it through
+# white-point.manual and shows within a tenth of a second.
+current=$(cat "${XDG_RUNTIME_DIR:-/run/user/$UID}/white-point" 2>/dev/null)
+# Never guess: a made-up starting point would be learned as a preference.
+[[ $current =~ ^[0-9]+$ ]] || { echo "white-point: ambient-display isn't running" >&2; exit 1; }
 if [[ -z ${1:-} ]]; then
   echo "$current"
   exit 0
@@ -55,7 +40,6 @@ esac
 (( target > MAX )) && target=$MAX
 (( target < MIN )) && target=$MIN
 
-hyprctl hyprsunset temperature "$target" >/dev/null
 mkdir -p "$state" && echo "$target" > "$state/white-point.manual"
 
 if (( ! no_osd )); then

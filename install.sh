@@ -21,6 +21,8 @@ link bin/hdr-brightness                 ~/.local/bin/hdr-brightness
 link bin/hdr-monitor-state              ~/.local/bin/hdr-monitor-state
 link bin/ambient-display                ~/.local/bin/ambient-display
 link bin/white-point                    ~/.local/bin/white-point
+make -s -C "$R/ctm"                     # the helper that holds the white point (needs gcc, wayland, hyprland-protocols)
+link ctm/white-point-ctm                ~/.local/bin/white-point-ctm
 link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link bin/workspace-layout-toggle        ~/.local/bin/workspace-layout-toggle
@@ -71,7 +73,6 @@ link fontconfig/60-grayscale-antialias.conf ~/.config/fontconfig/conf.d/60-grays
 link fontconfig/61-tiger-sans.conf   ~/.config/fontconfig/conf.d/61-tiger-sans.conf
 link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
-link hypr/hyprsunset.conf               ~/.config/hypr/hyprsunset.conf
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
 link systemd-user/game-touchpad-guard.service ~/.config/systemd/user/game-touchpad-guard.service
 link systemd-user/tv-mode.service       ~/.config/systemd/user/tv-mode.service
