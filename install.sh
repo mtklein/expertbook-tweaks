@@ -41,6 +41,7 @@ if ! grep -qF "$loader" ~/.config/hypr/monitors.lua; then
   echo "added tv-mode.lua loader to ~/.config/hypr/monitors.lua"
 fi
 link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
+link hypr/looknfeel.lua                 ~/.config/hypr/looknfeel.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
 link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightlight
