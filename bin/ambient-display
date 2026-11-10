@@ -126,7 +126,7 @@ GRID = [i / 10 for i in range(46)]   # log10(lux + 1), 0 .. 4.5
 NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
 LIT_WARMEST_K = 5000     # the lit-room model never goes warmer than this
 NEUTRAL_K = 6600         # ~identity in hyprsunset
-MIN_K, MAX_K = 2500, 6600  # overall limits, manual corrections included
+MIN_K, MAX_K = 4500, 6600  # overall limits, manual corrections included (4500 = night default, the floor)
 D65 = 1e6 / 6500
 ADAPT = 0.35             # fraction of the ambient-vs-D65 mired offset to follow
 TAU = 90.0               # ambient colour smoothing (s)

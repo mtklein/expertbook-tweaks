@@ -9,7 +9,7 @@
 # Usage: white-point [--no-osd] [+N | -N | N]   (kelvin; no argument prints the current value)
 #        Shift + dim = warmer (-200), Shift + bright = cooler (+200).
 
-MIN=2500 MAX=6600   # keep in step with MIN_K/MAX_K in ambient-display
+MIN=4500 MAX=6600   # keep in step with MIN_K/MAX_K in ambient-display
 
 no_osd=0
 [[ ${1:-} == --no-osd ]] && { no_osd=1; shift; }
@@ -35,10 +35,7 @@ state="${XDG_STATE_HOME:-$HOME/.local/state}"
 mkdir -p "$state" && echo "$target" > "$state/white-point.manual"
 
 if (( ! no_osd )); then
-  # The bar spans 4500 K (the night default) to MAX; anything warmer shows empty.
-  OSD_MIN=4500
-  pct=$(( (target - OSD_MIN) * 100 / (MAX - OSD_MIN) ))
-  (( pct < 0 )) && pct=0
+  pct=$(( (target - MIN) * 100 / (MAX - MIN) ))
   payload=$(jq -cn --arg icon $'\U000F050F' --arg value "$pct" --arg text "${target}K" \
     '{icon:$icon,message:"",value:$value,progressText:$text,max:"100",duration:""}')
   omarchy-shell -q osd show "$payload"
