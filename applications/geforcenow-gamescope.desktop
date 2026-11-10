@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Name=GeForce NOW (gamescope)
+Comment=GeForce NOW in gamescope, where keyboard and scrolling reach the game
+Exec=geforcenow-gamescope
+Icon=com.nvidia.geforcenow
+Type=Application
+Categories=Network;Game;
