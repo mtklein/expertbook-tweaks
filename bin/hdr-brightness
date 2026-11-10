@@ -59,12 +59,12 @@ flock -n "$lock_fd" || exit 0
 n=${step//[^0-9]/}
 # The level is perceptual (hypr/hdr.lua turns it into nits on a 2.2 power
 # curve), so every step looks about the same size, all the way down.
-# 5% steps snap to the 5% grid (51 -> 55 up, 56 -> 55 down), since automatic
-# brightness leaves the level anywhere. Other step sizes (Alt's 1%) move by
-# exactly that much.
+# The keys step 10%: eleven marks, 0% (off) to 100%. Steps of 5 or 10 snap to
+# their own grid (43 -> 50 up, 47 -> 40 down), since automatic brightness
+# leaves the level anywhere. Other step sizes (Alt's 1%) move by exactly that.
 case $step in
-  +*) if (( n == 5 )); then target=$(( current / 5 * 5 + 5 )); else target=$(( current + n )); fi ;;
-  *-) if (( n == 5 )); then target=$(( (current + 4) / 5 * 5 - 5 )); else target=$(( current - n )); fi ;;
+  +*) if (( n == 5 || n == 10 )); then target=$(( current / n * n + n )); else target=$(( current + n )); fi ;;
+  *-) if (( n == 5 || n == 10 )); then target=$(( (current + n - 1) / n * n - n )); else target=$(( current - n )); fi ;;
   *)  target=$n ;;
 esac
 (( target > 100 )) && target=100

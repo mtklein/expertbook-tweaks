@@ -33,8 +33,8 @@
 -- Shift + the same keys moves the white point (dim = warmer, bright = cooler;
 -- ~/.local/bin/white-point). ambient-display learns from both.
 for _, b in ipairs({
-  { "XF86MonBrightnessUp", "Brightness up", "hdr-brightness +5%" },
-  { "XF86MonBrightnessDown", "Brightness down", "hdr-brightness 5%-" },
+  { "XF86MonBrightnessUp", "Brightness up", "hdr-brightness +10%" },
+  { "XF86MonBrightnessDown", "Brightness down", "hdr-brightness 10%-" },
   { "ALT + XF86MonBrightnessUp", "Brightness up precise", "hdr-brightness +1%" },
   { "ALT + XF86MonBrightnessDown", "Brightness down precise", "hdr-brightness 1%-" },
   { "SHIFT + XF86MonBrightnessUp", "White point cooler", "white-point cooler" },

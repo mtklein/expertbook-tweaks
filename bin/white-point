@@ -10,11 +10,11 @@
 # white point in linear light, so white takes the colour hyprsunset computes.
 #
 # Usage: white-point [--no-osd] [warmer | cooler | N]   (N in kelvin; no argument prints the current value)
-#        Shift + dim = warmer, Shift + bright = cooler. A step is 12 mired
-#        (even to the eye across the range), landing on hyprsunset's 100 K grid:
-#        about 100 K at the warm end, 400 K near neutral.
+#        Shift + dim = warmer, Shift + bright = cooler: to the next of nine
+#        round marks, about 30 mired apart (even to the eye across the range).
 
-MIN=2400 MAX=6600 STEP=12   # MIN/MAX: keep in step with MIN_K/MAX_K in ambient-display
+MARKS=(2500 2700 3000 3300 3700 4200 4800 5600 6600)   # ends: keep in step with MIN_K/MAX_K in ambient-display
+MIN=${MARKS[0]} MAX=${MARKS[-1]}
 
 no_osd=0
 [[ ${1:-} == --no-osd ]] && { no_osd=1; shift; }
@@ -45,16 +45,10 @@ if [[ -z ${1:-} ]]; then
   exit 0
 fi
 
-step() {  # step <+1 cooler | -1 warmer>: STEP mired, to the 100 K grid, moving at least 100 K
-  awk -v k="$current" -v d="$1" -v s="$STEP" 'BEGIN {
-    t = 1e6 / (1e6 / k - d * s); t = int(t / 100 + 0.5) * 100
-    if (d > 0 && t < k + 100) t = k + 100
-    if (d < 0 && t > k - 100) t = k - 100
-    print t }'
-}
+target=$current
 case $1 in
-  cooler) target=$(step 1) ;;
-  warmer) target=$(step -1) ;;
+  cooler) for m in "${MARKS[@]}"; do (( m > current )) && { target=$m; break; }; done ;;
+  warmer) for (( i = ${#MARKS[@]} - 1; i >= 0; i-- )); do (( MARKS[i] < current )) && { target=${MARKS[i]}; break; }; done ;;
   [0-9]*) target=$(( ($1 + 50) / 100 * 100 )) ;;
   *) echo "usage: white-point [--no-osd] [warmer | cooler | N]" >&2; exit 1 ;;
 esac
