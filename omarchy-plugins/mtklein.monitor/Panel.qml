@@ -284,11 +284,9 @@ Panel {
     return normalizeScale(scale)
   }
 
-  // Playful mood-name for a given brightness percent. Bands intentionally
-  // span ~10–20 points so casual tweaks change the label, while small
-  // nudges within one band don't.
+  // (mtklein) Plain label under the title: see Model.brightnessName.
   function brightnessName(percent) {
-    return Model.brightnessName(percent)
+    return Model.brightnessName(percent, root.focusedMonitor)
   }
 
   function updateDisplays(displaysJson) {

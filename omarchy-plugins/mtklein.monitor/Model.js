@@ -79,16 +79,15 @@ function availableScales(scales, width, height) {
     .map(function(candidate) { return candidate.value })
 }
 
-function brightnessName(percent) {
-  var p = Math.round(percent)
-  if (p >= 95) return "Sun blast"
-  if (p >= 80) return "Solar flare"
-  if (p >= 65) return "Golden hour"
-  if (p >= 45) return "Even day"
-  if (p >= 30) return "Soft glow"
-  if (p >= 20) return "Lamp light"
-  if (p >= 10) return "Candlelit"
-  return "Night owl"
+// (mtklein) Plain text in place of the stock mood names ("Sun blast" … "Night
+// owl"): the light the level stands for on the internal HDR panel (as hdr.lua:
+// 500 nits x level^2.2), nothing on other screens (the percent is by the slider).
+function brightnessName(percent, monitor) {
+  if (monitor !== "eDP-1") return ""
+  var p = Math.max(0, Math.min(100, Number(percent) || 0))
+  if (p <= 0) return "Off"
+  var nits = 500 * Math.pow(p / 100, 2.2)
+  return (nits < 10 ? nits.toFixed(1) : String(Math.round(nits))) + " nits"
 }
 
 function parseDisplays(raw) {

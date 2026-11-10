@@ -58,6 +58,10 @@ link omarchy-plugins/mtklein.power      ~/.config/omarchy/plugins/mtklein.power
 link omarchy-plugins/mtklein.network    ~/.config/omarchy/plugins/mtklein.network
 link omarchy-plugins/mtklein.bluetooth  ~/.config/omarchy/plugins/mtklein.bluetooth
 link omarchy-plugins/mtklein.weather    ~/.config/omarchy/plugins/mtklein.weather
+link omarchy-plugins/mtklein.audio      ~/.config/omarchy/plugins/mtklein.audio
+link omarchy-plugins/mtklein.dropbox    ~/.config/omarchy/plugins/mtklein.dropbox
+link omarchy-plugins/mtklein.tailscale  ~/.config/omarchy/plugins/mtklein.tailscale
+link omarchy-plugins/mtklein.agents     ~/.config/omarchy/plugins/mtklein.agents
 link omarchy-plugins/mtklein.osd        ~/.config/omarchy/plugins/mtklein.osd
 link omarchy-themes/tiger               ~/.config/omarchy/themes/tiger
 # Tiger's wallpaper is Apple's artwork, so it isn't in the repo: fetch it (and

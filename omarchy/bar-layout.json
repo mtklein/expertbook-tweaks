@@ -1,6 +1,5 @@
 {
   "bar": {
-    "position": "bottom",
     "layout": {
       "center": [],
       "centerBegin": [],
@@ -57,12 +56,16 @@
       ],
       "tray": [
         {
+          "id": "mtklein.monitor"
+        },
+        {
           "id": "mtklein.bluetooth"
         },
         {
-          "id": "mtklein.monitor"
+          "id": "mtklein.audio"
         }
       ]
-    }
+    },
+    "position": "bottom"
   }
 }
