@@ -4,6 +4,11 @@
 -- windows are open at once that a border isn't needed to tell them apart.
 hl.config({ general = { border_size = 0 } })
 
+-- Variable refresh while a window is fullscreen (games): the panel follows the
+-- game's frame rate between 30 and 120 Hz instead of juddering or tearing when
+-- it can't hold the cap. The desktop stays at a fixed 120 Hz.
+hl.config({ misc = { vrr = 2 } })
+
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
 -- hl.config({
 --   general = {
