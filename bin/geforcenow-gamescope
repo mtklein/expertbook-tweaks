@@ -1,8 +1,0 @@
-#!/bin/bash
-# GeForce NOW inside gamescope, sized to the focused screen. Under Hyprland's
-# XWayland the app's stream ignores keys (except Ctrl/Shift), scrolling and
-# touch; gamescope gives it its own XWayland, as on SteamOS (NVIDIA's main
-# Linux target), where its input handling works.
-read -r w h hz < <(hyprctl -j monitors | jq -r '.[] | select(.focused) | "\(.width) \(.height) \(.refreshRate | floor)"')
-exec gamescope -f -W "${w:-2880}" -H "${h:-1800}" -r "${hz:-60}" -- \
-  "$HOME/.local/share/applications/NVIDIA GeForce NOW"
