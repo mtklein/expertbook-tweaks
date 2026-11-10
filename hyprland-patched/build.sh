@@ -14,6 +14,8 @@
 # 06 applies the white point (hyprsunset's matrix) in linear light when the output is PQ.
 # KMS applies it to the encoded signal, which for PQ tints white far more than shadows,
 # more the brighter the screen, and made "5100 K" really ~3300 K.
+# 07 keeps surfaces that aren't on screen yet up to date too (single monitor), and rechecks
+# one when it becomes a subsurface: Chromium's omnibox dropdown opened one brightness behind.
 # Upstream: https://github.com/hyprwm/Hyprland/discussions/14999 (francomeisterm),
 # tracked in https://github.com/hyprwm/Hyprland/issues/16329.
 #

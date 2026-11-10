@@ -1,0 +1,99 @@
+--- a/src/protocols/ColorManagement.hpp	2026-11-09 22:26:19.949830509 -0600
++++ b/src/protocols/ColorManagement.hpp	2026-11-09 22:26:19.999282870 -0600
+@@ -195,6 +195,7 @@
+ 
+     void         onImagePreferredChanged(uint32_t preferredId);
+     void         onMonitorImageDescriptionChanged(PHLMONITORREF monitor);
++    void         onSurfaceRoleChanged(SP<CWLSurfaceResource> surface);
+ 
+     bool         isClientCMAware(wl_client* client);
+ 
+--- a/src/protocols/ColorManagement.cpp	2026-11-09 22:26:19.949830509 -0600
++++ b/src/protocols/ColorManagement.cpp	2026-11-09 22:26:19.997993753 -0600
+@@ -4,6 +4,7 @@
+ #include "../output/Monitor.hpp"
+ #include "core/Output.hpp"
+ #include "core/Subcompositor.hpp"
++#include "../state/MonitorState.hpp"
+ #include "../helpers/cm/ColorManagement.hpp"
+ #include <cstdint>
+ 
+@@ -473,7 +474,16 @@
+         if (auto subsurface = sc<CSubsurfaceRole*>(root->m_role.get())->m_subsurface.lock())
+             root = subsurface->t1Parent();
+     }
+-    if (root && root->m_enteredOutputs.size() == 1) {
++    // A surface on no output at all (not mapped yet) is kept up to date too
++    // when there is only one monitor it could appear on; otherwise it would
++    // open with whatever it was told last, e.g. an old reference luminance.
++    const auto singleMonitor = [] {
++        size_t enabled = 0;
++        for (auto& m : State::monitorState()->monitors())
++            enabled += m->m_enabled ? 1 : 0;
++        return enabled == 1;
++    };
++    if (root && (root->m_enteredOutputs.size() == 1 || (root->m_enteredOutputs.empty() && singleMonitor()))) {
+         const auto newId = m_surface->getPreferredImageDescription()->id();
+         if (m_currentPreferredId != newId) {
+             const uint32_t lo = sc<uint32_t>(newId & 0xFFFFFFFF);
+@@ -908,6 +918,14 @@
+     }
+ }
+ 
++void CColorManagementProtocol::onSurfaceRoleChanged(SP<CWLSurfaceResource> surface) {
++    // e.g. it just became a subsurface: what it should prefer may now be known
++    for (auto const& feedback : m_feedbackSurfaces) {
++        if (feedback->m_surface == surface)
++            feedback->onPreferredChanged();
++    }
++}
++
+ void CColorManagementProtocol::onMonitorImageDescriptionChanged(PHLMONITORREF monitor) {
+     for (auto const& output : m_outputs) {
+         if (output->m_output && output->m_output->m_monitor == monitor)
+--- a/src/protocols/core/Compositor.cpp	2026-11-09 22:26:19.951830517 -0600
++++ b/src/protocols/core/Compositor.cpp	2026-11-09 22:26:19.978983311 -0600
+@@ -685,6 +685,23 @@
+     else if (m_hlSurface.valid() && WINDOW)
+         monitor = WINDOW->m_monitor;
+ 
++    if (!monitor) {
++        // A surface that isn't on any output yet (clients keep some around
++        // unmapped, e.g. Chromium's omnibox dropdown): with a single monitor
++        // there is no doubt where it will appear, so answer for that one
++        // rather than with the compositor-wide default.
++        PHLMONITORREF only;
++        size_t        enabled = 0;
++        for (auto& m : State::monitorState()->monitors()) {
++            if (!m->m_enabled)
++                continue;
++            only = m;
++            enabled++;
++        }
++        if (enabled == 1)
++            monitor = only;
++    }
++
+     if (!monitor)
+         return g_pCompositor->getPreferredImageDescription();
+     if (monitor->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ && monitor->m_sdrMaxLuminance > 0) {
+--- a/src/protocols/core/Subcompositor.cpp	2026-11-09 22:26:19.951830517 -0600
++++ b/src/protocols/core/Subcompositor.cpp	2026-11-09 22:26:20.001211831 -0600
+@@ -1,5 +1,6 @@
+ #include "Subcompositor.hpp"
+ #include "Compositor.hpp"
++#include "../ColorManagement.hpp"
+ #include <algorithm>
+ 
+ CWLSubsurfaceResource::CWLSubsurfaceResource(SP<CWlSubsurface> resource_, SP<CWLSurfaceResource> surface_, SP<CWLSurfaceResource> parent_) :
+@@ -197,6 +198,10 @@
+         SURF->m_role     = makeShared<CSubsurfaceRole>(RESOURCE);
+         PARENT->m_subsurfaces.emplace_back(RESOURCE);
+ 
++        // its preferred image description now follows its parent's outputs
++        if (PROTO::colorManagement)
++            PROTO::colorManagement->onSurfaceRoleChanged(SURF);
++
+         LOGM(Log::DEBUG, "New wl_subsurface with id {} at {:x}", id, (uintptr_t)RESOURCE.get());
+ 
+         PARENT->m_events.newSubsurface.emit(RESOURCE);
