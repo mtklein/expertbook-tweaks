@@ -61,7 +61,6 @@ function edp_hdr_monitor(level)
   f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-brightness-gamma", "w")
   if f then f:write(string.format("%g\n", edp_brightness_gamma)); f:close() end
 end
-end
 
 local function saved_hdr_brightness()
   local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-brightness")
