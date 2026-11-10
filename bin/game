@@ -1,0 +1,25 @@
+#!/bin/bash
+# Run a game the way this laptop likes them. As a Steam launch option:
+#
+#     game %command%
+#
+# What it sets up:
+#   - A native Wayland window where the game can make one (SDL games such as
+#     Baldur's Gate 3), falling back to X11. That is what lets a game send HDR
+#     straight to Hyprland; touch and sound work as usual, and Hyprland's
+#     variable refresh applies when the game is fullscreen.
+#   - MangoHud loaded but hidden. Right Shift + F12 shows and hides it
+#     (~/.config/MangoHud/MangoHud.conf: one compact line, top left).
+#
+# Anything already set in the launch option wins, e.g.
+#     SDL_VIDEODRIVER=x11 game %command%
+#     MANGOHUD_CONFIG=read_cfg game %command%        (overlay visible from the start)
+#
+# Not gamescope: nested in Hyprland it passes no touch to the game, and
+# Baldur's Gate 3 stayed silent in it (it mutes itself when it thinks it has
+# lost focus).
+(( $# > 0 )) || { echo "usage: game command..." >&2; exit 1; }
+export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
+export MANGOHUD_CONFIG="${MANGOHUD_CONFIG:-read_cfg,no_display}"
+command -v mangohud >/dev/null || exec "$@"
+exec mangohud "$@"
