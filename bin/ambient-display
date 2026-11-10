@@ -69,7 +69,6 @@ State: ~/.local/state/ambient-display.json (brightness and white point
 evidence, the white point choice currently holding the screen, dark-fade
 start, location). Bad moments are left in the evidence: the fit is meant to
 shrug them off, so a model that can't is the thing to fix.
-Migrates hdr-auto-brightness.json / ambient-white.json on first run.
 """
 import json
 import math
