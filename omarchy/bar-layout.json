@@ -29,7 +29,10 @@
           "id": "omarchy.system-update"
         },
         {
-          "id": "mtklein.tray"
+          "id": "mtklein.tray",
+          "drawer": [
+            "steam"
+          ]
         },
         {
           "id": "mtklein.weather"

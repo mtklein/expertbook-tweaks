@@ -21,6 +21,8 @@ BarWidget {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var pinnedIds: settings.pinned instanceof Array ? settings.pinned : []
   readonly property var hiddenIds: settings.hidden instanceof Array ? settings.hidden : []
+  // Icons you've unpinned: they wait in the drawer behind the chevron (mtklein).
+  readonly property var drawerIds: settings.drawer instanceof Array ? settings.drawer : []
   readonly property var pinnedItems: bucket("pinned")
   readonly property var drawerItems: bucket("drawer")
   readonly property var allItems: bucket("all")
@@ -183,7 +185,10 @@ BarWidget {
   function classifyItem(item) {
     var iid = String(item.id || "")
     if (hiddenIds.indexOf(iid) !== -1) return "hidden"
-    // Mac-style: every tray icon is always on the bar; only ones you hide are off it.
+    // Mac-style: a tray icon is on the bar unless you unpin it (then it's in
+    // the drawer) or hide it. Stock is the other way round: in the drawer
+    // unless pinned.
+    if (drawerIds.indexOf(iid) !== -1) return "drawer"
     return "pinned"
   }
 
@@ -208,22 +213,24 @@ BarWidget {
     return result
   }
 
-  function persistTrayState(pinned, hidden) {
+  function persistTrayState(pinned, hidden, drawer) {
     if (!root.bar || !root.bar.shell || typeof root.bar.shell.updateEntryInline !== "function") return
     var id = root.moduleName || "omarchy.tray"
-    root.bar.shell.updateEntryInline(id, { id: id, pinned: pinned, hidden: hidden })
+    root.bar.shell.updateEntryInline(id, { id: id, pinned: pinned, hidden: hidden, drawer: drawer === undefined ? drawerIds.slice() : drawer })
   }
 
+  // Pinned is the default here, so pin/unpin moves an icon out of or into the
+  // drawer list (mtklein).
   function togglePin(iid) {
-    var p = pinnedIds.slice(), h = hiddenIds.slice()
-    var idx = p.indexOf(iid)
-    if (idx !== -1) p.splice(idx, 1)
+    var d = drawerIds.slice(), h = hiddenIds.slice()
+    var idx = d.indexOf(iid)
+    if (idx !== -1) d.splice(idx, 1)
     else {
-      p.push(iid)
+      d.push(iid)
       var hi = h.indexOf(iid)
       if (hi !== -1) h.splice(hi, 1)
     }
-    persistTrayState(p, h)
+    persistTrayState(pinnedIds.slice(), h, d)
   }
 
   function toggleHide(iid) {
@@ -507,7 +514,7 @@ BarWidget {
             var slash = id.lastIndexOf("/")
             return slash !== -1 ? id.substring(slash + 1) : (id || Commons.I18n.t("tray.unknown"))
           }
-          readonly property bool isPinned: root.pinnedIds.indexOf(itemId) !== -1
+          readonly property bool isPinned: root.drawerIds.indexOf(itemId) === -1
           readonly property bool isHidden: root.hiddenIds.indexOf(itemId) !== -1
 
           TrayIcon {
