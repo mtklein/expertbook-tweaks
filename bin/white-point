@@ -35,7 +35,10 @@ state="${XDG_STATE_HOME:-$HOME/.local/state}"
 mkdir -p "$state" && echo "$target" > "$state/white-point.manual"
 
 if (( ! no_osd )); then
-  pct=$(( (target - MIN) * 100 / (MAX - MIN) ))
+  # The bar spans 4500 K (the night default) to MAX; anything warmer shows empty.
+  OSD_MIN=4500
+  pct=$(( (target - OSD_MIN) * 100 / (MAX - OSD_MIN) ))
+  (( pct < 0 )) && pct=0
   payload=$(jq -cn --arg icon $'\U000F050F' --arg value "$pct" --arg text "${target}K" \
     '{icon:$icon,message:"",value:$value,progressText:$text,max:"100",duration:""}')
   omarchy-shell -q osd show "$payload"
