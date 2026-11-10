@@ -6,6 +6,8 @@
 # sdr_max_luminance changes at runtime, so they follow brightness changes live.
 # 03 applies sdrbrightness to colour-managed surfaces too (not just SDR ones), so
 # 0% brightness (sdrbrightness ~0, hypr/hdr.lua) blacks out Chromium and HDR video as well.
+# 04 sends those notifications to subsurfaces too (they get no wl_surface.enter, so the
+# feedback's one-output check never passed): Chromium's omnibox dropdown is one.
 # Upstream: https://github.com/hyprwm/Hyprland/discussions/14999 (francomeisterm),
 # tracked in https://github.com/hyprwm/Hyprland/issues/16329.
 #

@@ -1,0 +1,28 @@
+--- a/src/protocols/ColorManagement.cpp	2026-11-09 20:04:18.121344913 -0600
++++ b/src/protocols/ColorManagement.cpp	2026-11-09 20:04:18.151887148 -0600
+@@ -3,6 +3,7 @@
+ #include "color-management-v1.hpp"
+ #include "../output/Monitor.hpp"
+ #include "core/Output.hpp"
++#include "core/Subcompositor.hpp"
+ #include "../helpers/cm/ColorManagement.hpp"
+ #include <cstdint>
+ 
+@@ -463,7 +464,16 @@
+ }
+ 
+ void CColorManagementFeedbackSurface::onPreferredChanged() {
+-    if (m_surface->m_enteredOutputs.size() == 1) {
++    // Subsurfaces get no wl_surface.enter here, so check the outputs of the
++    // toplevel they belong to (as getPreferredImageDescription() does).
++    // Otherwise e.g. Chromium's omnibox dropdown never hears about a new
++    // reference luminance and keeps the brightness it opened with.
++    auto root = m_surface.lock();
++    if (root && root->m_role->role() == SURFACE_ROLE_SUBSURFACE) {
++        if (auto subsurface = sc<CSubsurfaceRole*>(root->m_role.get())->m_subsurface.lock())
++            root = subsurface->t1Parent();
++    }
++    if (root && root->m_enteredOutputs.size() == 1) {
+         const auto newId = m_surface->getPreferredImageDescription()->id();
+         if (m_currentPreferredId != newId) {
+             const uint32_t lo = sc<uint32_t>(newId & 0xFFFFFFFF);
