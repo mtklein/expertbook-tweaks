@@ -1,0 +1,73 @@
+--- a/src/pointer/PointerManager.hpp	2026-11-09 21:15:27.956732857 -0600
++++ b/src/pointer/PointerManager.hpp	2026-11-09 21:15:27.987587835 -0600
+@@ -47,6 +47,8 @@
+         void setCursorBuffer(SP<Aquamarine::IBuffer> buf, const Vector2D& hotspot, const float& scale);
+         void setCursorSurface(SP<Desktop::View::CWLSurface> buf, const Vector2D& hotspot);
+         void resetCursorImage(bool apply = true);
++        // re-render the hardware cursor, e.g. after the monitor's brightness or colour settings changed
++        void refreshHardwareCursors();
+ 
+         void lockSoftwareForMonitor(PHLMONITOR pMonitor);
+         void unlockSoftwareForMonitor(PHLMONITOR pMonitor);
+--- a/src/pointer/PointerManager.cpp	2026-11-09 21:15:27.956732857 -0600
++++ b/src/pointer/PointerManager.cpp	2026-11-09 21:15:27.990022464 -0600
+@@ -61,6 +61,11 @@
+     });
+ }
+ 
++void CPointerManager::refreshHardwareCursors() {
++    if (hasCursor())
++        updateCursorBackend();
++}
++
+ void CPointerManager::lockSoftwareAll() {
+     for (auto const& state : m_monitorStates)
+         state->softwareLocks++;
+@@ -619,6 +624,12 @@
+         return nullptr;
+     }
+ 
++    // The cursor plane is scanned out as it is, bypassing the final colour
++    // conversion, so render the cursor straight into the output's encoding.
++    // Otherwise it's rendered for the work buffer, which in HDR is linear
++    // light: shown as PQ that is far too bright and ignores the SDR white level.
++    RBO->getFB()->setImageDescription(state->monitor->m_imageDescription);
++
+     RBO->bind();
+ 
+     CRegion damageRegion = {0, 0, INT_MAX, INT_MAX};
+--- a/src/output/Monitor.cpp	2026-11-09 21:15:27.958732842 -0600
++++ b/src/output/Monitor.cpp	2026-11-09 21:15:35.715070350 -0600
+@@ -646,6 +646,11 @@
+         if (PROTO::colorManagement)
+             PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
+         m_blurFBDirty = true;
++        // the hardware cursor is rendered in the output's encoding (05-hw-cursor-cm.patch)
++        g_pEventLoopManager->doLater([] {
++            if (Pointer::mgr())
++                Pointer::mgr()->refreshHardwareCursors();
++        });
+     }
+ }
+ 
+@@ -687,8 +692,18 @@
+         if (m_sdrMaxLuminance != oldSdrMaxLuminance && PROTO::colorManagement)
+             PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
+ 
+-        m_sdrSaturation = m_activeMonitorRule.m_sdrSaturation;
+-        m_sdrBrightness = m_activeMonitorRule.m_sdrBrightness;
++        const auto oldSdrBrightness = m_sdrBrightness;
++        m_sdrSaturation             = m_activeMonitorRule.m_sdrSaturation;
++        m_sdrBrightness             = m_activeMonitorRule.m_sdrBrightness;
++
++        // The hardware cursor is rendered in the output's encoding at the SDR
++        // white level (05-hw-cursor-cm.patch), so it has to be redrawn when
++        // either changes. Later: this runs in the middle of applying the rule.
++        if (m_sdrMaxLuminance != oldSdrMaxLuminance || m_sdrBrightness != oldSdrBrightness)
++            g_pEventLoopManager->doLater([] {
++                if (Pointer::mgr())
++                    Pointer::mgr()->refreshHardwareCursors();
++            });
+     } else {
+         auto image = NColorManagement::SImageDescription::fromICC(m_activeMonitorRule.m_iccFile);
+         if (!image) {

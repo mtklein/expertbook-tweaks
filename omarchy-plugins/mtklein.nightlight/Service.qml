@@ -11,9 +11,10 @@ Item {
 
   // Keep in sync with bin/omarchy-toggle-nightlight, which sets the same
   // temperatures for callers outside the shell (keybindings, menu, ssh).
-  // 4500 K (Omarchy default 4000): amber rather than orange/pink. Matches
-  // NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-display; 6600 K is its neutral.
-  readonly property int nightTemperature: 4500
+  // 3300 K, in real kelvin (the patched Hyprland applies the white point in
+  // linear light). Matches NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-display;
+  // 6600 K is its neutral.
+  readonly property int nightTemperature: 3300
   readonly property int dayTemperature: 6600
 
   property bool stateLoaded: false

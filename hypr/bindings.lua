@@ -37,8 +37,8 @@ for _, b in ipairs({
   { "XF86MonBrightnessDown", "Brightness down", "hdr-brightness 5%-" },
   { "ALT + XF86MonBrightnessUp", "Brightness up precise", "hdr-brightness +1%" },
   { "ALT + XF86MonBrightnessDown", "Brightness down precise", "hdr-brightness 1%-" },
-  { "SHIFT + XF86MonBrightnessUp", "White point cooler", "white-point +200" },
-  { "SHIFT + XF86MonBrightnessDown", "White point warmer", "white-point -200" },
+  { "SHIFT + XF86MonBrightnessUp", "White point cooler", "white-point cooler" },
+  { "SHIFT + XF86MonBrightnessDown", "White point warmer", "white-point warmer" },
 }) do
   hl.unbind(b[1])
   o.bind(b[1], b[2], b[3], { locked = true, repeating = true })

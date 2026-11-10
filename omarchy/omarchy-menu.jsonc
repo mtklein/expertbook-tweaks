@@ -28,10 +28,10 @@
   // fields are kept unless overridden.
   // "about": {"icon":"","label":"About","action":"omarchy-launch-or-focus-tui \"zsh -c 'fastfetch; read -k 1'\""},
 
-  // Night light at 4500 K: the stock rows run omarchy-toggle-nightlight, which
+  // Night light at 3300 K (real kelvin): the stock rows run omarchy-toggle-nightlight, which
   // hard-codes 4000 K. Route them through the shell's night light service
   // instead, whose clone (~/expertbook-tweaks/omarchy-plugins/mtklein.nightlight)
-  // uses 4500 K. Overrides don't inherit the stock rows' icon/label/when here,
+  // uses 3300 K. Overrides don't inherit the stock rows' icon/label/when here,
   // so they're repeated in full.
   "trigger.toggle.nightlight-on": {"icon":"󰔎","label":"Nightlight On","when":"[[ $(omarchy-shell nightlight status) != *'\"enabled\":true'* ]]","action":"omarchy-shell nightlight enable"},
   "trigger.toggle.nightlight-off": {"icon":"󰔎","label":"Nightlight Off","when":"[[ $(omarchy-shell nightlight status) == *'\"enabled\":true'* ]]","action":"omarchy-shell nightlight disable"},

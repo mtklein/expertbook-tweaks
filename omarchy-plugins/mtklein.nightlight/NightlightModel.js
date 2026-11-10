@@ -1,8 +1,8 @@
 // Temperatures below this count as night light. Omarchy uses 6000; here
-// ~/expertbook-tweaks/bin/ambient-display also warms lit rooms down to 5000 K
-// (True Tone style) without that being "night light", so the line is 5000.
+// ~/expertbook-tweaks/bin/ambient-display also warms lit rooms down to 3400 K
+// (True Tone style) without that being "night light", so the line is 3400.
 // The name is kept for the rest of the plugin.
-var IDENTITY_TEMPERATURE = 5000
+var IDENTITY_TEMPERATURE = 3400
 
 function temperatureFromOutput(output) {
   var match = String(output === undefined || output === null ? "" : output).match(/[0-9]+/)

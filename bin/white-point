@@ -2,17 +2,30 @@
 # Manual white point, for the Shift + brightness keys (hypr/bindings.lua).
 #
 # Sets hyprsunset right away and records the value in
-# ~/.local/state/white-point.manual, where ambient-display picks it up: it
-# holds the new value and, once it's been left alone for a few seconds, learns
-# it as a correction for the room's light level.
+# ~/.local/state/white-point.manual, where ambient-display picks it up: the
+# choice holds the screen until the room changes, then it's kept as evidence
+# of what you like in that light.
 #
-# Usage: white-point [--no-osd] [+N | -N | N]   (kelvin; no argument prints the current value)
-#        Shift + dim = warmer (-200), Shift + bright = cooler (+200).
+# Kelvin here is real: the patched Hyprland (hyprland-patched/06) applies the
+# white point in linear light, so white takes the colour hyprsunset computes.
+#
+# Usage: white-point [--no-osd] [warmer | cooler | N]   (N in kelvin; no argument prints the current value)
+#        Shift + dim = warmer, Shift + bright = cooler. A step is 12 mired
+#        (even to the eye across the range), landing on hyprsunset's 100 K grid:
+#        about 100 K at the warm end, 400 K near neutral.
 
-MIN=4500 MAX=6600   # keep in step with MIN_K/MAX_K in ambient-display
+MIN=2400 MAX=6600 STEP=12   # MIN/MAX: keep in step with MIN_K/MAX_K in ambient-display
 
 no_osd=0
 [[ ${1:-} == --no-osd ]] && { no_osd=1; shift; }
+state="${XDG_STATE_HOME:-$HOME/.local/state}"
+
+# A Hyprland from before patch 06 is still running (no re-login since the
+# patched one was installed): real kelvin would come out far too warm on it.
+if pid=$(cat "$state/white-point.legacy" 2>/dev/null) && [[ $(cat "/proc/$pid/comm" 2>/dev/null) == Hyprland ]]; then
+  echo "white-point: log out and back in first (Hyprland was updated)" >&2
+  exit 1
+fi
 
 current=$(hyprctl hyprsunset temperature 2>/dev/null)
 if ! [[ $current =~ ^[0-9]+$ ]]; then
@@ -32,21 +45,28 @@ if [[ -z ${1:-} ]]; then
   exit 0
 fi
 
+step() {  # step <+1 cooler | -1 warmer>: STEP mired, to the 100 K grid, moving at least 100 K
+  awk -v k="$current" -v d="$1" -v s="$STEP" 'BEGIN {
+    t = 1e6 / (1e6 / k - d * s); t = int(t / 100 + 0.5) * 100
+    if (d > 0 && t < k + 100) t = k + 100
+    if (d < 0 && t > k - 100) t = k - 100
+    print t }'
+}
 case $1 in
-  [+-][0-9]*) target=$(( current + $1 )) ;;
-  [0-9]*) target=$1 ;;
-  *) echo "usage: white-point [--no-osd] [+N | -N | N]" >&2; exit 1 ;;
+  cooler) target=$(step 1) ;;
+  warmer) target=$(step -1) ;;
+  [0-9]*) target=$(( ($1 + 50) / 100 * 100 )) ;;
+  *) echo "usage: white-point [--no-osd] [warmer | cooler | N]" >&2; exit 1 ;;
 esac
-target=$(( (target + 50) / 100 * 100 ))   # hyprsunset's 100 K grid
 (( target > MAX )) && target=$MAX
 (( target < MIN )) && target=$MIN
 
 hyprctl hyprsunset temperature "$target" >/dev/null
-state="${XDG_STATE_HOME:-$HOME/.local/state}"
 mkdir -p "$state" && echo "$target" > "$state/white-point.manual"
 
 if (( ! no_osd )); then
-  pct=$(( (target - MIN) * 100 / (MAX - MIN) ))
+  # The bar is even in mireds, like the steps: empty at MIN, full at MAX.
+  pct=$(awk -v t="$target" -v lo="$MIN" -v hi="$MAX" 'BEGIN { printf "%d", (1e6/lo - 1e6/t) / (1e6/lo - 1e6/hi) * 100 + 0.5 }')
   payload=$(jq -cn --arg icon $'\U000F050F' --arg value "$pct" --arg text "${target}K" \
     '{icon:$icon,message:"",value:$value,progressText:$text,max:"100",duration:""}')
   omarchy-shell -q osd show "$payload"

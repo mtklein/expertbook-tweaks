@@ -30,13 +30,19 @@ its backlight): learned from evidence, not a curve edited in place.
   move:  lux smoothed TAU_UP / TAU_DOWN, DEADBAND %, 1% steps; status for
          `brightness-why` in $XDG_RUNTIME_DIR/ambient-display-status.json.
 
-White point (through hyprsunset's IPC, 100 K resolution):
+White point (through hyprsunset's IPC, 100 K resolution), in true kelvin: the
+patched Hyprland (hyprland-patched/06) applies hyprsunset's matrix in linear
+light, so white really takes the colour asked for and shadows get the same
+tint as white. (Before that, KMS applied it to the PQ signal: "5100 K" was
+really ~3300 K at 50 nits, warmer still on a brighter screen, and cooler in
+the shadows. The defaults below are that era's hand-tuned ones and the user's
+own choices, restated on the real scale.)
   model: lit room (sensor measures colour) -> partway (ADAPT, in mireds) toward
-         the room's colour, clamped to NEUTRAL..LIT_WARMEST (6600..5000 K).
+         the room's colour, clamped to NEUTRAL..LIT_WARMEST (6600..3400 K).
          Dark room (the sensor's fixed "can't measure" 4500 K reading for
          DARK_AFTER s; colour is lost somewhere around 7-37 lux) -> it still
          measures lux, so fade (linear in log lux) from the last lit value at
-         the lux where colour was lost to NIGHT_K (4500 K) at NIGHT_LUX.
+         the lux where colour was lost to NIGHT_K (3300 K) at NIGHT_LUX.
   learn: from evidence, like brightness. `white-point` (the Shift + brightness
          keys) sets hyprsunset itself and writes the value to MANUAL_WHITE. The
          choice then owns the screen until the room's light moves HOLD_DECADES,
@@ -98,6 +104,7 @@ COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 SOURCE = STATE_DIR / "hdr-brightness.source"   # "user <epoch> <pct>", from hdr-brightness (not --auto)
 STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
 TV_MODE = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "tv-mode/active"  # from tv-mode
+LEGACY = STATE_DIR / "white-point.legacy"      # pid of a running Hyprland from before patch 06
 DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
 TAU_UP = 7.5             # lux smoothing when the room brightens (s)
 TAU_DOWN = 30.0          # ... when it darkens
@@ -130,22 +137,22 @@ CROSS_PHASE = 0.15       # how much daytime evidence counts at night (and vice v
 GRID = [i / 10 for i in range(46)]   # log10(lux + 1), 0 .. 4.5
 
 # White point
-NIGHT_K = int(os.environ.get("NIGHT_TEMP", 4500))
-LIT_WARMEST_K = 5000     # the lit-room model never goes warmer than this
+NIGHT_K = int(os.environ.get("NIGHT_TEMP", 3300))
+LIT_WARMEST_K = 3400     # the lit-room model never goes warmer than this
 NEUTRAL_K = 6600         # ~identity in hyprsunset
-MIN_K, MAX_K = 4500, 6600  # overall limits, manual corrections included (4500 = night default, the floor)
+MIN_K, MAX_K = 2400, 6600  # overall limits, manual corrections included; keep in step with white-point
 D65 = 1e6 / 6500
-ADAPT = 0.35             # fraction of the ambient-vs-D65 mired offset to follow
+ADAPT = 0.7              # fraction of the ambient-vs-D65 mired offset to follow
 TAU = 90.0               # ambient colour smoothing (s)
 TAU_LUX = 30.0           # lux smoothing for the white point (s)
 NIGHT_LUX = 3.0          # dark fade reaches NIGHT_K at and below this
 CUTOFF_LUX = 20.0        # assumed colour cutoff when starting up already dark
 DARK_AFTER = 15.0        # seconds of "can't measure" readings before dark
 LIT_AFTER = 3.0          # seconds of real readings before lit
-RATE = 0.8               # max mired/s of change (a dark<->lit swing takes ~90 s)
+RATE = 1.6               # max mired/s of change (a dark<->lit swing takes ~90 s)
 RESEND = 30.0
-HOLD_K = 150             # a glide starts only once the target is this far from the screen
-STEP_K = 20              # glide resolution: steps small enough not to see
+HOLD_MIRED = 12          # a glide starts only once the target is this far from the screen
+STEP_K = 100             # hyprsunset floors to 100 K, so send round hundreds (Hyprland fades between them)
 # White point learning: evidence like brightness's (dwell, recency, kind above).
 WHITE_BANDWIDTH = 0.3    # decades of log lux a white point choice informs
 PHASE_SIGMA = 0.35       # nightness (0 day .. 1 night) a choice informs
@@ -173,6 +180,15 @@ class Store:
             self.d = json.loads(STATE.read_text())
         except (OSError, ValueError):
             self.d = {}
+        # Until 2026-11-09 the white point went through KMS onto the PQ signal,
+        # where "5100 K" put white near 3300 K (and elsewhere at other
+        # brightnesses). Choices learned on that scale mean nothing on the real
+        # one, so the white point starts again; brightness evidence is kept.
+        if self.d.get("white_scale") != "true":
+            for old in ("white_events", "white_hold", "white_manual_seen", "dark_fade"):
+                self.d.pop(old, None)
+            self.d["white_scale"] = "true"
+            self.save()
         # Point tables from before the evidence models (long since carried over).
         if [self.d.pop(old) for old in ("brightness", "white_offsets") if old in self.d]:
             self.save()
@@ -204,6 +220,21 @@ def interpolate(points, lux, reach=None):
         if x0 <= x <= x1:
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
     return xs[-1][1]
+
+
+def legacy_hyprland():
+    """A Hyprland from before patch 06 is still running (no re-login since the
+    patched one was installed). It would turn true kelvin into a far warmer
+    screen, so the white point is left alone until it's gone. The marker
+    (written when the patch was installed) holds its pid."""
+    try:
+        pid = LEGACY.read_text().split()[0]
+        if Path(f"/proc/{pid}/comm").read_text().strip() == "Hyprland":
+            return True
+        LEGACY.unlink()
+    except (OSError, IndexError):
+        pass
+    return False
 
 
 # ---------------------------------------------------------------- sun
@@ -717,6 +748,7 @@ class WhitePoint:
         self.last_override = None
         self.gliding = False     # moving toward the target (vs holding still)
         self.hold = None         # the user's choice while it owns the screen (see tick)
+        self.legacy = None       # unpatched Hyprland still running? (False once it isn't)
         self.send_ok = False
         self.stable_since = None # automatic white untouched since (for silent approvals)
         self.manual_mtime = self.mtime()
@@ -867,6 +899,10 @@ class WhitePoint:
         return self.send_ok
 
     def tick(self, now, dt):
+        if self.legacy is not False:
+            self.legacy = legacy_hyprland()
+            if self.legacy:
+                return
         was_dark = self.dark
         if self.default_since is not None and (self.dark is None or now - self.default_since >= DARK_AFTER):
             self.dark = True
@@ -980,7 +1016,7 @@ class WhitePoint:
                 self.current, jump, self.gliding = target, True, False
             else:
                 if not self.gliding and self.sent is not None:
-                    if abs(1e6 / target - self.sent) >= HOLD_K:
+                    if abs(target - mired(self.sent)) >= HOLD_MIRED:
                         self.gliding = True
                         lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
                         why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux

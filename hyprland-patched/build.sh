@@ -8,6 +8,12 @@
 # 0% brightness (sdrbrightness ~0, hypr/hdr.lua) blacks out Chromium and HDR video as well.
 # 04 sends those notifications to subsurfaces too (they get no wl_surface.enter, so the
 # feedback's one-output check never passed): Chromium's omnibox dropdown is one.
+# 05 renders the hardware cursor in the output's encoding (it was rendered for the linear
+# work buffer, so in HDR it was far too bright) and redraws it when brightness changes;
+# with it the software-cursor override in hypr/hdr.lua isn't needed.
+# 06 applies the white point (hyprsunset's matrix) in linear light when the output is PQ.
+# KMS applies it to the encoded signal, which for PQ tints white far more than shadows,
+# more the brighter the screen, and made "5100 K" really ~3300 K.
 # Upstream: https://github.com/hyprwm/Hyprland/discussions/14999 (francomeisterm),
 # tracked in https://github.com/hyprwm/Hyprland/issues/16329.
 #
