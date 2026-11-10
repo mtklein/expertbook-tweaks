@@ -348,6 +348,30 @@ def run(*cmd):
         return False
 
 
+_sunset_started = 0.0
+
+
+def sunset(*args):
+    """hyprctl hyprsunset ..., starting hyprsunset if it isn't running.
+
+    Nothing else starts it at login (Omarchy only does when night light is
+    toggled), so after a fresh login every send would fail. Started the way
+    Omarchy's night light does it; the caller retries on its next tick."""
+    global _sunset_started
+    if run("hyprctl", "hyprsunset", *args):
+        return True
+    now = time.monotonic()
+    if now - _sunset_started >= 10 and not run("pgrep", "-x", "hyprsunset"):
+        _sunset_started = now
+        log("white: hyprsunset not running; starting it")
+        try:
+            subprocess.Popen(["uwsm-app", "--", "hyprsunset"], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError:
+            pass
+    return False
+
+
 # ---------------------------------------------------------------- brightness
 
 def hour_now():
@@ -791,7 +815,7 @@ class WhitePoint:
         return (1 - w) * day + w * night
 
     def send(self, k):
-        return run("hyprctl", "hyprsunset", "temperature", str(k))
+        return sunset("temperature", str(k))
 
     def tick(self, now, dt):
         was_dark = self.dark
@@ -817,7 +841,7 @@ class WhitePoint:
         # afterwards the model's target comes back at once rather than gliding.
         if TV_MODE.exists():
             self.manual, self.manual_mtime, self.current, self.gliding = None, self.mtime(), None, False
-            if (self.sent != "tv" or now - self.last_send >= RESEND) and run("hyprctl", "hyprsunset", "identity"):
+            if (self.sent != "tv" or now - self.last_send >= RESEND) and sunset("identity"):
                 if self.sent != "tv":
                     log("white: identity for TV mode")
                 self.sent, self.last_send = "tv", now
