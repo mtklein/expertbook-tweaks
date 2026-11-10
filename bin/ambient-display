@@ -37,18 +37,22 @@ White point (through hyprsunset's IPC, 100 K resolution):
          DARK_AFTER s; colour is lost somewhere around 7-37 lux) -> it still
          measures lux, so fade (linear in log lux) from the last lit value at
          the lux where colour was lost to NIGHT_K (4500 K) at NIGHT_LUX.
-  learn: `white-point` (the Shift + brightness keys) sets hyprsunset itself
-         and writes the value to MANUAL_WHITE; once left alone for SETTLE s
-         the difference from the model (mireds) is learned at the room's lux.
-         Corrections are interpolated on log lux and fade back to the plain
-         model over WHITE_REACH decades beyond the outermost learned points.
-         Day and night keep separate corrections, blended by the sun's
-         elevation (all day above +6 deg, all night below -6 deg, i.e. through
-         civil twilight), so a dark room can learn to be warmer at night and
-         cooler by day, or the reverse. Where one has no correction near the
-         current lux it borrows the other's. Location: wttr.in's IP lookup,
-         once, cached in the state file (no network: the clock decides,
-         07:00-18:00 day).
+  learn: from evidence, like brightness. `white-point` (the Shift + brightness
+         keys) sets hyprsunset itself and writes the value to MANUAL_WHITE. The
+         choice then owns the screen until the room's light moves HOLD_DECADES,
+         HOLD_MAX passes, the room turns dark <-> lit or the night light toggle
+         is used; then it's kept as an event (log lux, nightness, the mired
+         difference from the model, how long it was kept). Automatic white left
+         untouched on screen for APPROVE_EVERY is a silent approval (weight
+         APPROVE_WEIGHT). The correction at the current lux and nightness is the
+         weighted median of the events (closeness in log lux and nightness, dwell,
+         recency), shrunk toward the plain model by WHITE_PRIOR, so a brief odd
+         choice (or a burst of them, e.g. keys pressed while hyprsunset wasn't
+         running) can't decide it. Nightness follows the sun's elevation (0 above
+         +6 deg, 1 below -6 deg, i.e. through civil twilight). Location: wttr.in's
+         IP lookup, once, cached in the state file (no network: the clock
+         decides, 07:00-18:00 day). First run seeds the evidence from every
+         white point choice still in the journal.
   move:  colour smoothed over TAU s, lux over TAU_LUX s. The screen holds
          still until the target is HOLD_K away (so sensor wobble never shows),
          then glides all the way there at most RATE mired/s in STEP_K steps
@@ -61,13 +65,16 @@ White point (through hyprsunset's IPC, 100 K resolution):
   unlike `identity`, it reports a temperature matching the screen. The value
   is re-sent every RESEND s (hyprsunset re-applies its profile daily).
 
-State: ~/.local/state/ambient-display.json (learned brightness points, white
-corrections by day and night, dark-fade start, location). Delete a key (or the file) to forget it.
+State: ~/.local/state/ambient-display.json (brightness and white point
+evidence, dark-fade start, location; "white_offsets" is the old point table,
+no longer used). Bad moments are left in the evidence: the fit is meant to
+shrug them off, so a model that can't is the thing to fix.
 Migrates hdr-auto-brightness.json / ambient-white.json on first run.
 """
 import json
 import math
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -89,7 +96,6 @@ MONITOR = "eDP-1"
 
 TICK = 0.2               # control loop period (s)
 SETTLE = 4.0             # seconds a manual white point change must be left alone to be learned
-NEAR = 0.25              # log10-lux distance within which a new point replaces old ones
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 
 # Brightness
@@ -139,7 +145,13 @@ RATE = 0.8               # max mired/s of change (a dark<->lit swing takes ~90 s
 RESEND = 30.0
 HOLD_K = 150             # a glide starts only once the target is this far from the screen
 STEP_K = 20              # glide resolution: steps small enough not to see
-WHITE_REACH = 1.0        # decades over which a correction fades out past the last point
+# White point learning: evidence like brightness's (dwell, recency, kind above).
+WHITE_BANDWIDTH = 0.3    # decades of log lux a white point choice informs
+PHASE_SIGMA = 0.35       # nightness (0 day .. 1 night) a choice informs
+WHITE_PRIOR = 0.5        # weight of "the plain model is right": thin evidence moves it less
+WHITE_EVENT_RE = re.compile(
+    r"^(\d+(?:\.\d+)?) .*white: learned (\d+(?:\.\d+)?) lux(?:, (?:day|night) \(([\d.]+)\))? -> (\d+)K "
+    r"\(([+-][\d.]+) mired vs model (\d+)K\)")
 DEFAULT_COLORTEMP_RAW = 4500000   # the "too dark to measure" reading
 
 
@@ -184,22 +196,6 @@ class Store:
             log(f"couldn't save state: {e}")
 
 
-def replace_near(points, lux, value, monotonic=False):
-    """points: [(lux, value)]. Add (lux, value), dropping points within NEAR
-    and, if monotonic, points that would make value decrease with lux."""
-    x = L(lux)
-    kept = []
-    for a, b in points:
-        xa = L(a)
-        if abs(xa - x) < NEAR:
-            continue
-        if monotonic and ((xa < x and b > value) or (xa > x and b < value)):
-            continue
-        kept.append((a, b))
-    kept.append((lux, float(value)))
-    return sorted(kept)
-
-
 def interpolate(points, lux, reach=None):
     """Linear in log lux between points. Past the ends: flat, or (with reach)
     fading linearly to 0 over `reach` decades."""
@@ -217,16 +213,6 @@ def interpolate(points, lux, reach=None):
         if x0 <= x <= x1:
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
     return xs[-1][1]
-
-
-def curve(points, lux, reach):
-    """(value, confidence): flat-extended interpolation, and how much to trust
-    it: 1 within the learned points, fading to 0 over `reach` decades outside."""
-    if not points:
-        return 0.0, 0.0
-    x, lo, hi = L(lux), L(points[0][0]), L(points[-1][0])
-    out = lo - x if x < lo else x - hi if x > hi else 0.0
-    return interpolate(points, lux), max(0.0, 1 - out / reach)
 
 
 # ---------------------------------------------------------------- sun
@@ -714,12 +700,15 @@ class WhitePoint:
         self.lit_warmest = mired(LIT_WARMEST_K)
         self.lo, self.hi = mired(MAX_K), mired(MIN_K)
         self.night_lo = L(NIGHT_LUX)
-        wo = store.d.get("white_offsets") or {}
-        if isinstance(wo, list):         # before day/night: all learned at night so far
-            wo = {"night": wo}
-        self.offsets = {k: sorted((float(a), float(b)) for a, b in wo.get(k, [])) for k in ("day", "night")}
         loc = store.d.get("location")
         self.location = (loc["lat"], loc["lon"]) if loc else None
+        self.events = store.d.get("white_events")
+        migrated = self.events is None
+        if migrated:
+            self.events = self.seed_events()
+            store.d["white_events"] = self.events
+            store.save()
+        self.fit_key, self.fit_at, self.fit = None, 0.0, 0.0
         if self.location is None:
             threading.Thread(target=self.find_location, daemon=True).start()
         fade = store.d.get("dark_fade") or {}
@@ -739,8 +728,19 @@ class WhitePoint:
         self.last_send = 0.0
         self.last_override = None
         self.gliding = False     # moving toward the target (vs holding still)
-        self.manual = None       # (mired, since) while a manual change settles
+        self.hold = None         # the user's choice while it owns the screen (see tick)
+        self.send_ok = False
+        self.stable_since = None # automatic white untouched since (for silent approvals)
         self.manual_mtime = self.mtime()
+        if not migrated:         # after a restart a recent choice still owns the screen
+            try:
+                age = time.time() - MANUAL_WHITE.stat().st_mtime
+                k = int(MANUAL_WHITE.read_text().split()[0])
+                if age < HOLD_MAX:
+                    self.hold = {"value": mired(k), "since": time.monotonic() - age, "x": None, "event": None}
+                    self.current, self.sent = mired(k), k
+            except (OSError, ValueError, IndexError):
+                pass
 
     @staticmethod
     def mtime():
@@ -803,19 +803,105 @@ class WhitePoint:
             return min(1.0, max(0.0, (6 - elev) / 12))
         return 0.0 if 7 <= time.localtime().tm_hour < 18 else 1.0
 
-    def correction(self, w=None):
-        """Learned mired correction at the current lux and time of day."""
+    # ------------------------------------------------------------ evidence
+
+    def night_at(self, wall):
+        if self.location:
+            elev = solar_elevation(*self.location, datetime.fromtimestamp(wall, timezone.utc))
+            return min(1.0, max(0.0, (6 - elev) / 12))
+        return 0.0 if 7 <= time.localtime(wall).tm_hour < 18 else 1.0
+
+    def seed_events(self):
+        """First run of the evidence model: every white point choice still in
+        the journal (the learned-offset points kept only the latest near each
+        lux), each kept until the next one. Falls back to those points."""
+        try:
+            out = subprocess.run(["journalctl", "--user", "-u", "ambient-display", "-u", "ambient-white",
+                                  "-o", "short-unix", "--no-pager"],
+                                 capture_output=True, text=True, timeout=60).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ""
+        found = []
+        for line in out.splitlines():
+            m = WHITE_EVENT_RE.match(line)
+            if m:
+                t, lux, n, _, desired, _ = m.groups()
+                t = float(t)
+                found.append({"t": t, "x": round(L(float(lux)), 3),
+                              "n": round(float(n) if n is not None else self.night_at(t), 2),
+                              "m": float(desired), "k": "manual"})
+        now = time.time()
+        for e, nxt in zip(found, found[1:] + [None]):
+            e["d"] = round(min((nxt["t"] if nxt else now) - e["t"], DWELL_CAP), 1)
+        found = [e for e in found if now - e["t"] < MAX_AGE]
+        if found:
+            log(f"white: seeded evidence from {len(found)} choices in the journal")
+            return found
+        wo = self.store.d.get("white_offsets") or {}
+        if isinstance(wo, list):
+            wo = {"night": wo}
+        seeds = [{"t": now, "x": round(L(float(a)), 3), "n": 1.0 if k == "night" else 0.0, "m": float(b),
+                  "k": "seed", "d": SEED_DWELL} for k in ("day", "night") for a, b in wo.get(k, [])]
+        if seeds:
+            log(f"white: seeded evidence from {len(seeds)} learned points")
+        return seeds
+
+    def weight(self, e, now):
+        dwell = math.log1p(min(e.get("d", 0), DWELL_CAP) / 30.0)
+        recency = 0.5 ** (max(0.0, now - e["t"]) / HALF_LIFE)
+        return dwell * recency * (APPROVE_WEIGHT if e["k"] == "approve" else 1.0)
+
+    def correction(self):
+        """Learned mired correction at the current lux and nightness: the
+        weighted median of nearby choices (by closeness in log lux and in
+        nightness, how long each was kept, recency), shrunk toward the plain
+        model by WHITE_PRIOR so thin evidence moves it less. A brief odd choice
+        is one small weight among many and can't decide the result."""
         if self.loglux is None:
             return 0.0
-        w = self.nightness() if w is None else w
-        lux = 10 ** self.loglux - 1
-        (d, cd), (n, cn) = curve(self.offsets["day"], lux, WHITE_REACH), curve(self.offsets["night"], lux, WHITE_REACH)
-        day = cd * d + (1 - cd) * cn * n         # each borrows the other where it has nothing
-        night = cn * n + (1 - cn) * cd * d
-        return (1 - w) * day + w * night
+        x, n = self.loglux, self.nightness()
+        key = (round(x, 2), round(n, 2), len(self.events), self.events[-1]["t"] if self.events else 0)
+        now = time.monotonic()
+        if key == self.fit_key and now - self.fit_at < 60:
+            return self.fit
+        wall = time.time()
+        pairs = []
+        for e in self.events:
+            w = (self.weight(e, wall) * math.exp(-0.5 * ((e["x"] - x) / WHITE_BANDWIDTH) ** 2)
+                 * max(CROSS_PHASE, math.exp(-0.5 * ((e["n"] - n) / PHASE_SIGMA) ** 2)))
+            if w > 1e-4:
+                pairs.append((e["m"], w))
+        total = sum(w for _, w in pairs)
+        self.fit = weighted_median(pairs) * total / (total + WHITE_PRIOR) if pairs else 0.0
+        self.fit_key, self.fit_at = key, now
+        return self.fit
+
+    def add_event(self, e):
+        now = time.time()
+        self.events.append(e)
+        self.events = [ev for ev in self.events if now - ev["t"] < MAX_AGE][-MAX_EVENTS:]
+        self.store.d["white_events"] = self.events
+        self.store.save()
+        self.fit_key = None
+
+    def release(self, now, why):
+        """The user's choice stops owning the screen; it becomes evidence,
+        weighted by how long it was kept."""
+        h, self.hold = self.hold, None
+        self.stable_since = None
+        if not h or h["event"] is None:     # changed again before it settled: passed through
+            return
+        e = h["event"]
+        e["d"] = round(min(now - h["since"], DWELL_CAP), 1)
+        if e["d"] < MIN_DWELL:
+            return
+        self.add_event(e)
+        log(f"white: kept {round(1e6 / h['value'])}K at {10 ** e['x'] - 1:.0f} lux, night {e['n']:.2f}, "
+            f"{e['m']:+.1f} mired vs model, for {e['d']:.0f} s ({why})")
 
     def send(self, k):
-        return sunset("temperature", str(k))
+        self.send_ok = sunset("temperature", str(k))
+        return self.send_ok
 
     def tick(self, now, dt):
         was_dark = self.dark
@@ -840,59 +926,79 @@ class WhitePoint:
         # whatever the room is doing here. Nothing is learned meanwhile, and
         # afterwards the model's target comes back at once rather than gliding.
         if TV_MODE.exists():
-            self.manual, self.manual_mtime, self.current, self.gliding = None, self.mtime(), None, False
+            if self.hold:
+                self.release(now, "TV mode")
+            self.manual_mtime, self.current, self.gliding = self.mtime(), None, False
             if (self.sent != "tv" or now - self.last_send >= RESEND) and sunset("identity"):
                 if self.sent != "tv":
                     log("white: identity for TV mode")
                 self.sent, self.last_send = "tv", now
             return
 
-        # A manual change from `white-point`: it already set hyprsunset.
+        # A manual change from `white-point`: it already set hyprsunset. The
+        # choice owns the screen until the room's light moves HOLD_DECADES,
+        # HOLD_MAX passes, the room turns dark/lit, or the night light toggle is
+        # used; then it's kept as evidence and automatic control resumes.
         m = self.mtime()
         if m != self.manual_mtime:
             self.manual_mtime = m
             try:
                 k = int(MANUAL_WHITE.read_text().split()[0])
-                self.manual = (mired(k), now)
+            except (OSError, ValueError, IndexError):
+                k = None
+            if k:
+                if self.hold:
+                    self.release(now, "changed again")
+                self.hold = {"value": mired(k), "since": now, "x": self.loglux, "event": None}
                 self.current, self.sent, self.last_send = mired(k), k, now
                 self.gliding = False
                 clear_override()
-            except (OSError, ValueError, IndexError):
-                pass
 
         base = self.model()
-        if self.manual is not None:
-            value, since = self.manual
-            if now - since < SETTLE:
-                return
-            self.manual = None
-            if base is not None and self.loglux is not None:
-                lux = 10 ** self.loglux - 1
-                # Learn into whichever of day/night dominates now, solving for the
-                # value that makes the blended correction exactly what was chosen.
-                w = self.nightness()
-                mine, other = ("night", "day") if w >= 0.5 else ("day", "night")
-                wm = w if mine == "night" else 1 - w
-                desired = value - base
-                o, co = curve(self.offsets[other], lux, WHITE_REACH)
-                # blended = (1-wm)*(co*o + (1-co)*v) + wm*v, with v's own confidence 1 here
-                v = (desired - (1 - wm) * co * o) / ((1 - wm) * (1 - co) + wm)
-                self.offsets[mine] = replace_near(self.offsets[mine], lux, v)
-                self.store.d["white_offsets"] = {k: [[round(a, 1), round(b, 1)] for a, b in pts]
-                                                 for k, pts in self.offsets.items()}
-                self.store.save()
-                log(f"white: learned {lux:.0f} lux, {mine} ({w:.2f}) -> {round(1e6 / value)}K "
-                    f"({desired:+.1f} mired vs model {round(1e6 / base)}K)")
+        if self.hold:
+            h = self.hold
+            if h["event"] is None and now - h["since"] >= SETTLE and base is not None and self.loglux is not None:
+                h["x"] = self.loglux if h["x"] is None else h["x"]
+                h["event"] = {"t": round(time.time() - (now - h["since"]), 1), "x": round(h["x"], 3),
+                              "n": round(self.nightness(), 2), "m": round(h["value"] - base, 1), "k": "manual"}
+                log(f"white: holding {round(1e6 / h['value'])}K at {10 ** h['x'] - 1:.0f} lux, "
+                    f"night {h['event']['n']:.2f} ({h['event']['m']:+.1f} mired vs model {round(1e6 / base)}K)")
+            why = None
+            if read_override():
+                why = "night light toggle"
+            elif was_dark is not None and self.dark != was_dark:
+                why = "room turned " + ("dark" if self.dark else "lit")
+            elif h["x"] is not None and self.loglux is not None and abs(self.loglux - h["x"]) >= HOLD_DECADES:
+                why = "room light changed"
+            elif now - h["since"] >= HOLD_MAX:
+                why = "held long enough"
+            if why:
+                self.release(now, why)
 
         override = read_override()
         if override == "night":
             target = self.night
         elif override == "day":
             target = self.neutral
+        elif self.hold:
+            target = self.hold["value"]
         elif base is not None:
             target = min(self.hi, max(self.lo, base + self.correction()))
         else:
             target = None
+
+        # Silent approval: automatic white left untouched (and actually on
+        # screen) for APPROVE_EVERY is weak evidence that it's right here.
+        if (target is not None and base is not None and self.loglux is not None and not self.hold
+                and not override and not self.gliding and self.send_ok):
+            if self.stable_since is None:
+                self.stable_since = now
+            elif now - self.stable_since >= APPROVE_EVERY:
+                self.stable_since = now
+                self.add_event({"t": round(time.time(), 1), "x": round(self.loglux, 3), "n": round(self.nightness(), 2),
+                                "m": round(target - base, 1), "k": "approve", "d": APPROVE_EVERY})
+        else:
+            self.stable_since = None
 
         jump = False
         if target is not None:
