@@ -13,7 +13,15 @@
           "id": "mtklein.active-window"
         },
         {
-          "id": "omarchy.indicators"
+          "id": "omarchy.indicators",
+          "items": [
+            "PasswordlessSudo",
+            "ScreenRecording",
+            "RemoteSession",
+            "Reminder",
+            "Dnd",
+            "StayAwake"
+          ]
         }
       ],
       "right": [
