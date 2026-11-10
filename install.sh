@@ -29,6 +29,7 @@ link bin/workspace-layout-toggle        ~/.local/bin/workspace-layout-toggle
 link bin/brightness-why                 ~/.local/bin/brightness-why
 link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
 link bin/tv-mode                        ~/.local/bin/tv-mode
+link bin/letterbox-hud                  ~/.local/bin/letterbox-hud
 link fingerprint                        ~/.local/share/fp-shim
 # monitors.lua stays a real file: Omarchy rewrites its scale lines with sed -i,
 # which would replace a symlink. It just loads hypr/hdr.lua from here.
