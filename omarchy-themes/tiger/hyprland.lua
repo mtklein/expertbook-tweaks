@@ -1,8 +1,9 @@
--- Tiger: glossy Aqua border on the focused window, soft grey on the rest, and
+-- Tiger: Chromium's pale frame blue on the focused window's border (it runs
+-- into a Chromium window's tab strip), soft grey on the rest, and
 -- Aqua-style drop shadows (big and soft under the focused window, smaller and
 -- fainter under the others). The two *_border_color lines are read by
 -- ~/expertbook-tweaks/hypr/hdr.lua for HDR border dimming: keep them simple literals.
-local active_border_color = { colors = { "rgba(8cc6ffff)", "rgba(2a6fd6ff)" }, angle = 90 }
+local active_border_color = "rgba(d3e3fdff)"
 local inactive_border_color = "rgba(b4b4b4aa)"
 
 hl.config({

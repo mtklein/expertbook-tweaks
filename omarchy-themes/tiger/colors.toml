@@ -4,7 +4,7 @@
 # (the stoplight hues, deepened just enough).
 mode = "light"
 
-accent = "#3875d7"        # Aqua selection blue
+accent = "#0b57d0"        # Chromium's strong blue (buttons, links, focus ring)
 selection = "#b5d5ff"     # Tiger's text-selection highlight
 muted = "#6e6e73"
 
@@ -34,6 +34,7 @@ bright_cyan = "#1a8ca0"
 bright_blue = "#3875d7"
 bright_magenta = "#a557c9"
 
-# Lickable Aqua: the focused window's border is a glossy blue, light at the top.
-hyprland_active_border = "rgba(8cc6ffff) rgba(2a6fd6ff) 90deg"
+# The focused window's border is Chromium's pale frame blue, so a Chromium
+# window's border runs into its tab strip.
+hyprland_active_border = "rgba(d3e3fdff)"
 hyprland_inactive_border = "rgba(b4b4b4aa)"
