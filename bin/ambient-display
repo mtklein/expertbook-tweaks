@@ -29,7 +29,11 @@ and modelled in nits; the level meter (percent) is perceptual, nits = WHITE *
   floor: never auto-sets below MIN_PCT (10%, ~3 nits); a user level below that is left
          alone indefinitely and never learned. SIGUSR1 (brightness-wake-floor)
          hands the current level back to automatic control without learning it.
-  move:  lux smoothed TAU_UP / TAU_DOWN, DEADBAND %, 1% steps; status for
+  move:  with restraint. It follows a slow reading of the room (TAU_CALM),
+         stays put until that asks for ~12% more or less light (START), then
+         drifts there in 0.5% steps (STEP) at 0.4-2% a second, so no moment
+         shows a change. When the screen has been off it goes straight to
+         the right level instead. Status for
          `brightness-why` in $XDG_RUNTIME_DIR/ambient-display-status.json.
 
 White point (through hyprsunset's IPC, 100 K resolution), in true kelvin: the
@@ -111,9 +115,17 @@ LEGACY = STATE_DIR / "white-point.legacy"      # pid of a running Hyprland from 
 DEFAULT_POINTS = [(0, 40), (5, 60), (30, 90), (120, 130), (400, 200), (1500, 300)]
 TAU_UP = 7.5             # lux smoothing when the room brightens (s)
 TAU_DOWN = 30.0          # ... when it darkens
-DEADBAND = 3             # ignore target differences smaller than this (%)
-STEP_EVERY_UP = 0.7      # seconds per 1% step while fading up
-STEP_EVERY_DOWN = 1.0    # ... while fading down
+# Restraint: automatic brightness would rather be a little wrong for a few
+# minutes than ever be seen to move. It follows a slow reading of the room
+# (TAU_CALM), stays put until that asks for a change worth making (START), and
+# then drifts there in steps too small to see (STEP), slowly (DRIFT_*). A
+# change nobody could have watched (the screen was off) is made at once.
+TAU_CALM = 90.0          # the room has to hold a change about this long (s) before it counts
+START = 0.12             # move only once the target is this far off, in ln(nits): ~12% of the light
+STEP = 0.005             # each step changes the light by 0.5%
+DRIFT_MIN = 0.004        # ln(nits) per second at the least: doubling takes ~3 min
+DRIFT_MAX = 0.02         # ... and at the most, for big changes (lights switched off)
+DRIFT_SPAN = 180.0       # aim to finish any change within about this long (s)
 MIN_PCT, MAX_PCT = 10, 100
 # Ownership: after you set a level it's yours until the room's light changes
 # this much (log10 lux, ~2x) from when you set it, or HOLD_MAX passes.
@@ -461,7 +473,10 @@ class Brightness:
         self.white = None        # nits at 100%
         self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (hypr/hdr.lua)
         self.hdr = None
-        self.last_set = None     # the level as last seen or written (%)
+        self.last_set = None     # the level as last seen or written (%, fractional under automatic control)
+        self.calm = None         # slowly smoothed log lux: what automatic brightness follows
+        self.asleep = True       # the screen was off (or we just started): nobody saw the last level
+        self.screen_on = False   # as of the last check
         self.owner = "auto"      # "auto" | "user"
         self.hold_x = None       # log lux when the user took over
         self.hold_since = 0.0
@@ -582,6 +597,9 @@ class Brightness:
         else:
             tau = TAU_UP if x > self.smooth else TAU_DOWN
             self.smooth += (x - self.smooth) * (1 - math.exp(-(t - self.last_t) / tau))
+            self.calm += (x - self.calm) * (1 - math.exp(-(t - self.last_t) / TAU_CALM))
+        if self.calm is None:
+            self.calm = x
         self.last_t = t
 
     def edp_state(self):
@@ -593,7 +611,7 @@ class Brightness:
     def get_pct(self, hdr):
         if hdr:
             try:
-                return int(float(LEVEL.read_text()) * 100 + 0.5)
+                return round(float(LEVEL.read_text()) * 100, 2)
             except OSError:
                 return 100
             except ValueError:
@@ -629,13 +647,19 @@ class Brightness:
         self.owner, self.stable_since = "auto", None
         log(f"brightness: {why}; automatic again (carrying {self.offset:+.0f} nits)")
 
-    def target_pct(self, now):
-        nits = self.model(self.smooth)
+    def target_pct(self, now, x=None):
+        """The level the evidence asks for at log lux x (default: the calm reading)."""
+        x = self.calm if x is None else x
+        nits = self.model(x)
         if self.offset and self.offset_x is not None:
-            fade = math.exp(-abs(self.smooth - self.offset_x) / OFFSET_REACH) \
+            fade = math.exp(-abs(x - self.offset_x) / OFFSET_REACH) \
                 * 0.5 ** ((now - self.offset_t) / OFFSET_HALF_LIFE)
             nits += self.offset * fade
-        return int(round(min(MAX_PCT, max(MIN_PCT, self.pct_for(nits)))))
+        return min(MAX_PCT, max(MIN_PCT, self.pct_for(nits)))
+
+    def set_level(self, pct):
+        self.last_set = round(pct, 2)
+        run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{self.last_set:.2f}%")
 
     def write_status(self, now, target):
         try:
@@ -671,7 +695,9 @@ class Brightness:
             nits = state[0] if state else None
             self.hdr = state[1] if state else None
             current = self.get_pct(self.hdr) if nits else None
-            if current is None:
+            self.screen_on = current is not None
+            if not self.screen_on:
+                self.asleep = True               # screen off: whatever comes next, nobody watches it happen
                 return
             try:
                 self.gamma = float(GAMMA.read_text())
@@ -683,10 +709,13 @@ class Brightness:
                 self.white = nits / (current / 100) ** self.gamma if current else 200.0
             if self.last_set is None:
                 self.last_set = current
-            elif current != self.last_set:      # changed by something unannounced: don't fight it
+            elif abs(current - self.last_set) > 0.05:   # changed by something unannounced: don't fight it
                 self.user_changed(current, now)
+        if not self.screen_on:
+            return
 
         if self.owner == "user":
+            self.asleep = False                  # your level stays yours across a sleep
             if self.hold_x is None:
                 self.hold_x = self.smooth        # resumed after a restart: hold from here
             if self.last_set is not None and self.last_set >= MIN_PCT and self.hold_x is not None:
@@ -705,22 +734,41 @@ class Brightness:
         target = self.target_pct(now)
         if now - self.last_status > 2:
             self.last_status = now
-            self.write_status(now, target)
+            self.write_status(now, round(target, 1))
 
-        diff = target - self.last_set
-        if now >= self.next_step and (abs(diff) >= DEADBAND or (self.fading and diff != 0)):
+        # The screen just came on (wake, unlock, login): go straight to what the
+        # room asks for now. Nobody saw the old level, so there's nothing to hide.
+        if self.asleep:
+            self.asleep = False
+            self.calm = self.smooth
+            target = self.target_pct(now)
+            if abs(target - self.last_set) > 0.05:
+                log(f"brightness: screen woke; {self.last_set:.0f}% -> {target:.0f}% at once")
+                self.set_level(target)
+            self.fading, self.stable_since = False, None
+            return
+
+        # Distance to the target in ln(nits): the same number is the same visible change at any level.
+        gap = math.log(max(self.nits_at(target), 0.05) / max(self.nits_at(self.last_set), 0.05))
+        if not self.fading and abs(gap) >= START:
+            self.fading, self.stable_since = True, None
+            log(f"brightness: drifting {self.last_set:.0f}% -> {target:.0f}% ({10 ** self.calm - 1:.0f} lux)")
+        if self.fading and now >= self.next_step:
             current = self.get_pct(self.hdr) if self.hdr is not None else None
-            if current is not None and current != self.last_set:
+            if current is not None and abs(current - self.last_set) > 0.05:
                 self.user_changed(current, now)
                 return
-            self.fading, self.stable_since = True, None
-            step = 1 if diff > 0 else -1
-            self.last_set += step
-            run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{self.last_set}%")
-            self.next_step = now + (STEP_EVERY_UP if step > 0 else STEP_EVERY_DOWN)
+            if abs(gap) <= STEP:
+                self.set_level(target)
+                self.fading = False
+            else:
+                rate = min(DRIFT_MAX, max(DRIFT_MIN, abs(gap) / DRIFT_SPAN))
+                nits = self.nits_at(self.last_set) * math.exp(STEP if gap > 0 else -STEP)
+                self.set_level(min(MAX_PCT, max(MIN_PCT, self.pct_for(nits))))
+                self.next_step = now + STEP / rate
             return
-        if diff == 0 or abs(diff) < DEADBAND:
-            self.fading = False
+        if self.fading:
+            return
         # Untouched automatic brightness is a (weak) approval of it.
         wall = time.time()
         if self.stable_since is None:

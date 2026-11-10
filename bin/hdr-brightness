@@ -36,7 +36,7 @@ passthrough() {
   exec omarchy-brightness-display "${args[@]}"
 }
 
-[[ -z $step || $step =~ ^(\+?[0-9]+%|[0-9]+%-)$ ]] || passthrough
+[[ -z $step || $step =~ ^(\+?[0-9]+%|[0-9]+%-|[0-9]+\.[0-9]+%)$ ]] || passthrough
 
 [[ -n $monitor ]] || monitor="$(omarchy-hyprland-monitor-focused 2>/dev/null)"
 [[ $monitor == eDP-1 ]] || passthrough
@@ -56,6 +56,10 @@ fi
 exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/hdr-brightness.lock"
 flock -n "$lock_fd" || exit 0
 
+# A fractional level ("42.37%") is set exactly: ambient-display moves in steps
+# too small to see. Whole numbers and +/- steps are the keys and the slider.
+exact=""
+[[ $step =~ ^[0-9]+\.[0-9]+%$ ]] && exact=${step%\%}
 n=${step//[^0-9]/}
 # The level is perceptual (hypr/hdr.lua turns it into nits on a 2.2 power
 # curve), so every step looks about the same size, all the way down.
@@ -70,7 +74,12 @@ esac
 (( target > 100 )) && target=100
 (( target < 0 )) && target=0
 
-value=$(awk -v t="$target" 'BEGIN { printf "%.2f", t / 100 }')
+if [[ -n $exact ]]; then
+  value=$(awk -v t="$exact" 'BEGIN { if (t > 100) t = 100; printf "%.4f", t / 100 }')
+  target=$(awk -v t="$exact" 'BEGIN { printf "%d", (t > 100 ? 100 : t) + 0.5 }')
+else
+  value=$(awk -v t="$target" 'BEGIN { printf "%.2f", t / 100 }')
+fi
 hyprctl eval "edp_hdr_monitor($value)" >/dev/null
 
 mkdir -p "$state" && echo "$value" > "$state/hdr-brightness"

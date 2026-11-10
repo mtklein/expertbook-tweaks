@@ -29,16 +29,16 @@ edp_brightness_gamma = 2.2
 
 function edp_hdr_monitor(level)
   local nits = edp_sdr_white * level ^ edp_brightness_gamma
-  -- sdr_max_luminance is a whole number of nits. Above a few nits that's fine
-  -- enough; below, the fraction rides on sdrbrightness (which the patched
-  -- Hyprland applies to every surface), so the dim end isn't a staircase.
+  -- sdr_max_luminance is a whole number of nits, which is a visible jump in a
+  -- dim room (1 nit in 20 is 5%). So it's rounded up and the remaining
+  -- fraction rides on sdrbrightness (which the patched Hyprland applies to
+  -- every surface): brightness is continuous, and automatic changes can move
+  -- in steps too small to see.
   -- 0% is "off": sdr_max_luminance can't go below 1 (0 means default), so
   -- scale the picture to black instead. (Exactly 0 would also mean default.)
   local whole, scale
   if level <= 0 then
     whole, scale = 1, 0.0001
-  elseif nits >= 8 then
-    whole, scale = math.floor(nits + 0.5), 1
   else
     whole = math.max(1, math.ceil(nits - 1e-6))
     scale = math.max(0.0001, math.min(1, nits / whole))
