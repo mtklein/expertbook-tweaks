@@ -31,10 +31,10 @@ except (OSError, ValueError):
 
 white = st.get("white") or 500
 print(f"at {st['time']}: room {st['lux']:.0f} lux, {st['hour']:.1f} h; screen {st['level']}%"
-      f" ({st['level'] * white / 100:.0f} nits of {white:.0f})")
+      f" ({st.get('nits') or 0:.0f} nits of {white:.0f})")
 if st["owner"] == "user":
-    if st["level"] is not None and st["level"] < 5:
-        print("  yours: below 5%, so automatic brightness leaves it alone until you change it")
+    if st["level"] is not None and st["level"] < 10:
+        print("  yours: below 10%, so automatic brightness leaves it alone until you change it")
     else:
         print(f"  yours since you set it at {st['hold_lux']} lux; automatic resumes once the room"
               f" is ~2x brighter or dimmer than that, or after 3 h")

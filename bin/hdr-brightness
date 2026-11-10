@@ -3,7 +3,7 @@
 #
 # With HDR on, the internal OLED ignores its backlight, so brightness is applied
 # in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
-# hypr/hdr.lua). The level (0-1) is saved to ~/.local/state/hdr-brightness,
+# hypr/hdr.lua). The level (0-1, perceptual) is saved to ~/.local/state/hdr-brightness,
 # which is also where the current level is read from.
 # Anything else (HDR off, another monitor, on/off) is handed to
 # omarchy-brightness-display unchanged.
@@ -57,16 +57,14 @@ exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/hdr-brightness.lock"
 flock -n "$lock_fd" || exit 0
 
 n=${step//[^0-9]/}
+# The level is perceptual (hypr/hdr.lua turns it into nits on a 2.2 power
+# curve), so every step looks about the same size, all the way down.
 # 5% steps snap to the 5% grid (51 -> 55 up, 56 -> 55 down), since automatic
-# brightness leaves the level anywhere; at the dim end (0-5%) they move by 1.
-# Other step sizes (Alt's 1%) move by exactly that much.
+# brightness leaves the level anywhere. Other step sizes (Alt's 1%) move by
+# exactly that much.
 case $step in
-  +*) if (( n == 5 )); then
-        if (( current < 5 )); then target=$(( current + 1 )); else target=$(( current / 5 * 5 + 5 )); fi
-      else target=$(( current + n )); fi ;;
-  *-) if (( n == 5 )); then
-        if (( current <= 5 )); then target=$(( current - 1 )); else target=$(( (current + 4) / 5 * 5 - 5 )); fi
-      else target=$(( current - n )); fi ;;
+  +*) if (( n == 5 )); then target=$(( current / 5 * 5 + 5 )); else target=$(( current + n )); fi ;;
+  *-) if (( n == 5 )); then target=$(( (current + 4) / 5 * 5 - 5 )); else target=$(( current - n )); fi ;;
   *)  target=$n ;;
 esac
 (( target > 100 )) && target=100

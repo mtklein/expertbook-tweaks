@@ -58,7 +58,27 @@ end
 -- Try others live: hyprctl eval 'edp_sdr_white = N; edp_hdr_monitor(<0-1>)'
 edp_sdr_white = 500
 
-function edp_hdr_monitor(sdr_brightness)
+-- The level meter is perceptual: equal steps of level look like equal steps
+-- of brightness. nits = edp_sdr_white * level ^ edp_brightness_gamma, so 50%
+-- is ~109 nits, 25% ~24, 10% ~3.
+edp_brightness_gamma = 2.2
+
+function edp_hdr_monitor(level)
+  local nits = edp_sdr_white * level ^ edp_brightness_gamma
+  -- sdr_max_luminance is a whole number of nits. Above a few nits that's fine
+  -- enough; below, the fraction rides on sdrbrightness (which the patched
+  -- Hyprland applies to every surface), so the dim end isn't a staircase.
+  -- 0% is "off": sdr_max_luminance can't go below 1 (0 means default), so
+  -- scale the picture to black instead. (Exactly 0 would also mean default.)
+  local whole, scale
+  if level <= 0 then
+    whole, scale = 1, 0.0001
+  elseif nits >= 8 then
+    whole, scale = math.floor(nits + 0.5), 1
+  else
+    whole = math.max(1, math.ceil(nits - 1e-6))
+    scale = math.max(0.0001, math.min(1, nits / whole))
+  end
   hl.monitor({
     output = "eDP-1", mode = "preferred", position = "auto", scale = omarchy_monitor_scale,
     bitdepth = 10, cm = "hdr",
@@ -66,16 +86,17 @@ function edp_hdr_monitor(sdr_brightness)
     -- colour-managed clients (Chromium, Electron) follow it too; that needs
     -- the patched Hyprland in hyprland-patched/. Stock Hyprland still dims
     -- everything else the same way.
-    sdr_max_luminance = math.max(1, math.floor(edp_sdr_white * sdr_brightness + 0.5)),
-    -- 0% is "off": sdr_max_luminance can't go below 1 (0 means default), so
-    -- scale SDR output to black instead. (Exactly 0 would also mean default.)
-    sdrbrightness = sdr_brightness > 0 and 1 or 0.0001,
+    sdr_max_luminance = whole,
+    sdrbrightness = scale,
     -- SDR black defaults to 0.2 nits, which glows on the OLED (borders, Chromium).
     sdr_min_luminance = 0,
   })
-  -- Publish what 100% means, so ambient-display can turn nits into percent.
+  local sdr_brightness = level <= 0 and 0 or nits / edp_sdr_white   -- linear-light factor, for the borders
+  -- Publish the curve's two numbers, so ambient-display can turn nits into percent.
   local f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-sdr-white", "w")
   if f then f:write(string.format("%g\n", edp_sdr_white)); f:close() end
+  f = io.open((os.getenv("HOME") or "") .. "/.local/state/hdr-brightness-gamma", "w")
+  if f then f:write(string.format("%g\n", edp_brightness_gamma)); f:close() end
   local active, inactive = theme_border_colors()
   if active and inactive then
     active, inactive = dim_color(active, sdr_brightness), dim_color(inactive, sdr_brightness)

@@ -12,7 +12,9 @@ every COLOR_EVERY cycles (~1 Hz lux, ~1/3 Hz colour); the control loop never
 waits on it, and all smoothing uses the samples' real timestamps.
 
 Brightness (through hdr-brightness, so it works in HDR, where the panel ignores
-its backlight): learned from evidence, not a curve edited in place.
+its backlight): learned from evidence, not a curve edited in place. Learned
+and modelled in nits; the level meter (percent) is perceptual, nits = WHITE *
+(level / 100) ** GAMMA, a curve hypr/hdr.lua owns and publishes.
   evidence: each manual choice (room light, time of day, nits, how long it was
          kept) and "silent approvals" (an automatic level left untouched for
          APPROVE_EVERY), kept MAX_AGE, in ~/.local/state/ambient-display.json.
@@ -24,7 +26,7 @@ its backlight): learned from evidence, not a curve edited in place.
          this daemon writes with --auto. A user change owns the level until
          the room's light moves HOLD_DECADES (~2x) or HOLD_MAX passes; then
          automatic control resumes from there, easing out the user's offset.
-  floor: never auto-sets below MIN_PCT (5%); a user level below that is left
+  floor: never auto-sets below MIN_PCT (10%, ~3 nits); a user level below that is left
          alone indefinitely and never learned. SIGUSR1 (brightness-wake-floor)
          hands the current level back to automatic control without learning it.
   move:  lux smoothed TAU_UP / TAU_DOWN, DEADBAND %, 1% steps; status for
@@ -91,6 +93,7 @@ from pathlib import Path
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE = STATE_DIR / "ambient-display.json"
 WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from hdr.lua
+GAMMA = STATE_DIR / "hdr-brightness-gamma"     # the level curve's exponent, from hdr.lua
 LEVEL = STATE_DIR / "hdr-brightness"           # current level, from hdr-brightness
 MANUAL_WHITE = STATE_DIR / "white-point.manual"  # kelvin, from white-point
 OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the bar toggle
@@ -111,7 +114,7 @@ TAU_DOWN = 30.0          # ... when it darkens
 DEADBAND = 3             # ignore target differences smaller than this (%)
 STEP_EVERY_UP = 0.7      # seconds per 1% step while fading up
 STEP_EVERY_DOWN = 1.0    # ... while fading down
-MIN_PCT, MAX_PCT = 5, 100
+MIN_PCT, MAX_PCT = 10, 100
 # Ownership: after you set a level it's yours until the room's light changes
 # this much (log10 lux, ~2x) from when you set it, or HOLD_MAX passes.
 HOLD_DECADES = 0.3
@@ -456,6 +459,7 @@ class Brightness:
         self.smooth = None       # smoothed log lux
         self.last_t = None
         self.white = None        # nits at 100%
+        self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (hypr/hdr.lua)
         self.hdr = None
         self.last_set = None     # the level as last seen or written (%)
         self.owner = "auto"      # "auto" | "user"
@@ -601,18 +605,26 @@ class Brightness:
         except (OSError, subprocess.SubprocessError, ValueError):
             return None
 
+    def nits_at(self, pct):
+        """The level meter is perceptual: equal steps look equal. hdr.lua owns
+        the curve and publishes its two numbers (WHITE, GAMMA)."""
+        return self.white * (max(pct, 0) / 100) ** self.gamma
+
+    def pct_for(self, nits):
+        return 100 * (max(nits, 0.0) / self.white) ** (1 / self.gamma)
+
     def user_changed(self, pct, now):
         self.close_open()                       # the previous choice, with its dwell
         self.owner, self.hold_x, self.hold_since = "user", self.smooth, now
         self.last_set, self.fading, self.stable_since, self.offset = pct, False, None, 0.0
         if pct >= MIN_PCT and self.white:
             self.open = {"t": time.time(), "x": round(self.smooth, 3), "h": round(hour_now(), 2),
-                         "nits": round(pct * self.white / 100, 1), "k": "user", "d": 0}
+                         "nits": round(self.nits_at(pct), 1), "k": "user", "d": 0}
 
     def release(self, now, why):
         self.close_open()
         if self.last_set is not None and self.white and self.hold_x is not None:
-            self.offset = self.last_set * self.white / 100 - self.model(self.hold_x)
+            self.offset = self.nits_at(self.last_set) - self.model(self.hold_x)
             self.offset_x, self.offset_t = self.hold_x, now
         self.owner, self.stable_since = "auto", None
         log(f"brightness: {why}; automatic again (carrying {self.offset:+.0f} nits)")
@@ -623,7 +635,7 @@ class Brightness:
             fade = math.exp(-abs(self.smooth - self.offset_x) / OFFSET_REACH) \
                 * 0.5 ** ((now - self.offset_t) / OFFSET_HALF_LIFE)
             nits += self.offset * fade
-        return int(round(min(MAX_PCT, max(MIN_PCT, 100 * nits / self.white))))
+        return int(round(min(MAX_PCT, max(MIN_PCT, self.pct_for(nits)))))
 
     def write_status(self, now, target):
         try:
@@ -631,6 +643,7 @@ class Brightness:
                 "time": time.strftime("%H:%M:%S"), "lux": round(10 ** self.smooth - 1, 1),
                 "hour": round(hour_now(), 2), "level": self.last_set, "owner": self.owner,
                 "target": target, "model_nits": round(self.model(self.smooth), 1), "white": self.white,
+                "nits": None if self.last_set is None else round(self.nits_at(self.last_set), 1),
                 "hold_lux": None if self.hold_x is None else round(10 ** self.hold_x - 1, 1),
                 "offset_nits": round(self.offset, 1), "events": len(self.events),
                 "open": self.open}, indent=1) + "\n")
@@ -661,9 +674,13 @@ class Brightness:
             if current is None:
                 return
             try:
+                self.gamma = float(GAMMA.read_text())
+            except (OSError, ValueError):
+                self.gamma = 1.0
+            try:
                 self.white = float(WHITE.read_text())
             except (OSError, ValueError):
-                self.white = nits * 100 / current if current else 200.0
+                self.white = nits / (current / 100) ** self.gamma if current else 200.0
             if self.last_set is None:
                 self.last_set = current
             elif current != self.last_set:      # changed by something unannounced: don't fight it
@@ -711,7 +728,7 @@ class Brightness:
         elif wall - self.stable_since >= APPROVE_EVERY:
             self.stable_since = wall
             self.add_event({"t": wall, "x": round(self.smooth, 3), "h": round(hour_now(), 2),
-                            "nits": round(self.last_set * self.white / 100, 1), "k": "approve",
+                            "nits": round(self.nits_at(self.last_set), 1), "k": "approve",
                             "d": APPROVE_EVERY})
 
 
