@@ -38,17 +38,14 @@
           "id": "mtklein.weather"
         },
         {
-          "id": "omarchy.keyboard-layout"
-        },
-        {
-          "id": "mtklein.bluetooth"
-        },
-        {
           "id": "mtklein.network"
         },
         {
           "id": "mtklein.power",
           "showPercentage": false
+        },
+        {
+          "id": "omarchy.keyboard-layout"
         },
         {
           "format": "ddd h:mm AP",
@@ -58,7 +55,14 @@
           "weekStartDay": "monday"
         }
       ],
-      "tray": []
+      "tray": [
+        {
+          "id": "mtklein.bluetooth"
+        },
+        {
+          "id": "mtklein.monitor"
+        }
+      ]
     }
   }
 }

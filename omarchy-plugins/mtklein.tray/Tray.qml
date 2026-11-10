@@ -50,14 +50,15 @@ BarWidget {
   readonly property bool holdOpen: trayMenuOpen || managePopupOpen || barDragging || (!!bar && bar.traySectionPopoutOpen === true)
   // The mark under the bar sits under the icon whose menu is open.
   readonly property Item openPanelIndicatorItem: trayMenuOpen ? activeTrayAnchor : null
-  // No chevron (mtklein): the drawer's icons appear, semi-transparent, the way
-  // the bar's inactive indicators do: while the pointer is over the tray or
-  // over the bar's empty middle. They go solid under the pointer.
-  readonly property bool barReveal: !!bar && bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true
+  // No chevron (mtklein): the drawer's icons keep their place in the bar all
+  // the time, invisible, and fade in, semi-transparent like the bar's inactive
+  // indicators, while the pointer is over that place (or just beside it). They
+  // go solid under the pointer. Nothing else on the bar moves when they show.
+  readonly property real revealMargin: trayItemExtent / 2
   property bool drawerHovered: false
   readonly property int animationDuration: 200
-  property real revealProgress: expanded || holdOpen || barReveal ? 1 : 0
-  readonly property real revealExtent: drawerExtent * revealProgress
+  property real revealProgress: expanded || holdOpen ? 1 : 0
+  readonly property real revealExtent: drawerExtent
   // The pinned icons sit against the tray's fixed edge with the chevron past
   // them. Opening, the drawer grows the tray between the two and pushes the
   // chevron out of the way, while the pointer that opened it stays over the
@@ -288,6 +289,7 @@ BarWidget {
       implicitHeight: root.barSize
 
       HoverHandler {
+        margin: root.revealMargin
         onHoveredChanged: root.expanded = hovered
       }
 
@@ -319,7 +321,7 @@ BarWidget {
         // beside the pinned icons, the section nearest them.
         Item {
           id: trayClip
-          x: root.fixedAtStart ? 0 : expandIcon.width
+          x: root.fixedAtStart ? 0 : horizontalTrayRoot.chevronWidth
           anchors.verticalCenter: parent.verticalCenter
           width: root.revealExtent
           height: root.barSize
@@ -327,14 +329,14 @@ BarWidget {
 
           Item {
             id: drawerContent
+            opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+            Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
             x: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
             width: root.drawerExtent
             height: root.barSize
 
             Row {
               id: trayIcons
-              opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
-              Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
               x: root.fixedAtStart ? root.sectionExtent : 0
               anchors.verticalCenter: parent.verticalCenter
               spacing: root.trayItemGap
@@ -385,6 +387,7 @@ BarWidget {
       implicitHeight: pinnedCol.implicitHeight + chevronHeight + root.revealExtent
 
       HoverHandler {
+        margin: root.revealMargin
         onHoveredChanged: root.expanded = hovered
       }
 
@@ -417,7 +420,7 @@ BarWidget {
         // beside the pinned icons, the section nearest them.
         Item {
           id: trayClip
-          y: root.fixedAtStart ? 0 : expandIcon.height
+          y: root.fixedAtStart ? 0 : verticalTrayRoot.chevronHeight
           anchors.horizontalCenter: parent.horizontalCenter
           width: root.barSize
           height: root.revealExtent
@@ -425,14 +428,14 @@ BarWidget {
 
           Item {
             id: drawerContent
+            opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+            Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
             y: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
             width: root.barSize
             height: root.drawerExtent
 
             Column {
               id: trayIcons
-              opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
-              Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
               y: root.fixedAtStart ? root.sectionExtent : 0
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: root.trayItemGap
