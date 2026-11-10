@@ -4,7 +4,7 @@
 #
 # As a Steam launch option:
 #
-#     letterbox-hud -- %command%
+#     letterbox-hud %command%
 #     letterbox-hud -r 60 -- %command%              (anything before -- goes to gamescope)
 #     letterbox-hud --aspect 21:9 -- %command%      (the game's picture shape; default 16:9)
 #
@@ -21,7 +21,10 @@ MIN_BAND=40
 
 aspect=16:9
 gamescope_args=()
-while (( $# > 0 )); do
+# No "--" at all: everything is the game's command ("letterbox-hud %command%").
+has_sep=0
+for a in "$@"; do [[ $a == -- ]] && has_sep=1; done
+while (( has_sep && $# > 0 )); do
   case $1 in
     --) shift; break ;;
     --aspect) aspect=$2; shift 2 ;;
