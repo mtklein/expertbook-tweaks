@@ -34,7 +34,7 @@ end
 
 local edp_scale = scale_omarchy_set_for_edp()
 
-edp_sdr_white = 500
+edp_sdr_white = 600
 edp_brightness_gamma = 2.2
 
 function edp_hdr_level(level)
