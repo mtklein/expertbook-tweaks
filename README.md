@@ -43,6 +43,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | 05 | The hardware cursor is rendered in the output's encoding. |
 | 06 | The colour matrix is applied in linear light when the output is PQ. |
 | 07 | Surfaces not yet on screen get the notifications too (single monitor). |
+| 08 | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
@@ -105,7 +106,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 - `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
 - Turning a clone off makes Omarchy put the stock widget back; `bar-item` disables both.
 - Each read of the light sensor blocks about a second.
-- Hyprland rewrites the keyboard LEDs from xkb state on key events, so `attention` re-asserts the light every 30 ms while it is on.
+- Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; patch 08 stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
 - The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
 - GeForce NOW (Flatpak, X11-only): in a stream only mouse buttons, motion and a real wheel get through.
