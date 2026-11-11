@@ -45,8 +45,8 @@ command -v mangohud >/dev/null && hold+=(mangohud)
 # it keeps an old game's one busy thread on a fast core without pinned-game.
 # It follows the power profile (--autopower) and is system-wide while loaded.
 # Started here if nothing is loaded, and stopped again when the game ends;
-# each of those asks for the password (polkit) unless one was given in the
-# last few minutes. GAME_SCHED=none in the launch option skips it.
+# system/etc/polkit-1/rules.d/50-scx-loader.rules lets that happen without a
+# password. GAME_SCHED=none in the launch option skips it.
 sched=${GAME_SCHED:-lavd}
 if [[ $sched != none ]] && command -v scxctl >/dev/null && scxctl get 2>/dev/null | grep -q '^no scx'; then
   if scxctl start -s "$sched" -a="--autopower" >/dev/null 2>&1; then
