@@ -53,9 +53,10 @@ BarWidget {
   // No chevron (mtklein): the drawer's icons keep their place in the bar all
   // the time, invisible, and fade in, semi-transparent like the bar's inactive
   // indicators, while the pointer is over that place (or just beside it). They
-  // go solid under the pointer. Nothing else on the bar moves when they show.
+  // stay that way under the pointer; only the one being pressed, or whose menu
+  // or panel is open, is solid. Nothing else on the bar moves when they show.
   readonly property real revealMargin: trayItemExtent / 2
-  property bool drawerHovered: false
+  readonly property real dimOpacity: 0.45
   readonly property int animationDuration: 200
   property real revealProgress: expanded || holdOpen ? 1 : 0
   readonly property real revealExtent: drawerExtent
@@ -300,10 +301,6 @@ BarWidget {
         height: root.barSize
         visible: root.hasDrawer
 
-        HoverHandler {
-          onHoveredChanged: root.drawerHovered = hovered
-        }
-
         BarIconButton {
           id: expandIcon
           visible: false
@@ -329,7 +326,7 @@ BarWidget {
 
           Item {
             id: drawerContent
-            opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+            opacity: root.revealProgress
             Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
             x: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
             width: root.drawerExtent
@@ -344,7 +341,7 @@ BarWidget {
 
               Repeater {
                 model: root.drawerItems
-                TrayItem {}
+                TrayItem { inDrawer: true }
               }
             }
 
@@ -398,10 +395,6 @@ BarWidget {
         height: verticalTrayRoot.chevronHeight + root.revealExtent
         visible: root.hasDrawer
 
-        HoverHandler {
-          onHoveredChanged: root.drawerHovered = hovered
-        }
-
         BarIconButton {
           id: expandIcon
           visible: false
@@ -428,7 +421,7 @@ BarWidget {
 
           Item {
             id: drawerContent
-            opacity: root.revealProgress * (root.drawerHovered ? 1.0 : 0.45)
+            opacity: root.revealProgress
             Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
             y: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
             width: root.barSize
@@ -443,7 +436,7 @@ BarWidget {
 
               Repeater {
                 model: root.drawerItems
-                TrayItem {}
+                TrayItem { inDrawer: true }
               }
             }
 
@@ -896,6 +889,26 @@ BarWidget {
     implicitHeight: childrenRect.height
 
     Component.onCompleted: root.sectionHost = sectionArea
+
+    // The bar's widgets in here are dim like the tray icons beside them, and
+    // solid only while their own panel is open (mtklein). They are the bar's
+    // module slots, found by their panelOpen property wherever the bar nests
+    // them; the bar doesn't set a slot's opacity itself.
+    function dimSlots(item, depth) {
+      if (!item || depth > 6) return
+      if ("panelOpen" in item && "widgetKey" in item) {
+        if (!item.mtkleinDimmed) {
+          item.opacity = Qt.binding(function() { return item.panelOpen ? 1.0 : root.dimOpacity })
+          try { item.mtkleinDimmed = true } catch (e) {}
+        }
+        return
+      }
+      var kids = item.children
+      for (var i = 0; i < kids.length; i++) dimSlots(kids[i], depth + 1)
+    }
+    function dimSlotsSoon() { Qt.callLater(function() { sectionArea.dimSlots(sectionArea, 0) }) }
+    onChildrenRectChanged: dimSlotsSoon()
+    onChildrenChanged: dimSlotsSoon()
     // The bar can tear this area down after the widget itself is gone
     // (a plugin rescan destroys them in its own order), so unregister
     // only while the widget is still there to unregister from.
@@ -906,6 +919,10 @@ BarWidget {
     id: trayItemRoot
 
     required property var modelData
+    // In the drawer: dim unless pressed or showing its menu (mtklein).
+    property bool inDrawer: false
+    opacity: !inDrawer || mouseArea.pressed || (root.trayMenuOpen && root.activeTrayItem === modelData) ? 1.0 : root.dimOpacity
+    Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
 
     visible: modelData.status !== Status.Passive
     implicitWidth: visible ? root.trayItemExtent : 0

@@ -56,13 +56,22 @@
       ],
       "tray": [
         {
+          "id": "mtklein.agents"
+        },
+        {
           "id": "mtklein.monitor"
+        },
+        {
+          "id": "mtklein.audio"
         },
         {
           "id": "mtklein.bluetooth"
         },
         {
-          "id": "mtklein.audio"
+          "id": "mtklein.tailscale"
+        },
+        {
+          "id": "omarchy.media"
         }
       ]
     },
