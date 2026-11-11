@@ -2,12 +2,17 @@
 wallpaper="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/background"
 [[ -e $wallpaper ]] || exit 0
 
+note() { logger -t early-wallpaper "$1"; }
+note "started"
 swaybg -i "$wallpaper" -m fill &
 placeholder=$!
 
-for _ in $(seq 120); do
-  hyprctl layers -j | grep -q '"omarchy-background"' && break
-  sleep 0.25
+ours=0
+for _ in $(seq 600); do
+  layers=$(hyprctl layers -j 2>/dev/null)
+  if (( ! ours )) && [[ $layers == *'"wallpaper"'* ]]; then ours=1; note "placeholder on screen"; fi
+  if [[ $layers == *'"omarchy-background"'* ]]; then note "shell wallpaper on screen"; break; fi
+  sleep 0.05
 done
 sleep 1.5
 kill "$placeholder"
