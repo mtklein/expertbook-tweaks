@@ -52,8 +52,8 @@ published in $XDG_RUNTIME_DIR/white-point.
   learn: from evidence, like brightness. `white-point` (the Shift + brightness
          keys) writes the value to MANUAL_WHITE and it is applied at once. The
          choice then owns the screen until the room's light moves HOLD_DECADES,
-         HOLD_MAX passes, the room turns dark <-> lit or the night light toggle
-         is used; then it's kept as an event (log lux, nightness, the mired
+         HOLD_MAX passes or the room turns dark <-> lit; then it's kept as an
+         event (log lux, nightness, the mired
          difference from the model, how long it was kept). Automatic white left
          untouched on screen for APPROVE_EVERY is a silent approval (weight
          APPROVE_WEIGHT). The correction at the current lux and nightness is the
@@ -68,9 +68,6 @@ published in $XDG_RUNTIME_DIR/white-point.
          and lux over TAU_LUX s, no move for less than HOLD_MIRED, then the
          follower takes SETTLE_WHITE s whatever the size. At once when the
          screen has been off, and for the keys.
-  night light toggle (omarchy-plugins/mtklein.nightlight) writes "night" or
-         "day" to OVERRIDE; honoured until the room changes dark <-> lit or a
-         manual white point change.
   6600 K is neutral (gains 1, 1, 1). The value is re-sent every RESEND s.
 
 State: ~/.local/state/ambient-display.json (brightness and white point
@@ -96,7 +93,6 @@ WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from hdr.lua
 GAMMA = STATE_DIR / "hdr-brightness-gamma"     # the level curve's exponent, from hdr.lua
 LEVEL = STATE_DIR / "hdr-brightness"           # current level, from hdr-brightness
 MANUAL_WHITE = STATE_DIR / "white-point.manual"  # kelvin, from white-point
-OVERRIDE = STATE_DIR / "ambient-white.override"  # "night" | "day", from the night light toggle
 MONITOR = "eDP-1"
 
 TICK = 0.1               # control loop period while nothing is moving (s)
@@ -898,7 +894,6 @@ class WhitePoint:
         self.current = None      # mired value on screen (as last set)
         self.sent = None         # kelvin last sent
         self.last_send = 0.0
-        self.last_override = None
         self.gliding = False     # moving toward the target (vs holding still)
         self.hold = None         # the user's choice while it owns the screen (see tick)
         self.ctm = Ctm()
@@ -1071,7 +1066,6 @@ class WhitePoint:
         elif self.real_since is not None and (self.dark is None or now - self.real_since >= LIT_AFTER):
             self.dark = False
         if was_dark is not None and self.dark != was_dark:
-            clear_override()
             log(f"white: room is now {'dark' if self.dark else 'lit'}")
 
         if (self.lit_target is not None and self.fade_hi is not None and now - self.last_fade_save >= 60
@@ -1102,8 +1096,8 @@ class WhitePoint:
 
         # A manual change from `white-point`. The
         # choice owns the screen until the room's light moves HOLD_DECADES,
-        # HOLD_MAX passes, the room turns dark/lit, or the night light toggle is
-        # used; then it's kept as evidence and automatic control resumes.
+        # HOLD_MAX passes or the room turns dark/lit; then it's kept as evidence
+        # and automatic control resumes.
         m = self.mtime()
         if m != self.manual_mtime:
             self.manual_mtime = self.store.d["white_manual_seen"] = m
@@ -1120,7 +1114,6 @@ class WhitePoint:
                 self.store.d["white_hold"] = {"k": k, "t": round(time.time(), 1),
                                               "x": None if self.loglux is None else round(self.loglux, 3)}
                 self.current, self.gliding = mired(k), False   # sent below, at once
-                clear_override()
                 self.store.save()
 
         base = self.model()
@@ -1135,9 +1128,7 @@ class WhitePoint:
                 log(f"white: holding {round(1e6 / h['value'])}K at {10 ** h['x'] - 1:.0f} lux, "
                     f"night {h['event']['n']:.2f} ({h['event']['m']:+.1f} mired vs model {round(1e6 / base)}K)")
             why = None
-            if read_override():
-                why = "night light toggle"
-            elif was_dark is not None and self.dark != was_dark:
+            if was_dark is not None and self.dark != was_dark:
                 why = "room turned " + ("dark" if self.dark else "lit")
             elif h["x"] is not None and self.loglux is not None and abs(self.loglux - h["x"]) >= HOLD_DECADES:
                 why = "room light changed"
@@ -1146,12 +1137,7 @@ class WhitePoint:
             if why:
                 self.release(now, why)
 
-        override = read_override()
-        if override == "night":
-            target = self.night
-        elif override == "day":
-            target = self.neutral
-        elif self.hold:
+        if self.hold:
             target = self.hold["value"]
         elif base is not None:
             target = min(self.hi, max(self.lo, base + self.correction()))
@@ -1161,7 +1147,7 @@ class WhitePoint:
         # Silent approval: automatic white left untouched (and actually on
         # screen) for APPROVE_EVERY is weak evidence that it's right here.
         if (target is not None and base is not None and self.loglux is not None and not self.hold
-                and not override and not self.gliding and self.send_ok):
+                and not self.gliding and self.send_ok):
             if self.stable_since is None:
                 self.stable_since = now
             elif now - self.stable_since >= APPROVE_EVERY:
@@ -1173,15 +1159,15 @@ class WhitePoint:
 
         jump = False
         if target is not None:
-            if self.current is None or (override and override != self.last_override) or (self.asleep and screen_on):
-                # First value, a toggle, or the screen just came on: nobody is
+            if self.current is None or (self.asleep and screen_on):
+                # First value, or the screen just came on: nobody is
                 # watching a transition, so there isn't one.
                 self.current, jump, self.gliding = target, True, False
             elif not self.gliding and abs(target - self.current) >= HOLD_MIRED:
                 self.gliding = True
                 self.follow.reset(self.current)
                 lux = f", {10 ** self.loglux - 1:.0f} lux" if self.loglux is not None else ""
-                why = f"override {override}" if override else ("dark" if self.dark else "lit") + lux
+                why = ("dark" if self.dark else "lit") + lux
                 log(f"white: moving {round(1e6 / self.current)}K -> {round(1e6 / target)}K ({why})")
             if self.gliding:
                 self.current = self.follow.step(target, dt)
@@ -1189,7 +1175,6 @@ class WhitePoint:
                     self.current, self.gliding = target, False
         if screen_on:
             self.asleep = False
-        self.last_override = override
         if self.current is None:
             return
 
@@ -1199,23 +1184,8 @@ class WhitePoint:
             value = 1e6 / self.current
             if self.send(value):
                 if jump:
-                    log(f"white: -> {round(value)}K" + (f" (override {override})" if override else ""))
+                    log(f"white: -> {round(value)}K")
                 self.sent, self.sent_mired, self.last_send = round(value), self.current, now
-
-
-def read_override():
-    try:
-        v = OVERRIDE.read_text().strip()
-        return v if v in ("night", "day") else None
-    except OSError:
-        return None
-
-
-def clear_override():
-    try:
-        OVERRIDE.unlink()
-    except OSError:
-        pass
 
 
 # ---------------------------------------------------------------- main

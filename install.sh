@@ -48,7 +48,6 @@ link hypr/bindings.lua                  ~/.config/hypr/bindings.lua
 link hypr/looknfeel.lua                 ~/.config/hypr/looknfeel.lua
 link hypr/input.lua                     ~/.config/hypr/input.lua
 link omarchy-plugins/mtklein.monitor    ~/.config/omarchy/plugins/mtklein.monitor
-link omarchy-plugins/mtklein.nightlight ~/.config/omarchy/plugins/mtklein.nightlight
 link omarchy-plugins/mtklein.workspaces ~/.config/omarchy/plugins/mtklein.workspaces
 link omarchy-plugins/mtklein.active-window ~/.config/omarchy/plugins/mtklein.active-window
 link omarchy-plugins/mtklein.clock      ~/.config/omarchy/plugins/mtklein.clock
