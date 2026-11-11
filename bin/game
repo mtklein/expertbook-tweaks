@@ -18,8 +18,22 @@
 # Not gamescope: nested in Hyprland it passes no touch to the game, and
 # Baldur's Gate 3 stayed silent in it (it mutes itself when it thinks it has
 # lost focus).
+#
+# Per game, by Steam's app id:
+#   - Final Fantasy XIII (292120): held in the performance power profile while
+#     it runs (its frame rate is uneven and it leans on one CPU thread), and
+#     MangoHud logs frame times to ~/mangohud-logs from 20 s in, for tuning.
+#     It is a 32-bit game: the overlay needs lib32-mangohud.
 (( $# > 0 )) || { echo "usage: game command..." >&2; exit 1; }
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
-export MANGOHUD_CONFIG="${MANGOHUD_CONFIG:-read_cfg,no_display}"
-command -v mangohud >/dev/null || exec "$@"
-exec mangohud "$@"
+hud="read_cfg,no_display"
+hold=()
+case ${SteamAppId:-} in
+  292120)
+    mkdir -p "$HOME/mangohud-logs"
+    hud+=",output_folder=$HOME/mangohud-logs,autostart_log=20,log_interval=50"
+    command -v powerprofilesctl >/dev/null && hold=(powerprofilesctl launch -p performance -r "game" --) ;;
+esac
+export MANGOHUD_CONFIG="${MANGOHUD_CONFIG:-$hud}"
+command -v mangohud >/dev/null || exec "${hold[@]}" "$@"
+exec "${hold[@]}" mangohud "$@"
