@@ -32,7 +32,7 @@ Rectangle {
   property double passwordSince: 0
   property double notBefore: 0
   property double lastKeystroke: 0
-  readonly property int typingPauseMs: 2000
+  readonly property int typingPauseMs: 500
   property double lastActivity: Date.now()
   property string pendingPassword: ""
   readonly property int idlePauseMs: 5 * 60 * 1000
