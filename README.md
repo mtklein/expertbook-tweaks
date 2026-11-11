@@ -88,6 +88,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 | `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | Button names for the Retroid Pocket Nova as a Bluetooth gamepad (PocketPad). |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | Ollama on the iGPU. |
 | `.local/share/fp-shim/` | Fingerprint setup for the FocalTech reader Omarchy doesn't detect: `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. `fp-storage.py` lists or clears templates on the chip. |
+| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen (Enter on an empty field, then touch; a typed password skips the reader) and at console login. Skipped while the lid is closed. The stock files are kept beside them as `*.before-fingerprint`. |
 
 ## Games and TV
 

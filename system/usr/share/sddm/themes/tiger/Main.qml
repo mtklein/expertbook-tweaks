@@ -25,6 +25,8 @@ Rectangle {
 
   property string currentUser: userModel.lastUser
   property bool authenticating: false
+  property bool waitingForFinger: false
+  readonly property real fingerprintReserve: Math.round(fingerprintIcon.implicitWidth + 12)
   property int failedAttempts: 0
   property string failureMessage: ""
   property int sessionIndex: {
@@ -43,6 +45,7 @@ Rectangle {
     target: sddm
     function onLoginFailed() {
       root.authenticating = false
+      root.waitingForFinger = false
       root.failedAttempts += 1
       root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
       passwordInput.text = ""
@@ -107,8 +110,8 @@ Rectangle {
       id: passwordInput
       anchors.fill: parent
       anchors.margins: root.outlineThickness
-      anchors.leftMargin: root.outlineThickness + 18
-      anchors.rightMargin: root.outlineThickness + 18
+      anchors.leftMargin: root.outlineThickness + 18 + root.fingerprintReserve
+      anchors.rightMargin: root.outlineThickness + 18 + root.fingerprintReserve
       verticalAlignment: TextInput.AlignVCenter
       horizontalAlignment: TextInput.AlignHCenter
       clip: true
@@ -135,10 +138,10 @@ Rectangle {
       onAccepted: {
         var submitted = text
         text = ""
-        if (submitted.length > 0) {
-          root.authenticating = true
-          sddm.login(root.currentUser, submitted, root.sessionIndex)
-        }
+        root.failureMessage = ""
+        root.waitingForFinger = submitted.length === 0
+        root.authenticating = true
+        sddm.login(root.currentUser, submitted, root.sessionIndex)
       }
 
       Keys.onPressed: function(event) {
@@ -153,7 +156,7 @@ Rectangle {
       textFormat: Text.PlainText
       anchors.fill: passwordInput
       visible: passwordInput.text.length === 0
-      text: root.authenticating ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : "Enter Password")
+      text: root.waitingForFinger ? "Touch Sensor" : root.authenticating ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : "Enter Password")
       color: root.authenticating ? root.textColor : (root.failureMessage.length > 0 ? root.errorColor : root.placeholderColor)
       font.family: root.fontFamily
       font.pixelSize: root.fieldFontSize
@@ -161,6 +164,18 @@ Rectangle {
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
       elide: Text.ElideRight
+    }
+
+    Text {
+      id: fingerprintIcon
+      textFormat: Text.PlainText
+      anchors.right: parent.right
+      anchors.rightMargin: root.outlineThickness + 18
+      anchors.verticalCenter: parent.verticalCenter
+      text: "󰈷"
+      color: root.waitingForFinger ? root.textColor : root.placeholderColor
+      font.family: root.fontFamily
+      font.pixelSize: Math.round(root.fieldFontSize * 1.1)
     }
   }
 

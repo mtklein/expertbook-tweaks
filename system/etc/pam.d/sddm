@@ -1,0 +1,16 @@
+#%PAM-1.0
+
+auth        [success=2 default=ignore]  pam_exec.so quiet expose_authtok /bin/sh /usr/local/share/expertbook-tweaks/password-given
+auth        [success=1 default=ignore]  pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed
+auth        sufficient  pam_fprintd.so timeout=15
+auth        include     system-login
+-auth       optional    pam_kwallet5.so
+
+account     include     system-login
+
+password    include     system-login
+
+session     optional    pam_keyinit.so          force revoke
+session     include     system-login
+-session    optional    pam_gnome_keyring.so    auto_start
+-session    optional    pam_kwallet5.so         auto_start
