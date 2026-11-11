@@ -2,11 +2,5 @@
 (( $# > 0 )) || { echo "usage: game command..." >&2; exit 1; }
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
 export MANGOHUD_CONFIG="${MANGOHUD_CONFIG:-read_cfg,no_display}"
-hold=()
-case ${SteamAppId:-} in
-  292120)
-    [[ $(cat /sys/class/power_supply/AC0/online 2>/dev/null) == 1 ]] && command -v powerprofilesctl >/dev/null &&
-      hold=(powerprofilesctl launch -p performance -r "game" --) ;;
-esac
-command -v mangohud >/dev/null && hold+=(mangohud)
-exec "${hold[@]}" "$@"
+command -v mangohud >/dev/null || exec "$@"
+exec mangohud "$@"
