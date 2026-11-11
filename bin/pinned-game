@@ -6,8 +6,9 @@ As a Steam launch option:
 
 What it does:
   - Keeps the whole game on the performance cores.
-  - Finds the game's one hard-working thread and keeps that on a single core,
-    the fastest.
+  - Watches the game for as long as it runs and gives each hard-working thread
+    (over a third of a core, two looks running) a performance core of its own,
+    the fastest first. A thread keeps its core until it ends.
 
 Why both. This chip has 4 performance cores, 8 efficiency cores (about 2/3 the
 speed) and 4 low-power ones. Final Fantasy XIII's main thread is 60-70% busy,
@@ -41,7 +42,8 @@ def cores():
     if not cap:
         return None, None
     top = max(cap.values())
-    return {c for c, v in cap.items() if v >= top * 0.95}, max(cap, key=cap.get)
+    fast = {c for c, v in cap.items() if v >= top * 0.95}
+    return fast, sorted(fast, key=cap.get, reverse=True)      # fastest first
 
 
 def cpu_ticks(pid, tid):
@@ -52,7 +54,7 @@ def cpu_ticks(pid, tid):
 
 def game_threads(fast, held):
     """Every thread still carrying the mask the game was started with (nothing
-    else on the system has it), plus the one we hold on a single core."""
+    else on the system has it), plus the ones we hold on a core of their own."""
     found = {}
     me = os.getpid()
     for pid in filter(str.isdigit, os.listdir("/proc")):
@@ -61,19 +63,23 @@ def game_threads(fast, held):
         try:
             for tid in os.listdir(f"/proc/{pid}/task"):
                 t = int(tid)
-                if t == held or os.sched_getaffinity(t) == fast:
+                if t in held or os.sched_getaffinity(t) == fast:
                     found[t] = cpu_ticks(pid, tid)
         except OSError:
             continue
     return found
 
 
-def watch(fast, best):
-    """Hold the game's busiest thread on the best core, until the game is gone."""
+def watch(fast, order):
+    """For as long as the game runs, look every EVERY seconds and give each
+    hard-working thread a performance core of its own, the fastest first. A
+    thread keeps its core until it ends: no handing cores back and forth when
+    two threads take turns being busiest. One performance core is always left
+    unclaimed for the game's other threads."""
     os.sched_setaffinity(0, range(os.cpu_count()))   # this watcher isn't the game
     hz = os.sysconf("SC_CLK_TCK")
-    held = candidate = None
-    streak = 0
+    held = {}          # thread -> its core
+    streak = {}        # thread -> looks in a row it has been busy
     seen = False
     before = {}
     started = time.monotonic()
@@ -85,34 +91,27 @@ def watch(fast, best):
                 return
             continue
         seen = True
+        for gone in [t for t in held if t not in now]:
+            del held[gone]
         share = {t: (now[t] - before[t]) / (EVERY * hz) for t in now if t in before}
         before = now
-        if not share:
-            continue
-        busiest = max(share, key=share.get)
-        if share[busiest] < BUSY:
-            continue
-        # The same thread twice running, so a loading burst doesn't get the core.
-        streak = streak + 1 if busiest == candidate else 1
-        candidate = busiest
-        if streak < 2 or busiest == held:
-            continue
-        try:
-            if held is not None:
-                os.sched_setaffinity(held, fast)
-        except OSError:
-            pass
-        try:
-            os.sched_setaffinity(busiest, {best})
-            held = busiest
-        except OSError:
-            held = None
+        # Twice running, so a loading burst doesn't get a core.
+        streak = {t: streak.get(t, 0) + 1 for t, s in share.items() if s >= BUSY}
+        free = [c for c in order if c not in held.values()]
+        for t in sorted(streak, key=share.get, reverse=True):
+            if t in held or streak[t] < 2 or len(free) <= 1:
+                continue
+            try:
+                os.sched_setaffinity(t, {free[0]})
+                held[t] = free.pop(0)
+            except OSError:
+                pass
 
 
 def main():
     if len(sys.argv) < 2:
         sys.exit("usage: pinned-game command...")
-    fast, best = cores()
+    fast, order = cores()
     if fast:
         os.sched_setaffinity(0, fast)
         if os.fork() == 0:
@@ -121,7 +120,7 @@ def main():
             for fd in (0, 1, 2):
                 os.dup2(null, fd)
             try:
-                watch(fast, best)
+                watch(fast, order)
             finally:
                 os._exit(0)
     os.execv(GAME, [GAME] + sys.argv[1:])
