@@ -49,6 +49,10 @@ systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service hypridle.service sdw-clash-recover.service tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
+  login_background="$R/system/usr/share/sddm/themes/tiger/background.jpg"
+  if [[ ! -f $login_background && -f $tiger/backgrounds/1-tiger.jpg ]]; then
+    magick "$tiger/backgrounds/1-tiger.jpg" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$login_background"
+  fi
   pkexec bash -c '
     set -e
     cd "$1/system"
@@ -56,6 +60,8 @@ if [[ ${1:-} == --system ]]; then
       install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
     done
     systemctl daemon-reload
+    systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
+    udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
     systemctl enable rapl-sync.service
     systemctl restart rapl-sync.service

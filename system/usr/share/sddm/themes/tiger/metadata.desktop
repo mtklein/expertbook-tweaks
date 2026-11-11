@@ -1,0 +1,8 @@
+[SddmGreeterTheme]
+Name=Tiger
+Description=Login window in the style of Mac OS X 10.4
+Type=sddm-theme
+Version=1.0
+QtVersion=6
+MainScript=Main.qml
+ConfigFile=theme.conf
