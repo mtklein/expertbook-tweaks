@@ -58,7 +58,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
-| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: warns if Hyprland is no longer the patched build, reapplies the plugin patches. |
+| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland is no longer the patched build, reapplies the plugin patches. |
 
 ### Plugin patches
 
