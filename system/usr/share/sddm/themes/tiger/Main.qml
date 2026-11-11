@@ -25,7 +25,12 @@ Rectangle {
 
   property string currentUser: userModel.lastUser
   property bool authenticating: false
-  property bool waitingForFinger: false
+  property bool fingerprintAvailable: true
+  property bool listeningForFinger: false
+  property double listeningSince: 0
+  property double lastActivity: Date.now()
+  property string pendingPassword: ""
+  readonly property int idlePauseMs: 5 * 60 * 1000
   readonly property real fingerprintReserve: Math.round(fingerprintIcon.implicitWidth + 12)
   property int failedAttempts: 0
   property string failureMessage: ""
@@ -41,15 +46,69 @@ Rectangle {
     ? Math.min(1, (passwordInput.width - 4) / dotMetrics.advanceWidth)
     : 1
 
+  function listenForFinger() {
+    if (!fingerprintAvailable || listeningForFinger || authenticating) return
+    if (passwordInput.text.length > 0 || Date.now() - lastActivity > idlePauseMs) return
+    listeningForFinger = true
+    listeningSince = Date.now()
+    sddm.login(currentUser, "", sessionIndex)
+  }
+
+  function submitPassword(password) {
+    authenticating = true
+    if (listeningForFinger) {
+      pendingPassword = password
+      return
+    }
+    sddm.login(currentUser, password, sessionIndex)
+  }
+
+  function noteActivity() {
+    lastActivity = Date.now()
+    listenForFinger()
+  }
+
+  Timer {
+    id: next
+    interval: 100
+    onTriggered: {
+      if (root.pendingPassword.length > 0) {
+        var password = root.pendingPassword
+        root.pendingPassword = ""
+        sddm.login(root.currentUser, password, root.sessionIndex)
+      } else {
+        root.listenForFinger()
+      }
+    }
+  }
+
+  Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    onTriggered: {
+      if (root.listeningForFinger && Date.now() - root.listeningSince > 10000) {
+        root.listeningForFinger = false
+        next.restart()
+      }
+    }
+  }
+
   Connections {
     target: sddm
     function onLoginFailed() {
+      if (root.listeningForFinger) {
+        root.listeningForFinger = false
+        if (Date.now() - root.listeningSince < 500) root.fingerprintAvailable = false
+        next.restart()
+        return
+      }
       root.authenticating = false
-      root.waitingForFinger = false
       root.failedAttempts += 1
       root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
       passwordInput.text = ""
       passwordInput.forceActiveFocus()
+      next.restart()
     }
     function onLoginSucceeded() {
       root.failureMessage = ""
@@ -92,7 +151,9 @@ Rectangle {
 
   MouseArea {
     anchors.fill: parent
-    onClicked: passwordInput.forceActiveFocus()
+    hoverEnabled: true
+    onClicked: { root.noteActivity(); passwordInput.forceActiveFocus() }
+    onPositionChanged: root.noteActivity()
   }
 
   Rectangle {
@@ -133,18 +194,19 @@ Rectangle {
         visible: passwordInput.cursorVisible
       }
 
-      onTextChanged: if (text.length > 0 && root.failureMessage.length > 0) root.failureMessage = ""
+      onTextChanged: {
+        if (text.length > 0 && root.failureMessage.length > 0) root.failureMessage = ""
+        root.noteActivity()
+      }
 
       onAccepted: {
         var submitted = text
         text = ""
-        root.failureMessage = ""
-        root.waitingForFinger = submitted.length === 0
-        root.authenticating = true
-        sddm.login(root.currentUser, submitted, root.sessionIndex)
+        if (submitted.length > 0) root.submitPassword(submitted)
       }
 
       Keys.onPressed: function(event) {
+        root.noteActivity()
         if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
           text = ""
           event.accepted = true
@@ -156,7 +218,7 @@ Rectangle {
       textFormat: Text.PlainText
       anchors.fill: passwordInput
       visible: passwordInput.text.length === 0
-      text: root.waitingForFinger ? "Touch Sensor" : root.authenticating ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : "Enter Password")
+      text: root.authenticating ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : "Enter Password")
       color: root.authenticating ? root.textColor : (root.failureMessage.length > 0 ? root.errorColor : root.placeholderColor)
       font.family: root.fontFamily
       font.pixelSize: root.fieldFontSize
@@ -172,13 +234,16 @@ Rectangle {
       anchors.right: parent.right
       anchors.rightMargin: root.outlineThickness + 18
       anchors.verticalCenter: parent.verticalCenter
-      text: "󰈷"
-      color: root.waitingForFinger ? root.textColor : root.placeholderColor
+      text: root.fingerprintAvailable ? "󰈷" : "󰺱"
+      color: root.fingerprintAvailable ? root.placeholderColor : root.errorColor
       font.family: root.fontFamily
       font.pixelSize: Math.round(root.fieldFontSize * 1.1)
     }
   }
 
   onAuthenticatingChanged: if (!authenticating) passwordInput.forceActiveFocus()
-  Component.onCompleted: passwordInput.forceActiveFocus()
+  Component.onCompleted: {
+    passwordInput.forceActiveFocus()
+    next.restart()
+  }
 }
