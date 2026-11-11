@@ -23,7 +23,8 @@
 #   - Final Fantasy XIII (292120): held in the performance power profile while
 #     it runs, if started on mains power (its frame rate is uneven and it leans on one CPU thread), and
 #     MangoHud logs frame times to ~/mangohud-logs from 20 s in, for tuning.
-#     It is a 32-bit game: the overlay needs lib32-mangohud.
+#     It is a 32-bit game: the overlay needs lib32-mangohud. Its main thread
+#     is kept on one fast core (see below).
 (( $# > 0 )) || { echo "usage: game command..." >&2; exit 1; }
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
 hud="read_cfg,no_display"
@@ -31,6 +32,21 @@ hold=()
 case ${SteamAppId:-} in
   292120)
     mkdir -p "$HOME/mangohud-logs"
+    # Its main thread goes on one fast core, the fastest by cpu_capacity. Left
+    # to the scheduler it sits on the slow cores, or wanders the fast ones, at
+    # a low clock, and busy areas fall from 60 to 30 fps; kept on one core its
+    # load is plain to the processor, which clocks that core up. No power
+    # setting changes. The game starts from a launcher, so wait for it.
+    (
+      core=$(grep -H . /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity 2>/dev/null |
+             sort -t: -k2 -n | tail -1 | sed 's|.*/cpu\([0-9]*\)/.*|\1|')
+      [[ -n $core ]] || exit 0
+      for (( i = 0; i < 600; i++ )); do
+        pid=$(pgrep -x ffxiiiimg.exe | head -1)
+        [[ -n $pid ]] && { sleep 5; taskset -cp "$core" "$pid" >/dev/null 2>&1; exit 0; }
+        sleep 1
+      done
+    ) </dev/null >/dev/null 2>&1 &
     hud+=",output_folder=$HOME/mangohud-logs,autostart_log=20,log_interval=50"
     # Only on mains power, as it stands at launch; on battery, stay balanced.
     [[ $(cat /sys/class/power_supply/AC0/online 2>/dev/null) == 1 ]] && command -v powerprofilesctl >/dev/null &&
