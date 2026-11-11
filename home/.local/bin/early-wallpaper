@@ -1,0 +1,13 @@
+#!/bin/bash
+wallpaper="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/background"
+[[ -e $wallpaper ]] || exit 0
+
+swaybg -i "$wallpaper" -m fill &
+placeholder=$!
+
+for _ in $(seq 120); do
+  hyprctl layers -j | grep -q '"omarchy-background"' && break
+  sleep 0.25
+done
+sleep 1.5
+kill "$placeholder"

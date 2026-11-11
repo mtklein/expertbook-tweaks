@@ -61,6 +61,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window in the Tiger style. The greeter's Hyprland runs the panel in HDR with white at the level the desktop last had (`/var/lib/expertbook-tweaks/greeter-nits`, written by `ambient-display`; 200 nits if missing, never below 8). |
+| `.config/hypr/autostart.lua`, `.local/bin/early-wallpaper` | Shows the wallpaper (swaybg) the moment the session's Hyprland starts, until the shell has drawn its own. |
 | `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland is no longer the patched build, reapplies the plugin patches. |
 
 ### Plugin patches
@@ -114,7 +115,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 
 ## Packages added to Omarchy
 
-`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland).
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `swaybg` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland).
 
 ## License
 
