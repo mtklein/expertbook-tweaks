@@ -28,6 +28,9 @@ Rectangle {
   property bool fingerprintAvailable: true
   property bool listeningForFinger: false
   property double listeningSince: 0
+  property bool passwordInFlight: false
+  property double passwordSince: 0
+  property double notBefore: 0
   property double lastActivity: Date.now()
   property string pendingPassword: ""
   readonly property int idlePauseMs: 5 * 60 * 1000
@@ -49,6 +52,10 @@ Rectangle {
   function listenForFinger() {
     if (!fingerprintAvailable || listeningForFinger || authenticating) return
     if (passwordInput.text.length > 0 || Date.now() - lastActivity > idlePauseMs) return
+    if (Date.now() < notBefore) {
+      next.restart()
+      return
+    }
     listeningForFinger = true
     listeningSince = Date.now()
     sddm.login(currentUser, "", sessionIndex)
@@ -56,11 +63,8 @@ Rectangle {
 
   function submitPassword(password) {
     authenticating = true
-    if (listeningForFinger) {
-      pendingPassword = password
-      return
-    }
-    sddm.login(currentUser, password, sessionIndex)
+    pendingPassword = password
+    if (!listeningForFinger) next.restart()
   }
 
   function noteActivity() {
@@ -70,11 +74,15 @@ Rectangle {
 
   Timer {
     id: next
-    interval: 100
+    interval: 150
     onTriggered: {
-      if (root.pendingPassword.length > 0) {
+      if (Date.now() < root.notBefore) {
+        restart()
+      } else if (root.pendingPassword.length > 0) {
         var password = root.pendingPassword
         root.pendingPassword = ""
+        root.passwordInFlight = true
+        root.passwordSince = Date.now()
         sddm.login(root.currentUser, password, root.sessionIndex)
       } else {
         root.listenForFinger()
@@ -87,8 +95,13 @@ Rectangle {
     running: true
     repeat: true
     onTriggered: {
-      if (root.listeningForFinger && Date.now() - root.listeningSince > 10000) {
+      if (root.listeningForFinger && Date.now() - root.listeningSince > 5000) {
         root.listeningForFinger = false
+        next.restart()
+      }
+      if (root.passwordInFlight && Date.now() - root.passwordSince > 8000) {
+        root.passwordInFlight = false
+        root.authenticating = false
         next.restart()
       }
     }
@@ -99,10 +112,14 @@ Rectangle {
     function onLoginFailed() {
       if (root.listeningForFinger) {
         root.listeningForFinger = false
+        root.notBefore = Date.now() + 150
         if (Date.now() - root.listeningSince < 500) root.fingerprintAvailable = false
         next.restart()
         return
       }
+      if (!root.passwordInFlight) return
+      root.passwordInFlight = false
+      root.notBefore = Date.now() + 150
       root.authenticating = false
       root.failedAttempts += 1
       root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
