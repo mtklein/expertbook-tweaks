@@ -27,7 +27,6 @@ link bin/brightness-wake-floor          ~/.local/bin/brightness-wake-floor
 link bin/sdw-clash-recover              ~/.local/bin/sdw-clash-recover
 link bin/workspace-layout-toggle        ~/.local/bin/workspace-layout-toggle
 link bin/brightness-why                 ~/.local/bin/brightness-why
-link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
 link bin/tv-mode                        ~/.local/bin/tv-mode
 link bin/game                           ~/.local/bin/game
 link bin/bar-item                       ~/.local/bin/bar-item
@@ -81,7 +80,6 @@ link fontconfig/61-tiger-sans.conf   ~/.config/fontconfig/conf.d/61-tiger-sans.c
 link systemd-user/ambient-display.service ~/.config/systemd/user/ambient-display.service
 link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
-link systemd-user/game-touchpad-guard.service ~/.config/systemd/user/game-touchpad-guard.service
 link systemd-user/tv-mode.service       ~/.config/systemd/user/tv-mode.service
 
 # Replaced by ambient-display (2026-11-06).
@@ -96,7 +94,6 @@ systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle
 systemctl --user enable --now sdw-clash-recover.service
-systemctl --user enable --now game-touchpad-guard.service
 systemctl --user enable --now tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
