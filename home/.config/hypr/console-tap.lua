@@ -1,4 +1,5 @@
 local TAP_MS = 300
+local AFTER_RELEASE_MS = 20
 local CONSOLE = "qconsole"
 local SUPER_L, SUPER_R, CAPS_LOCK = 133, 134, 66
 local TAP_KEYS = { [SUPER_L] = true, [SUPER_R] = true, [CAPS_LOCK] = true }
@@ -23,7 +24,9 @@ hl.on("input.keyboard.key", function(code, _, state)
       held = nil
       generation = generation + 1
       if not chord and not too_long then
-        hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
+        hl.timer(function()
+          hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
+        end, { timeout = AFTER_RELEASE_MS, type = "oneshot" })
       end
     end
   elseif state == 1 and held then

@@ -56,7 +56,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | File | What |
 |---|---|
 | `.config/hypr/bindings.lua` | Brightness and white point keys, layout cycle, dictation. |
-| `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). Windows opened from the console move to the desktop. |
+| `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). The toggle happens 20 ms after the release, so the window that gains focus never sees the key as held. Windows opened from the console move to the desktop. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
 | `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; Steam's main window tiles like any other (its dialogs and Friends List still float). |
@@ -103,6 +103,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 
 ## Not obvious
 
+- Changing focus from a Lua key handler while that key is still being processed leaves XWayland believing the key is held (it arrives in the new window's list of pressed keys and is never released there). X11 apps then see every key with that modifier: this is what broke typing in GeForce NOW.
 - F14 stays unbound: the firmware sends it on every USB-C power plug and unplug.
 - KMS applies the colour matrix to the encoded signal, which is wrong for PQ; `02-hdr-conversion` is why kelvin values are true.
 - Only one client may hold the colour matrix. hyprsunset must not run; `ambient-display` kills it if it does.
