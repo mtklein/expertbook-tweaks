@@ -19,9 +19,6 @@ Item {
   property var temperature: null
   readonly property bool enabled: stateLoaded && NightlightModel.isNightlight(temperature)
 
-  property bool hasPendingTemperature: false
-  property int pendingTemperature: 0
-
   function refresh() {
     if (!statusProbe.running) statusProbe.running = true
   }
@@ -33,30 +30,12 @@ Item {
       "mkdir -p \"${XDG_STATE_HOME:-$HOME/.local/state}\" && printf %s " + (value ? "night" : "day") +
       " > \"${XDG_STATE_HOME:-$HOME/.local/state}/ambient-white.override\""]
     overrideProcess.running = true
-    applyTemperature(value ? nightTemperature : dayTemperature)
+    root.temperature = value ? nightTemperature : dayTemperature
+    root.stateLoaded = true
   }
 
   function toggle() {
     setNightlight(!enabled)
-  }
-
-  function applyTemperature(temp) {
-    root.temperature = temp
-    root.stateLoaded = true
-
-    if (applyProcess.running) {
-      root.pendingTemperature = temp
-      root.hasPendingTemperature = true
-      return
-    }
-
-    runApply(temp)
-  }
-
-  // ambient-display (through its white-point-ctm helper) is the only thing that
-  // sets the screen's white point; the override file written above is all it
-  // needs. Nothing here starts hyprsunset: the two can't both hold the matrix.
-  function runApply(temp) {
   }
 
   Process {
@@ -81,26 +60,13 @@ Item {
     id: overrideProcess
   }
 
-  Process {
-    id: applyProcess
-    onExited: function() {
-      if (root.hasPendingTemperature) {
-        root.hasPendingTemperature = false
-        root.runApply(root.pendingTemperature)
-        return
-      }
-
-      root.refresh()
-    }
-  }
-
   // ~/expertbook-tweaks/bin/ambient-display changes the white point on its own
   // (dark room -> night light), so re-read it every 30 s.
   Timer {
     interval: 30000
     running: true
     repeat: true
-    onTriggered: if (!applyProcess.running) root.refresh()
+    onTriggered: root.refresh()
   }
 
   Component.onCompleted: refresh()
