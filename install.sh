@@ -51,7 +51,7 @@ systemctl --user enable --now ambient-display.service hypridle.service sdw-clash
 if [[ ${1:-} == --system ]]; then
   login_background="$R/system/usr/share/sddm/themes/tiger/background.jpg"
   if [[ ! -f $login_background && -f $tiger/backgrounds/1-tiger.jpg ]]; then
-    magick "$tiger/backgrounds/1-tiger.jpg" -resize 2880x1800^ -gravity center -extent 2880x1800 -colorspace Gray -quality 92 "$login_background"
+    magick "$tiger/backgrounds/1-tiger.jpg" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$login_background"
   fi
   pkexec bash -c '
     set -e

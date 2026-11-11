@@ -60,7 +60,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
-| `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window in the Tiger style, on the wallpaper in greyscale. The greeter's Hyprland runs the panel in HDR with white at the level the desktop last had (`/var/lib/expertbook-tweaks/greeter-nits`, written by `ambient-display`; 200 nits if missing, never below 8). |
+| `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `hdr.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 | `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland is no longer the patched build, reapplies the plugin patches. |
 
 ### Plugin patches

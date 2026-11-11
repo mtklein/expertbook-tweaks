@@ -1,21 +1,32 @@
-import QtQuick 2.15
+import QtQuick
+import QtQuick.Effects
 import SddmComponents 2.0
 
 Rectangle {
   id: root
-  width: 1440
-  height: 900
-  color: "#6b6b6b"
+  width: 1800
+  height: 1125
+  color: "#000000"
 
-  readonly property string sans: "Luxi Sans"
-  readonly property color ink: "#1d1d1f"
-  readonly property color muted: "#6e6e73"
-  readonly property color accent: "#0b57d0"
-  readonly property color hairline: "#b4b4b4"
+  readonly property string fontFamily: "DejaVuSansM Nerd Font"
+  readonly property int fieldWidth: 381
+  readonly property int fieldHeight: 67
+  readonly property int outlineThickness: 3
+  readonly property int cornerRadius: 6
+  readonly property int fieldFontSize: 18
+  readonly property int passwordDotFontSize: 21
+  readonly property int passwordDotLetterSpacing: 3
+  readonly property color fieldColor: Qt.rgba(0x16 / 255, 0x16 / 255, 0x18 / 255, 0.8)
+  readonly property color textColor: "#d8d8d8"
+  readonly property color placeholderColor: "#8e8e93"
+  readonly property color errorColor: "#ff5f57"
+  readonly property color borderColor: "#d3e3fd"
+  readonly property color selectionColor: Qt.rgba(0x6a / 255, 0xa8 / 255, 0xff / 255, 0.45)
 
   property string currentUser: userModel.lastUser
-  property string realName: ""
-  property bool loginFailed: false
+  property bool authenticating: false
+  property int failedAttempts: 0
+  property string failureMessage: ""
   property int sessionIndex: {
     for (var i = 0; i < sessionModel.rowCount(); i++) {
       var name = (sessionModel.data(sessionModel.index(i, 0), Qt.DisplayRole) || "").toString()
@@ -24,190 +35,135 @@ Rectangle {
     }
     return sessionModel.lastIndex
   }
-
-  function logIn() {
-    sddm.login(root.currentUser, password.text, root.sessionIndex)
-  }
+  readonly property real passwordDotScale: dotMetrics.advanceWidth > 0
+    ? Math.min(1, (passwordInput.width - 4) / dotMetrics.advanceWidth)
+    : 1
 
   Connections {
     target: sddm
     function onLoginFailed() {
-      root.loginFailed = true
-      password.text = ""
-      password.forceActiveFocus()
-      shake.restart()
+      root.authenticating = false
+      root.failedAttempts += 1
+      root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
+      passwordInput.text = ""
+      passwordInput.forceActiveFocus()
     }
     function onLoginSucceeded() {
-      root.loginFailed = false
+      root.failureMessage = ""
     }
   }
 
   Repeater {
     model: userModel
     Item {
-      Component.onCompleted: {
-        if (root.currentUser === "") root.currentUser = model.name
-        if (model.name === root.currentUser) root.realName = model.realName
-      }
+      Component.onCompleted: if (root.currentUser === "") root.currentUser = model.name
     }
   }
 
+  TextMetrics {
+    id: dotMetrics
+    font.family: root.fontFamily
+    font.pixelSize: root.passwordDotFontSize
+    font.letterSpacing: root.passwordDotLetterSpacing
+    text: "●".repeat(passwordInput.text.length)
+  }
+
   Image {
+    id: wallpaper
     anchors.fill: parent
     source: "background.jpg"
     fillMode: Image.PreserveAspectCrop
     asynchronous: false
   }
 
-  Item {
-    id: panel
-    width: 460
-    height: content.height + 56
-    x: Math.round((root.width - width) / 2)
-    y: Math.round((root.height - height) / 2)
+  MultiEffect {
+    anchors.fill: wallpaper
+    source: wallpaper
+    autoPaddingEnabled: false
+    blurEnabled: wallpaper.status === Image.Ready
+    blur: 1.0
+    blurMax: 128
+    blurMultiplier: 1.25
+    contrast: -0.08
+  }
 
-    SequentialAnimation {
-      id: shake
-      readonly property real home: Math.round((root.width - panel.width) / 2)
-      NumberAnimation { target: panel; property: "x"; to: shake.home - 22; duration: 50 }
-      NumberAnimation { target: panel; property: "x"; to: shake.home + 22; duration: 80 }
-      NumberAnimation { target: panel; property: "x"; to: shake.home - 14; duration: 70 }
-      NumberAnimation { target: panel; property: "x"; to: shake.home + 14; duration: 70 }
-      NumberAnimation { target: panel; property: "x"; to: shake.home - 6; duration: 60 }
-      NumberAnimation { target: panel; property: "x"; to: shake.home; duration: 50 }
-    }
+  MouseArea {
+    anchors.fill: parent
+    onClicked: passwordInput.forceActiveFocus()
+  }
 
-    Repeater {
-      model: 6
-      Rectangle {
-        anchors.fill: parent
-        anchors.margins: -index * 3
-        anchors.topMargin: -index * 3 + 8
-        anchors.bottomMargin: -index * 3 - 8
-        radius: 12 + index * 3
-        color: "#000000"
-        opacity: 0.07 - index * 0.01
-      }
-    }
+  Rectangle {
+    id: inputField
+    width: root.fieldWidth
+    height: root.fieldHeight
+    anchors.centerIn: parent
+    color: root.fieldColor
+    radius: root.cornerRadius
+    border.width: root.outlineThickness
+    border.color: root.failureMessage.length > 0 ? root.errorColor : root.borderColor
+    clip: true
 
-    Rectangle {
+    TextInput {
+      id: passwordInput
       anchors.fill: parent
-      radius: 12
-      color: "#f0f0f0"
-      border.color: "#8e8e93"
-      border.width: 1
+      anchors.margins: root.outlineThickness
+      anchors.leftMargin: root.outlineThickness + 18
+      anchors.rightMargin: root.outlineThickness + 18
+      verticalAlignment: TextInput.AlignVCenter
+      horizontalAlignment: TextInput.AlignHCenter
+      clip: true
+      focus: true
+      enabled: !root.authenticating
+      echoMode: TextInput.Password
+      passwordCharacter: "●"
+      passwordMaskDelay: 0
+      color: root.textColor
+      selectionColor: root.selectionColor
+      selectedTextColor: root.textColor
+      font.family: root.fontFamily
+      font.pixelSize: text.length > 0 ? Math.max(1, Math.floor(root.passwordDotFontSize * root.passwordDotScale)) : root.fieldFontSize
+      font.letterSpacing: text.length > 0 ? root.passwordDotLetterSpacing * root.passwordDotScale : 0
+      cursorVisible: activeFocus && !root.authenticating && root.failureMessage.length === 0 && text.length > 0
+      cursorDelegate: Rectangle {
+        width: 2
+        color: root.textColor
+        visible: passwordInput.cursorVisible
+      }
+
+      onTextChanged: if (text.length > 0 && root.failureMessage.length > 0) root.failureMessage = ""
+
+      onAccepted: {
+        var submitted = text
+        text = ""
+        if (submitted.length > 0) {
+          root.authenticating = true
+          sddm.login(root.currentUser, submitted, root.sessionIndex)
+        }
+      }
+
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
+          text = ""
+          event.accepted = true
+        }
+      }
     }
 
-    Column {
-      id: content
-      width: parent.width - 72
-      anchors.horizontalCenter: parent.horizontalCenter
-      y: 28
-      spacing: 18
-
-      Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: sddm.hostName
-        visible: text !== ""
-        font.family: root.sans
-        font.pixelSize: 30
-        font.bold: true
-        color: root.ink
-      }
-
-      Rectangle { width: parent.width; height: 1; color: root.hairline }
-
-      Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: root.realName !== "" ? root.realName : root.currentUser
-        font.family: root.sans
-        font.pixelSize: 18
-        color: root.ink
-      }
-
-      Rectangle {
-        width: parent.width
-        height: 34
-        radius: 5
-        color: "#ffffff"
-        border.color: root.loginFailed ? "#c4261d" : (password.activeFocus ? root.accent : root.hairline)
-        border.width: password.activeFocus || root.loginFailed ? 2 : 1
-
-        TextInput {
-          id: password
-          anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
-          verticalAlignment: TextInput.AlignVCenter
-          echoMode: TextInput.Password
-          passwordCharacter: "•"
-          font.family: root.sans
-          font.pixelSize: 18
-          color: root.ink
-          selectionColor: "#b5d5ff"
-          selectedTextColor: root.ink
-          clip: true
-          focus: true
-          onTextChanged: root.loginFailed = false
-          Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-              root.logIn()
-              event.accepted = true
-            }
-          }
-        }
-
-        Text {
-          anchors.fill: password
-          verticalAlignment: Text.AlignVCenter
-          visible: password.text === ""
-          text: "Password"
-          font.family: root.sans
-          font.pixelSize: 16
-          color: "#8e8e93"
-        }
-      }
-
-      Row {
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 10
-
-        Repeater {
-          model: [
-            { label: "Sleep", act: function() { sddm.suspend() } },
-            { label: "Restart", act: function() { sddm.reboot() } },
-            { label: "Shut Down", act: function() { sddm.powerOff() } },
-            { label: "Log In", act: function() { root.logIn() }, primary: true }
-          ]
-
-          Rectangle {
-            readonly property bool primary: modelData.primary === true
-            width: label.implicitWidth + 28
-            height: 28
-            radius: 14
-            color: primary ? (press.pressed ? "#0842a0" : root.accent) : (press.pressed ? "#d4d4d4" : "#ffffff")
-            border.color: primary ? "#0842a0" : root.hairline
-            border.width: 1
-
-            Text {
-              id: label
-              anchors.centerIn: parent
-              text: modelData.label
-              font.family: root.sans
-              font.pixelSize: 14
-              color: parent.primary ? "#ffffff" : root.ink
-            }
-
-            MouseArea {
-              id: press
-              anchors.fill: parent
-              onClicked: modelData.act()
-            }
-          }
-        }
-      }
+    Text {
+      textFormat: Text.PlainText
+      anchors.fill: passwordInput
+      visible: passwordInput.text.length === 0
+      text: root.authenticating ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : "Enter Password")
+      color: root.authenticating ? root.textColor : (root.failureMessage.length > 0 ? root.errorColor : root.placeholderColor)
+      font.family: root.fontFamily
+      font.pixelSize: root.fieldFontSize
+      font.italic: !root.authenticating && root.failureMessage.length > 0
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+      elide: Text.ElideRight
     }
   }
 
-  Component.onCompleted: password.forceActiveFocus()
+  onAuthenticatingChanged: if (!authenticating) passwordInput.forceActiveFocus()
+  Component.onCompleted: passwordInput.forceActiveFocus()
 }

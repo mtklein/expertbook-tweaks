@@ -1,6 +1,6 @@
 [SddmGreeterTheme]
 Name=Tiger
-Description=Login window in the style of Mac OS X 10.4
+Description=Login window that looks like the Omarchy lock screen
 Type=sddm-theme
 Version=1.0
 QtVersion=6

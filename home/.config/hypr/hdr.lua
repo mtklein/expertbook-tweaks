@@ -34,6 +34,9 @@ end
 
 local edp_scale = scale_omarchy_set_for_edp()
 
+local greeter_scale = io.open("/var/lib/expertbook-tweaks/greeter-scale", "w")
+if greeter_scale then greeter_scale:write(string.format("%g\n", edp_scale)); greeter_scale:close() end
+
 edp_sdr_white = 600
 edp_brightness_gamma = 2.2
 
