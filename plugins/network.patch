@@ -1,0 +1,26 @@
+--- a/Panel.qml
++++ b/Panel.qml
+@@ -1027,7 +1027,8 @@
+   Timer {
+     id: connectionPhraseTimer
+     interval: 2800
+-    running: root.opened && !root.restricted && (root.info.type === "ethernet" || (root.info.type === "wifi" && root.canDisconnect))
++    // Plain status only (mtklein): nothing rotates, so nothing fades.
++    running: false
+     repeat: true
+     onTriggered: connectionPhraseSwap.restart()
+   }
+@@ -1342,11 +1343,11 @@
+               if (root.hasCaptivePortal) return ""
+               if (root.restricted) return Commons.I18n.t("network.limitedAccessHeader")
+               if (root.info.type === "wifi") {
+-                if (root.canDisconnect) return root.connectionPhrase.toUpperCase()
++                if (root.canDisconnect) return Commons.I18n.t("network.connected").toUpperCase()
+                 if (root.kind === "disconnected") return Commons.I18n.t("network.notConnected")
+                 return ""
+               }
+-              if (root.info.type === "ethernet") return root.connectionPhrase.toUpperCase()
++              if (root.info.type === "ethernet") return Commons.I18n.t("network.connected").toUpperCase()
+               if (root.kind === "disconnected") return Commons.I18n.t("network.notConnected")
+               return ""
+             }

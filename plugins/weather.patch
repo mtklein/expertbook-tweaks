@@ -1,0 +1,49 @@
+--- a/BarWidget.qml
++++ b/BarWidget.qml
+@@ -47,7 +47,13 @@
+   }
+ 
+   visible: panelLoader.item && panelLoader.item.label !== ""
+-  implicitWidth: button.implicitWidth
++  // The current temperature sits to the right of the icon (mtklein). The
++  // stock button can only put a label on the icon's left.
++  readonly property string temperatureText:
++    panelLoader.item && panelLoader.item.reportTempNum ? panelLoader.item.reportTempNum + "°" : ""
++  readonly property bool showTemperature: temperatureText !== "" && !vertical
++
++  implicitWidth: button.implicitWidth + (showTemperature ? temperature.implicitWidth + Style.space(4) : 0)
+   implicitHeight: button.implicitHeight
+ 
+   onBarChanged: injectPanel()
+@@ -64,9 +70,30 @@
+     }
+   }
+ 
++  Text {
++    id: temperature
++    visible: root.showTemperature
++    textFormat: Text.PlainText
++    text: root.temperatureText
++    font.family: "Luxi Sans"   // as the clock next to it
++    font.pixelSize: button.fontSize
++    color: button.foreground
++    anchors.right: parent.right
++    anchors.verticalCenter: parent.verticalCenter
++    renderType: Text.NativeRendering
++
++    MouseArea {
++      anchors.fill: parent
++      onClicked: root.togglePanel()
++    }
++  }
++
+   BarIconButton {
+     id: button
+-    anchors.fill: parent
++    anchors.left: parent.left
++    anchors.top: parent.top
++    anchors.bottom: parent.bottom
++    width: implicitWidth
+     bar: root.bar
+     text: panelLoader.item ? panelLoader.item.label : ""
+     slotSize: Style.bar.statusSlot

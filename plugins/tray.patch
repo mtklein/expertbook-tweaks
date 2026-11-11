@@ -1,0 +1,300 @@
+--- a/Tray.qml
++++ b/Tray.qml
+@@ -21,6 +21,8 @@
+   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+   readonly property var pinnedIds: settings.pinned instanceof Array ? settings.pinned : []
+   readonly property var hiddenIds: settings.hidden instanceof Array ? settings.hidden : []
++  // Icons you've unpinned (mtklein).
++  readonly property var drawerIds: settings.drawer instanceof Array ? settings.drawer : []
+   readonly property var pinnedItems: bucket("pinned")
+   readonly property var drawerItems: bucket("drawer")
+   readonly property var allItems: bucket("all")
+@@ -39,7 +41,7 @@
+   readonly property var sectionShown: trayContent.item ? trayContent.item.sectionShown : null
+   readonly property int sectionCount: bar && bar.layoutConfig && Array.isArray(bar.layoutConfig.tray) ? bar.layoutConfig.tray.length : 0
+   readonly property real sectionExtent: sectionHost ? (vertical ? sectionHost.implicitHeight : sectionHost.implicitWidth) : 0
+-  readonly property bool hasDrawer: allItems.length > 0 || sectionCount > 0 || barDragging
++  readonly property bool hasDrawer: drawerCount > 0 || sectionCount > 0 || barDragging
+   readonly property int drawerExtent: drawerCount * trayItemExtent + Math.max(0, drawerCount - 1) * trayItemGap + sectionExtent
+   // A widget being dragged along the bar opens the drawer, to show where it
+   // can go, and so does any panel open from the tray or the tray section.
+@@ -47,14 +49,18 @@
+   readonly property bool holdOpen: trayMenuOpen || managePopupOpen || barDragging || (!!bar && bar.traySectionPopoutOpen === true)
+   // The mark under the bar sits under the icon whose menu is open.
+   readonly property Item openPanelIndicatorItem: trayMenuOpen ? activeTrayAnchor : null
+-  // Match Waybar's group/tray-expander drawer transition-duration.
+-  readonly property int animationDuration: 600
++  // No chevron (mtklein): the drawer's icons keep their place in the bar all
++  // the time, invisible, and fade in, semi-transparent like the bar's inactive
++  // indicators, while the pointer is over that place (or just beside it). They
++  // stay that way under the pointer; only the one being pressed, or whose menu
++  // or panel is open, is solid. Nothing else on the bar moves when they show.
++  readonly property real revealMargin: trayItemExtent / 2
++  readonly property real dimOpacity: 0.45
++  readonly property int animationDuration: 200
+   property real revealProgress: expanded || holdOpen ? 1 : 0
+-  readonly property real revealExtent: drawerExtent * revealProgress
+-  // The pinned icons sit against the tray's fixed edge with the chevron past
+-  // them. Opening, the drawer grows the tray between the two and pushes the
+-  // chevron out of the way, while the pointer that opened it stays over the
+-  // drawer. A centered tray keeps the end-fixed arrangement.
++  readonly property real revealExtent: drawerExtent
++  // The pinned icons sit against the tray's fixed edge. A centered tray keeps
++  // the end-fixed arrangement.
+   readonly property bool fixedAtStart: fixedEdge === "start"
+   // The edge the tray section's widgets grow from: the one the pinned icons
+   // keep to, beside which the section opens.
+@@ -182,8 +188,11 @@
+   function classifyItem(item) {
+     var iid = String(item.id || "")
+     if (hiddenIds.indexOf(iid) !== -1) return "hidden"
+-    if (pinnedIds.indexOf(iid) !== -1) return "pinned"
+-    return "drawer"
++    // Mac-style: a tray icon is on the bar unless you unpin it (then it's in
++    // the drawer) or hide it. Stock is the other way round: in the drawer
++    // unless pinned.
++    if (drawerIds.indexOf(iid) !== -1) return "drawer"
++    return "pinned"
+   }
+ 
+   function ownedByOmarchy(item) {
+@@ -207,22 +216,24 @@
+     return result
+   }
+ 
+-  function persistTrayState(pinned, hidden) {
++  function persistTrayState(pinned, hidden, drawer) {
+     if (!root.bar || !root.bar.shell || typeof root.bar.shell.updateEntryInline !== "function") return
+     var id = root.moduleName || "omarchy.tray"
+-    root.bar.shell.updateEntryInline(id, { id: id, pinned: pinned, hidden: hidden })
++    root.bar.shell.updateEntryInline(id, { id: id, pinned: pinned, hidden: hidden, drawer: drawer === undefined ? drawerIds.slice() : drawer })
+   }
+ 
++  // Pinned is the default here, so pin/unpin moves an icon out of or into the
++  // drawer list (mtklein).
+   function togglePin(iid) {
+-    var p = pinnedIds.slice(), h = hiddenIds.slice()
+-    var idx = p.indexOf(iid)
+-    if (idx !== -1) p.splice(idx, 1)
++    var d = drawerIds.slice(), h = hiddenIds.slice()
++    var idx = d.indexOf(iid)
++    if (idx !== -1) d.splice(idx, 1)
+     else {
+-      p.push(iid)
++      d.push(iid)
+       var hi = h.indexOf(iid)
+       if (hi !== -1) h.splice(hi, 1)
+     }
+-    persistTrayState(p, h)
++    persistTrayState(pinnedIds.slice(), h, d)
+   }
+ 
+   function toggleHide(iid) {
+@@ -269,40 +280,28 @@
+     Item {
+       id: horizontalTrayRoot
+ 
+-      readonly property int chevronWidth: root.hasDrawer ? expandIcon.implicitWidth : 0
+       readonly property var sectionShown: root.shownSection(drawerArea.x + trayClip.x, trayClip.width, drawerArea.x + trayClip.x + drawerContent.x + section.x, section.width)
+ 
+-      implicitWidth: pinnedRow.implicitWidth + chevronWidth + root.revealExtent
++      implicitWidth: pinnedRow.implicitWidth + root.revealExtent
+       implicitHeight: root.barSize
+ 
++      HoverHandler {
++        margin: root.revealMargin
++        onHoveredChanged: root.expanded = hovered
++      }
++
+       Item {
+         id: drawerArea
+         x: root.fixedAtStart ? pinnedRow.implicitWidth : 0
+-        width: horizontalTrayRoot.chevronWidth + root.revealExtent
++        width: root.revealExtent
+         height: root.barSize
+         visible: root.hasDrawer
+ 
+-        HoverHandler {
+-          onHoveredChanged: root.expanded = hovered
+-        }
+-
+-        BarIconButton {
+-          id: expandIcon
+-          bar: root.bar
+-          width: implicitWidth
+-          height: implicitHeight
+-          x: root.fixedAtStart ? root.revealExtent : 0
+-          text: root.fixedAtStart ? "\uf054" : "\uf053"
+-          onPressed: function(button) {
+-            if (button === Qt.RightButton) root.managePopupOpen = !root.managePopupOpen
+-          }
+-        }
+ 
+-        // The icons and the tray section travel out with the chevron from
+-        // beside the pinned icons, the section nearest them.
++        // The icons and the tray section sit beside the pinned icons, the
++        // section nearest them.
+         Item {
+           id: trayClip
+-          x: root.fixedAtStart ? 0 : expandIcon.width
+           anchors.verticalCenter: parent.verticalCenter
+           width: root.revealExtent
+           height: root.barSize
+@@ -310,6 +309,8 @@
+ 
+           Item {
+             id: drawerContent
++            opacity: root.revealProgress
++            Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
+             x: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
+             width: root.drawerExtent
+             height: root.barSize
+@@ -323,7 +324,7 @@
+ 
+               Repeater {
+                 model: root.drawerItems
+-                TrayItem {}
++                TrayItem { inDrawer: true }
+               }
+             }
+ 
+@@ -359,41 +360,28 @@
+     Item {
+       id: verticalTrayRoot
+ 
+-      readonly property int chevronHeight: root.hasDrawer ? expandIcon.implicitHeight : 0
+       readonly property var sectionShown: root.shownSection(drawerArea.y + trayClip.y, trayClip.height, drawerArea.y + trayClip.y + drawerContent.y + section.y, section.height)
+ 
+       implicitWidth: root.barSize
+-      implicitHeight: pinnedCol.implicitHeight + chevronHeight + root.revealExtent
++      implicitHeight: pinnedCol.implicitHeight + root.revealExtent
++
++      HoverHandler {
++        margin: root.revealMargin
++        onHoveredChanged: root.expanded = hovered
++      }
+ 
+       Item {
+         id: drawerArea
+         y: root.fixedAtStart ? pinnedCol.implicitHeight : 0
+         width: root.barSize
+-        height: verticalTrayRoot.chevronHeight + root.revealExtent
++        height: root.revealExtent
+         visible: root.hasDrawer
+ 
+-        HoverHandler {
+-          onHoveredChanged: root.expanded = hovered
+-        }
+-
+-        BarIconButton {
+-          id: expandIcon
+-          bar: root.bar
+-          width: implicitWidth
+-          height: implicitHeight
+-          y: root.fixedAtStart ? root.revealExtent : 0
+-          text: root.fixedAtStart ? "\uf054" : "\uf053"
+-          textRotation: 90
+-          onPressed: function(button) {
+-            if (button === Qt.RightButton) root.managePopupOpen = !root.managePopupOpen
+-          }
+-        }
+ 
+-        // The icons and the tray section travel out with the chevron from
+-        // beside the pinned icons, the section nearest them.
++        // The icons and the tray section sit beside the pinned icons, the
++        // section nearest them.
+         Item {
+           id: trayClip
+-          y: root.fixedAtStart ? 0 : expandIcon.height
+           anchors.horizontalCenter: parent.horizontalCenter
+           width: root.barSize
+           height: root.revealExtent
+@@ -401,6 +389,8 @@
+ 
+           Item {
+             id: drawerContent
++            opacity: root.revealProgress
++            Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
+             y: root.fixedAtStart ? root.revealExtent - root.drawerExtent : 0
+             width: root.barSize
+             height: root.drawerExtent
+@@ -414,7 +404,7 @@
+ 
+               Repeater {
+                 model: root.drawerItems
+-                TrayItem {}
++                TrayItem { inDrawer: true }
+               }
+             }
+ 
+@@ -506,7 +496,7 @@
+             var slash = id.lastIndexOf("/")
+             return slash !== -1 ? id.substring(slash + 1) : (id || Commons.I18n.t("tray.unknown"))
+           }
+-          readonly property bool isPinned: root.pinnedIds.indexOf(itemId) !== -1
++          readonly property bool isPinned: root.drawerIds.indexOf(itemId) === -1
+           readonly property bool isHidden: root.hiddenIds.indexOf(itemId) !== -1
+ 
+           TrayIcon {
+@@ -825,7 +815,9 @@
+   component TrayIcon: Item {
+     id: trayIconRoot
+     required property var icon
+-    readonly property bool symbolic: root.iconIsSymbolic(icon)
++    // Mac menu-bar style: every tray icon is drawn as a silhouette in the bar's
++    // text colour, not just symbolic ones (Steam's dark icon was dim on the black bar).
++    readonly property bool symbolic: true
+ 
+     Image {
+       id: trayIconImage
+@@ -865,6 +857,26 @@
+     implicitHeight: childrenRect.height
+ 
+     Component.onCompleted: root.sectionHost = sectionArea
++
++    // The bar's widgets in here are dim like the tray icons beside them, and
++    // solid only while their own panel is open (mtklein). They are the bar's
++    // module slots, found by their panelOpen property wherever the bar nests
++    // them; the bar doesn't set a slot's opacity itself.
++    function dimSlots(item, depth) {
++      if (!item || depth > 6) return
++      if ("panelOpen" in item && "widgetKey" in item) {
++        if (!item.mtkleinDimmed) {
++          item.opacity = Qt.binding(function() { return item.panelOpen ? 1.0 : root.dimOpacity })
++          try { item.mtkleinDimmed = true } catch (e) {}
++        }
++        return
++      }
++      var kids = item.children
++      for (var i = 0; i < kids.length; i++) dimSlots(kids[i], depth + 1)
++    }
++    function dimSlotsSoon() { Qt.callLater(function() { sectionArea.dimSlots(sectionArea, 0) }) }
++    onChildrenRectChanged: dimSlotsSoon()
++    onChildrenChanged: dimSlotsSoon()
+     // The bar can tear this area down after the widget itself is gone
+     // (a plugin rescan destroys them in its own order), so unregister
+     // only while the widget is still there to unregister from.
+@@ -875,6 +887,10 @@
+     id: trayItemRoot
+ 
+     required property var modelData
++    // In the drawer: dim unless pressed or showing its menu (mtklein).
++    property bool inDrawer: false
++    opacity: !inDrawer || mouseArea.pressed || (root.trayMenuOpen && root.activeTrayItem === modelData) ? 1.0 : root.dimOpacity
++    Behavior on opacity { NumberAnimation { duration: Style.duration(150) } }
+ 
+     visible: modelData.status !== Status.Passive
+     implicitWidth: visible ? root.trayItemExtent : 0
+@@ -901,7 +917,11 @@
+       onEntered: if (root.bar) root.bar.showTooltip(trayItemRoot, root.trayTooltip(modelData))
+       onExited: if (root.bar) root.bar.hideTooltip(trayItemRoot)
+       onPressed: function(mouse) {
+-        if (mouse.button === Qt.RightButton) {
++        if (mouse.button === Qt.RightButton && (mouse.modifiers & Qt.ShiftModifier)) {
++          // Shift + right-click: the pin / hide list the chevron used to open (mtklein).
++          root.managePopupOpen = !root.managePopupOpen
++          mouse.accepted = true
++        } else if (mouse.button === Qt.RightButton) {
+           trayItemRoot.displayMenu(mouse)
+           mouse.accepted = true
+         }

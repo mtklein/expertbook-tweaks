@@ -1,0 +1,61 @@
+--- a/Workspaces.qml
++++ b/Workspaces.qml
+@@ -75,18 +75,19 @@
+     return null
+   }
+ 
+-  // The first five of the monitor's own, and any of the rest that exist. After
++  // Like Super + Tab: only desktops with windows, plus the one on screen. After
+   // them come workspaces that are only visiting: those of a monitor that is
+   // unplugged, which had no room to join this one's.
+   function workspaceIds() {
+-    var base = root.block * root.slots
+-    var ids = [base + 1, base + 2, base + 3, base + 4, base + 5]
++    var active = root.activeWorkspaceId()
++    var ids = active > 0 && root.blockOf(active) === root.block ? [active] : []
+     var guests = []
+     var values = Hyprland.workspaces.values
+ 
+     for (var i = 0; i < values.length; i++) {
+       var id = values[i].id
+       if (id <= 0) continue
++      if (id !== active && values[i].toplevels.values.length === 0) continue
+       if (root.blockOf(id) === root.block) {
+         if (ids.indexOf(id) === -1) ids.push(id)
+       } else if (values[i].monitor && values[i].monitor.name === root.monitorName) {
+@@ -178,7 +179,7 @@
+   // monitor's bar focuses that monitor first.
+   function cycleLayout() {
+     if (!root.bar) return
+-    var command = "omarchy-hyprland-workspace-layout-toggle"
++    var command = "workspace-layout-toggle"   // ~/.local/bin: the same cycle, without its notification
+     if (root.monitor && !root.monitor.focused) {
+       command = "hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ monitor = \"" + root.monitorName + "\" })") + " >/dev/null && " + command
+     }
+@@ -241,8 +242,11 @@
+ 
+   readonly property real trailingGap: root.vertical ? 0 : Style.spaceReal(1.5)
+ 
+-  implicitWidth: grid.implicitWidth + trailingGap
+-  implicitHeight: grid.implicitHeight
++  // A lone desktop needs no number: show the row only once there are two.
++  readonly property bool worthShowing: root.workspaceIds().length > 1
++  visible: worthShowing
++  implicitWidth: worthShowing ? grid.implicitWidth + trailingGap : 0
++  implicitHeight: worthShowing ? grid.implicitHeight : 0
+ 
+   GridLayout {
+     id: grid
+@@ -270,8 +274,10 @@
+         Layout.topMargin: firstGuest && root.vertical ? Style.space(6) : 0
+ 
+         bar: root.bar
+-        text: shown ? root.modeGlyph(root.activeMode) : (slot === root.slots ? "0" : String(slot))
+-        opacity: occupied || shown ? 1 : 0.5
++        // Numbers only, Mac-style: the desktop on screen at full strength, the others dimmer.
++        // (Clicking the current one still cycles its layout.)
++        text: slot === root.slots ? "0" : String(slot)
++        opacity: shown ? 1 : 0.5
+         horizontalMargin: 6
+         verticalPadding: 6
+         fixedWidth: root.vertical ? root.barSize : Style.space(20)
