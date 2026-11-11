@@ -31,11 +31,9 @@ Rectangle {
   property bool passwordInFlight: false
   property double passwordSince: 0
   property double notBefore: 0
-  property double lastKeystroke: 0
-  readonly property int typingPauseMs: 500
-  property double lastActivity: Date.now()
+  property bool idle: false
+  readonly property bool fingerprintOffered: fingerprintAvailable && !idle && !authenticating && passwordInput.text.length === 0
   property string pendingPassword: ""
-  readonly property int idlePauseMs: 5 * 60 * 1000
   readonly property real fingerprintReserve: Math.round(fingerprintIcon.implicitWidth + 12)
   property int failedAttempts: 0
   property string failureMessage: ""
@@ -52,9 +50,7 @@ Rectangle {
     : 1
 
   function listenForFinger() {
-    if (!fingerprintAvailable || listeningForFinger || authenticating) return
-    if (Date.now() - lastActivity > idlePauseMs) return
-    if (passwordInput.text.length > 0 && Date.now() - lastKeystroke < typingPauseMs) return
+    if (!fingerprintOffered || listeningForFinger) return
     if (Date.now() < notBefore) {
       next.restart()
       return
@@ -71,14 +67,16 @@ Rectangle {
   }
 
   function noteActivity() {
-    lastActivity = Date.now()
+    idle = false
+    idleAfter.restart()
     listenForFinger()
   }
 
   Timer {
-    id: typingPaused
-    interval: root.typingPauseMs
-    onTriggered: root.listenForFinger()
+    id: idleAfter
+    interval: 5 * 60 * 1000
+    running: true
+    onTriggered: root.idle = true
   }
 
   Timer {
@@ -222,8 +220,6 @@ Rectangle {
 
       onTextChanged: {
         if (text.length > 0 && root.failureMessage.length > 0) root.failureMessage = ""
-        root.lastKeystroke = Date.now()
-        typingPaused.restart()
         root.noteActivity()
       }
 
@@ -262,8 +258,9 @@ Rectangle {
       anchors.right: parent.right
       anchors.rightMargin: root.outlineThickness + 18
       anchors.verticalCenter: parent.verticalCenter
-      text: root.fingerprintAvailable ? "󰈷" : "󰺱"
-      color: root.fingerprintAvailable ? root.placeholderColor : root.errorColor
+      text: "󰈷"
+      color: root.placeholderColor
+      visible: root.fingerprintOffered
       font.family: root.fontFamily
       font.pixelSize: Math.round(root.fieldFontSize * 1.1)
     }
