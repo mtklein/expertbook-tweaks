@@ -5,7 +5,7 @@ Rectangle {
   id: root
   width: 1440
   height: 900
-  color: "#3b6ea5"
+  color: "#6b6b6b"
 
   readonly property string sans: "Luxi Sans"
   readonly property color ink: "#1d1d1f"
