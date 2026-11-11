@@ -24,9 +24,6 @@
 #     it runs, if started on mains power. It is a 32-bit game: the overlay
 #     needs lib32-mangohud. To log frame times for tuning, add to the launch option
 #     MANGOHUD_CONFIG=read_cfg,no_display,output_folder=$HOME/mangohud-logs,autostart_log=20,log_interval=50
-#
-# For an old game that works one thread hard, `pinned-game %command%` is this
-# with the game kept on the performance cores.
 (( $# > 0 )) || { echo "usage: game command..." >&2; exit 1; }
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
 hud="read_cfg,no_display"

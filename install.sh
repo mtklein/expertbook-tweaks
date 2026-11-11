@@ -30,7 +30,6 @@ link bin/brightness-why                 ~/.local/bin/brightness-why
 link bin/game-touchpad-guard            ~/.local/bin/game-touchpad-guard
 link bin/tv-mode                        ~/.local/bin/tv-mode
 link bin/game                           ~/.local/bin/game
-link bin/pinned-game                    ~/.local/bin/pinned-game
 link bin/bar-item                       ~/.local/bin/bar-item
 link mangohud/MangoHud.conf             ~/.config/MangoHud/MangoHud.conf
 link fingerprint                        ~/.local/share/fp-shim
