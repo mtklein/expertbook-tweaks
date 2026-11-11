@@ -59,7 +59,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). Windows opened from the console move to the desktop. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
-| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows. |
+| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; Steam's main window tiles like any other (its dialogs and Friends List still float). |
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
