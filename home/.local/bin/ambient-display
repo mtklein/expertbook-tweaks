@@ -49,6 +49,7 @@ SETTLE_WHITE = 60.0      # ... and a white point move
 SEND_LN = 0.003          # smallest brightness change worth sending: 0.3% of the light
 SEND_MIRED = 0.3         # smallest white point change worth sending
 MIN_PCT, MAX_PCT = 10, 100
+STEP_GAP = 0.08          # a key step this soon after the last is the same press (the keys arrive doubled, and repeat at 40 Hz)
 WAKE_FLOOR_PCT = 15      # a screen left dimmer than this is raised to it on wake from suspend
 # Ownership: after you set a level it's yours until the room's light changes
 # this much (log10 lux, ~2x) from when you set it, or HOLD_MAX passes.
@@ -463,6 +464,7 @@ class Brightness:
         self.offset_t = 0.0
         self.hold_wall = 0.0     # wall time the user took over
         self.woke = False        # resumed from suspend, not yet handled
+        self.last_step = 0.0
         self.last_check = 0.0
         self.next_step = 0.0
         self.fading = False
@@ -567,7 +569,12 @@ class Brightness:
         if monitor != MONITOR:
             return "elsewhere"
         current = self.last_set if self.last_set is not None else self.get_pct()
-        pct = stepped(int((100 if current is None else current) + 0.5), *parsed)
+        current = int((100 if current is None else current) + 0.5)
+        if parsed[0] != 0:
+            if now - self.last_step < STEP_GAP:
+                return f"ok {current}"
+            self.last_step = now
+        pct = stepped(current, *parsed)
         self.user_changed(pct, now)
         self.set_level(pct)
         return f"ok {pct}"
@@ -801,6 +808,7 @@ class WhitePoint:
         self.asleep = True       # the screen was off (or we just started): nobody saw the last white
         self.send_ok = False
         self.stable_since = None # automatic white untouched since (for silent approvals)
+        self.last_step = 0.0
         saved = store.d.get("white_hold")
         if saved and time.time() - saved["t"] < HOLD_MAX:
             self.hold = {"value": mired(saved["k"]), "since": time.monotonic() - (time.time() - saved["t"]),
@@ -823,6 +831,10 @@ class WhitePoint:
         """A person's change (Shift + brightness keys): "warmer", "cooler", kelvin, or "" to ask."""
         if TV_MODE.exists() or not isinstance(self.sent, int):
             return "err no white point on screen"
+        if arg in ("warmer", "cooler") and now - self.last_step < STEP_GAP:
+            arg = ""
+        elif arg in ("warmer", "cooler"):
+            self.last_step = now
         if arg == "":
             k = self.sent
         elif arg == "cooler":
