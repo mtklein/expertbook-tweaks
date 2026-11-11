@@ -10,7 +10,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the Tiger theme as one directory). |
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `plugins/` | One patch per Omarchy plugin clone. `plugins/sync apply` rebuilds `~/.config/omarchy/plugins/mtklein.*` from the installed Omarchy plus its patch. |
-| `hyprland-patched/` | Patches and `build.sh` for the Hyprland package. |
+| `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). |
 
@@ -47,6 +47,15 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
+### SDDM patch
+
+`sddm-patched/01-cancel-login.patch`, built by `sddm-patched/build.sh` the same way (without the Qt5 greeter). The daemon takes effect at the next boot.
+
+- The helper blocks SIGINT while PAM authenticates, which is what lets pam_fprintd's own SIGINT abort fire.
+- The daemon can cancel the attempt being checked (SIGINT to the helper, SIGKILL after 3 s) and reports nothing for it.
+- A login that arrives while another is being checked replaces it; one that arrives once a session is starting is still refused.
+- Themes get `sddm.cancelLogin()` and `sddm.canCancelLogin`.
+
 ## Desktop
 
 | File | What |
@@ -61,7 +70,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `hdr.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
-| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland is no longer the patched build, reapplies the plugin patches. |
+| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build, reapplies the plugin patches. |
 
 ### Plugin patches
 
@@ -88,7 +97,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 | `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | Button names for the Retroid Pocket Nova as a Bluetooth gamepad (PocketPad). |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | Ollama on the iGPU. |
 | `.local/share/fp-shim/` | Fingerprint setup for the FocalTech reader Omarchy doesn't detect: `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. `fp-storage.py` lists or clears templates on the chip. |
-| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen and at console login; skipped while the lid is closed. SDDM only runs PAM on a login attempt, so while the password field is empty the theme keeps submitting empty logins, each a 3-second wait on the reader that fails without touching faillock. The fingerprint icon shows only while pam_fprintd is actually waiting (from its "Place your finger" message to the end of that wait) and the field is empty, so it goes out for about half a second between waits. A typed password is checked once the wait in flight ends. The theme stops after 5 idle minutes until a key or the pointer moves. The stock files are kept beside them as `*.before-fingerprint`. |
+| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen and at console login; skipped while the lid is closed. At the login screen an empty login is a fingerprint wait (up to 5 minutes, failing without touching faillock) and a typed password skips the reader. The theme keeps one such wait running while the field is empty and cancels it on the first keystroke, which needs the patched SDDM; on stock SDDM it is password-only. The fingerprint icon shows while pam_fprintd is waiting. The stock files are kept beside them as `*.before-fingerprint`. |
 
 ## Games and TV
 
@@ -115,7 +124,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 
 ## Packages added to Omarchy
 
-`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland).
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM).
 
 ## License
 

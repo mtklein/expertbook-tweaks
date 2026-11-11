@@ -2,7 +2,7 @@
 
 auth        [success=3 default=ignore]  pam_exec.so quiet expose_authtok /bin/sh /usr/local/share/expertbook-tweaks/password-given
 auth        [success=1 default=ignore]  pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed
-auth        sufficient  pam_fprintd.so timeout=3
+auth        sufficient  pam_fprintd.so timeout=300
 auth        requisite   pam_deny.so
 auth        include     system-login
 -auth       optional    pam_kwallet5.so

@@ -24,18 +24,6 @@ Rectangle {
   readonly property color selectionColor: Qt.rgba(0x6a / 255, 0xa8 / 255, 0xff / 255, 0.45)
 
   property string currentUser: userModel.lastUser
-  property bool authenticating: false
-  property bool fingerprintAvailable: true
-  property bool listeningForFinger: false
-  property bool readerLive: false
-  property double listeningSince: 0
-  property bool passwordInFlight: false
-  property double passwordSince: 0
-  property double notBefore: 0
-  property bool idle: false
-  readonly property bool fingerprintOffered: fingerprintAvailable && !idle && !authenticating && passwordInput.text.length === 0
-  property string pendingPassword: ""
-  readonly property real fingerprintReserve: Math.round(fingerprintIcon.implicitWidth + 12)
   property int failedAttempts: 0
   property string failureMessage: ""
   property int sessionIndex: {
@@ -49,28 +37,49 @@ Rectangle {
   readonly property real passwordDotScale: dotMetrics.advanceWidth > 0
     ? Math.min(1, (passwordInput.width - 4) / dotMetrics.advanceWidth)
     : 1
+  readonly property real fingerprintReserve: Math.round(fingerprintIcon.implicitWidth + 12)
 
-  function listenForFinger() {
-    if (!fingerprintOffered || listeningForFinger) return
-    if (Date.now() < notBefore) {
-      next.restart()
-      return
+  readonly property bool canCancel: sddm.canCancelLogin === true
+  property bool fingerprintAvailable: true
+  property bool idle: false
+  property bool authenticating: false
+  property bool listening: false
+  property bool readerLive: false
+  property double listeningSince: 0
+  property double ignoreFailuresUntil: 0
+
+  readonly property bool wantFinger: canCancel && fingerprintAvailable && !idle && !authenticating
+    && passwordInput.text.length === 0 && currentUser !== ""
+
+  onWantFingerChanged: syncFingerprint()
+
+  function syncFingerprint() {
+    if (wantFinger && !listening && !settle.running) {
+      listening = true
+      listeningSince = Date.now()
+      sddm.login(currentUser, "", sessionIndex)
+    } else if (!wantFinger && listening) {
+      listening = false
+      readerLive = false
+      sddm.cancelLogin()
     }
-    listeningForFinger = true
-    listeningSince = Date.now()
-    sddm.login(currentUser, "", sessionIndex)
   }
 
   function submitPassword(password) {
     authenticating = true
-    pendingPassword = password
-    if (!listeningForFinger) next.restart()
+    passwordWatchdog.restart()
+    sddm.login(currentUser, password, sessionIndex)
   }
 
   function noteActivity() {
     idle = false
     idleAfter.restart()
-    listenForFinger()
+  }
+
+  Timer {
+    id: settle
+    interval: 60
+    onTriggered: root.syncFingerprint()
   }
 
   Timer {
@@ -81,68 +90,35 @@ Rectangle {
   }
 
   Timer {
-    id: next
-    interval: 150
-    onTriggered: {
-      if (Date.now() < root.notBefore) {
-        restart()
-      } else if (root.pendingPassword.length > 0) {
-        var password = root.pendingPassword
-        root.pendingPassword = ""
-        root.passwordInFlight = true
-        root.passwordSince = Date.now()
-        sddm.login(root.currentUser, password, root.sessionIndex)
-      } else {
-        root.listenForFinger()
-      }
-    }
+    id: passwordWatchdog
+    interval: 15000
+    onTriggered: root.authenticating = false
   }
-
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: {
-      if (root.listeningForFinger && Date.now() - root.listeningSince > 5000) {
-        root.listeningForFinger = false
-        next.restart()
-      }
-      if (root.passwordInFlight && Date.now() - root.passwordSince > 8000) {
-        root.passwordInFlight = false
-        root.authenticating = false
-        next.restart()
-      }
-    }
-  }
-
-  onListeningForFingerChanged: if (!listeningForFinger) readerLive = false
 
   Connections {
     target: sddm
     function onInformationMessage(message) {
-      if (!root.listeningForFinger) return
-      if (message.indexOf("Place") === 0) root.readerLive = true
-      else if (/timed out|failure/i.test(message)) root.readerLive = false
+      if (root.listening && message.indexOf("Place") === 0) root.readerLive = true
     }
     function onLoginFailed() {
-      if (root.listeningForFinger) {
-        root.listeningForFinger = false
-        root.notBefore = Date.now() + 150
+      if (Date.now() < root.ignoreFailuresUntil) return
+      root.ignoreFailuresUntil = Date.now() + 50
+      settle.restart()
+      if (root.authenticating) {
+        passwordWatchdog.stop()
+        root.authenticating = false
+        root.failedAttempts += 1
+        root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
+        passwordInput.text = ""
+        passwordInput.forceActiveFocus()
+      } else if (root.listening) {
+        root.listening = false
+        root.readerLive = false
         if (Date.now() - root.listeningSince < 500) root.fingerprintAvailable = false
-        next.restart()
-        return
       }
-      if (!root.passwordInFlight) return
-      root.passwordInFlight = false
-      root.notBefore = Date.now() + 150
-      root.authenticating = false
-      root.failedAttempts += 1
-      root.failureMessage = "Authentication failed (" + root.failedAttempts + ")"
-      passwordInput.text = ""
-      passwordInput.forceActiveFocus()
-      next.restart()
     }
     function onLoginSucceeded() {
+      passwordWatchdog.stop()
       root.readerLive = false
       root.failureMessage = ""
     }
@@ -277,8 +253,5 @@ Rectangle {
   }
 
   onAuthenticatingChanged: if (!authenticating) passwordInput.forceActiveFocus()
-  Component.onCompleted: {
-    passwordInput.forceActiveFocus()
-    next.restart()
-  }
+  Component.onCompleted: passwordInput.forceActiveFocus()
 }

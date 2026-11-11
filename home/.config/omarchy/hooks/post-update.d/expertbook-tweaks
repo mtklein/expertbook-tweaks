@@ -2,8 +2,10 @@
 repo=$(realpath "${BASH_SOURCE[0]}")
 repo=${repo%/home/.config/*}
 
-if [[ $(pacman -Q hyprland) != *.1 ]]; then
-  echo "expertbook-tweaks: Hyprland is no longer the patched build; rebuild with $repo/hyprland-patched/build.sh" >&2
-fi
+for package in hyprland sddm; do
+  if [[ $(pacman -Q $package) != *.1 ]]; then
+    echo "expertbook-tweaks: $package is no longer the patched build; rebuild with $repo/$package-patched/build.sh" >&2
+  fi
+done
 
 "$repo/plugins/sync" apply
