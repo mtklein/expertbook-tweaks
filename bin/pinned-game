@@ -123,8 +123,6 @@ def main():
                 watch(fast, order)
             finally:
                 os._exit(0)
-    # game's scheduler experiment is the alternative to this, so not both.
-    os.environ.setdefault("GAME_SCHED", "none")
     os.execv(GAME, [GAME] + sys.argv[1:])
 
 

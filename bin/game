@@ -39,21 +39,4 @@ case ${SteamAppId:-} in
 esac
 export MANGOHUD_CONFIG="${MANGOHUD_CONFIG:-$hud}"
 command -v mangohud >/dev/null && hold+=(mangohud)
-
-# EXPERIMENT (2026-11-11): the LAVD scheduler (sched_ext, from scx-scheds and
-# scx-tools) while a game runs, in place of the kernel's own, to see whether
-# it keeps an old game's one busy thread on a fast core without pinned-game.
-# It follows the power profile (--autopower) and is system-wide while loaded.
-# Started here if nothing is loaded, and stopped again when the game ends;
-# system/etc/polkit-1/rules.d/50-scx-loader.rules lets that happen without a
-# password. GAME_SCHED=none in the launch option skips it.
-sched=${GAME_SCHED:-lavd}
-if [[ $sched != none ]] && command -v scxctl >/dev/null && scxctl get 2>/dev/null | grep -q '^no scx'; then
-  if scxctl start -s "$sched" -a="--autopower" >/dev/null 2>&1; then
-    "${hold[@]}" "$@"
-    status=$?
-    scxctl stop >/dev/null 2>&1
-    exit $status
-  fi
-fi
 exec "${hold[@]}" "$@"
