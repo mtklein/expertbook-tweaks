@@ -31,6 +31,8 @@ Rectangle {
   property bool passwordInFlight: false
   property double passwordSince: 0
   property double notBefore: 0
+  property double lastKeystroke: 0
+  readonly property int typingPauseMs: 2000
   property double lastActivity: Date.now()
   property string pendingPassword: ""
   readonly property int idlePauseMs: 5 * 60 * 1000
@@ -51,7 +53,8 @@ Rectangle {
 
   function listenForFinger() {
     if (!fingerprintAvailable || listeningForFinger || authenticating) return
-    if (passwordInput.text.length > 0 || Date.now() - lastActivity > idlePauseMs) return
+    if (Date.now() - lastActivity > idlePauseMs) return
+    if (passwordInput.text.length > 0 && Date.now() - lastKeystroke < typingPauseMs) return
     if (Date.now() < notBefore) {
       next.restart()
       return
@@ -70,6 +73,12 @@ Rectangle {
   function noteActivity() {
     lastActivity = Date.now()
     listenForFinger()
+  }
+
+  Timer {
+    id: typingPaused
+    interval: root.typingPauseMs
+    onTriggered: root.listenForFinger()
   }
 
   Timer {
@@ -213,6 +222,8 @@ Rectangle {
 
       onTextChanged: {
         if (text.length > 0 && root.failureMessage.length > 0) root.failureMessage = ""
+        root.lastKeystroke = Date.now()
+        typingPaused.restart()
         root.noteActivity()
       }
 

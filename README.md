@@ -88,7 +88,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 | `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | Button names for the Retroid Pocket Nova as a Bluetooth gamepad (PocketPad). |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | Ollama on the iGPU. |
 | `.local/share/fp-shim/` | Fingerprint setup for the FocalTech reader Omarchy doesn't detect: `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. `fp-storage.py` lists or clears templates on the chip. |
-| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen and at console login; skipped while the lid is closed. SDDM only runs PAM on a login attempt, so the theme keeps submitting empty logins, each a 3-second wait on the reader that fails without touching faillock; a typed password goes straight to the password check once the wait in flight ends. The theme stops after 5 idle minutes until a key or the pointer moves. The stock files are kept beside them as `*.before-fingerprint`. |
+| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen and at console login; skipped while the lid is closed. SDDM only runs PAM on a login attempt, so the theme keeps submitting empty logins, each a 3-second wait on the reader that fails without touching faillock; no new wait starts within 2 seconds of a keystroke, so a typed password normally goes straight to the password check. The theme stops after 5 idle minutes until a key or the pointer moves. The stock files are kept beside them as `*.before-fingerprint`. |
 
 ## Games and TV
 
