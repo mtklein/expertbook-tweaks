@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="input*::capslock", RUN+="/bin/sh -c 'chgrp wheel /sys%p/brightness /sys%p/trigger; chmod g+w /sys%p/brightness /sys%p/trigger'"

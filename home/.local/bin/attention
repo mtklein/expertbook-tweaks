@@ -1,0 +1,57 @@
+#!/bin/bash
+set -u
+usage() { echo "usage: attention on [reason] | off [reason] | status" >&2; exit 2; }
+
+led=$(echo /sys/devices/platform/i8042/serio*/input/input*/input*::capslock)
+flags="${XDG_RUNTIME_DIR:-/run/user/$UID}/attention"
+mkdir -p "$flags"
+
+asker() {
+  local pid=$PPID stat
+  while (( pid > 1 )); do
+    [[ $(</proc/$pid/comm) == claude ]] && { echo "$pid"; return; }
+    stat=$(</proc/$pid/stat)
+    stat=${stat##*) }
+    read -r _ pid _ <<<"$stat"
+  done
+  echo shell
+}
+
+hold_lit() {
+  local idle
+  exec {idle}<> <(:)
+  while [[ -e $flags/.lit ]]; do
+    echo 1 >"$led/brightness"
+    read -r -t 0.03 -u "$idle"
+  done
+}
+
+case ${1:-} in
+  hold) hold_lit; exit ;;
+  on) touch "$flags/$(asker).${2:-ask}" ;;
+  off) if [[ -n ${2:-} ]]; then rm -f "$flags/$(asker).$2"; else rm -f "$flags/$(asker)".*; fi ;;
+  status) ;;
+  *) usage ;;
+esac
+
+wanted=0
+for flag in "$flags"/*; do
+  [[ -e $flag ]] || continue
+  owner=${flag##*/}
+  owner=${owner%%.*}
+  if [[ $owner == shell || -d /proc/$owner ]]; then wanted=1; else rm -f "$flag"; fi
+done
+
+lit=0
+[[ -e $flags/.lit ]] && lit=1
+if (( wanted && ! lit )); then
+  echo none >"$led/trigger" && touch "$flags/.lit" && setsid -f "$0" hold </dev/null >/dev/null 2>&1
+elif (( ! wanted && lit )); then
+  rm -f "$flags/.lit"
+  sleep 0.05
+  echo 0 >"$led/brightness"
+  echo kbd-capslock >"$led/trigger"
+fi
+
+[[ $1 == status ]] && { (( wanted )) && echo on || echo off; ls "$flags"; }
+exit 0

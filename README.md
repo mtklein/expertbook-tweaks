@@ -51,7 +51,8 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | File | What |
 |---|---|
 | `.config/hypr/bindings.lua` | Brightness and white point keys, layout cycle, dictation. |
-| `.config/hypr/super-console.lua` | A tap of Super toggles the Quake console; windows opened from it move to the desktop. |
+| `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). Windows opened from the console move to the desktop. |
+| `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
 | `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows. |
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
@@ -104,6 +105,8 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 - `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
 - Turning a clone off makes Omarchy put the stock widget back; `bar-item` disables both.
 - Each read of the light sensor blocks about a second.
+- Hyprland rewrites the keyboard LEDs from xkb state on key events, so `attention` re-asserts the light every 30 ms while it is on.
+- Hyprland's Lua key event carries xkb keycodes (evdev + 8).
 - The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
 - GeForce NOW (Flatpak, X11-only): in a stream only mouse buttons, motion and a real wheel get through.
 

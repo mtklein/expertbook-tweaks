@@ -18,7 +18,7 @@ for _, b in ipairs({
   o.bind(b[1], b[2], b[3])
 end
 
-dofile(os.getenv("HOME") .. "/.config/hypr/super-console.lua")
+dofile(os.getenv("HOME") .. "/.config/hypr/console-tap.lua")
 
 if o.dictation_installed and o.dictation_installed() then
   o.bind("SUPER + CTRL + X", "Toggle dictation", "omarchy-dictation toggle")
