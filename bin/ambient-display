@@ -151,7 +151,7 @@ CROSS_PHASE = 0.15       # how much daytime evidence counts at night (and vice v
 GRID = [i / 10 for i in range(46)]   # log10(lux + 1), 0 .. 4.5
 
 # White point
-NIGHT_K = int(os.environ.get("NIGHT_TEMP", 3300))
+NIGHT_K = 3300
 LIT_WARMEST_K = 3400     # the lit-room model never goes warmer than this
 NEUTRAL_K = 6600         # gains 1, 1, 1
 MIN_K, MAX_K = 2500, 6600  # overall limits, manual corrections included; keep in step with white-point
@@ -194,18 +194,6 @@ class Store:
             self.d = json.loads(STATE.read_text())
         except (OSError, ValueError):
             self.d = {}
-        # Until 2026-11-09 the white point went through KMS onto the PQ signal,
-        # where "5100 K" put white near 3300 K (and elsewhere at other
-        # brightnesses). Choices learned on that scale mean nothing on the real
-        # one, so the white point starts again; brightness evidence is kept.
-        if self.d.get("white_scale") != "true":
-            for old in ("white_events", "white_hold", "white_manual_seen", "dark_fade"):
-                self.d.pop(old, None)
-            self.d["white_scale"] = "true"
-            self.save()
-        # Point tables from before the evidence models (long since carried over).
-        if [self.d.pop(old) for old in ("brightness", "white_offsets") if old in self.d]:
-            self.save()
 
     def save(self):
         try:
@@ -533,7 +521,6 @@ class Brightness:
         self.last_t = None
         self.white = None        # nits at 100%
         self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (hypr/hdr.lua)
-        self.hdr = None
         self.last_set = None     # the level as last seen or written (%, fractional under automatic control)
         self.calm = None         # steadied log lux: what automatic brightness follows
         self.follow = Follower(SETTLE_BRIGHT)   # in ln(nits)
@@ -672,21 +659,14 @@ class Brightness:
         m = next((m for m in hypr_json("monitors") or [] if m.get("name") == MONITOR), None)
         if not (m and not m.get("disabled") and m.get("dpmsStatus", True)):
             return None
-        return m.get("sdrMaxLuminance"), m.get("colorManagementPreset") == "hdr"
+        return m.get("sdrMaxLuminance") if m.get("colorManagementPreset") == "hdr" else None
 
-    def get_pct(self, hdr):
-        if hdr:
-            try:
-                return round(float(LEVEL.read_text()) * 100, 2)
-            except OSError:
-                return 100
-            except ValueError:
-                return None
+    def get_pct(self):
         try:
-            out = subprocess.run(["hdr-brightness", "--monitor", MONITOR],
-                                 capture_output=True, text=True, timeout=5)
-            return int(out.stdout.strip())
-        except (OSError, subprocess.SubprocessError, ValueError):
+            return round(float(LEVEL.read_text()) * 100, 2)
+        except OSError:
+            return 100
+        except ValueError:
             return None
 
     def nits_at(self, pct):
@@ -724,15 +704,10 @@ class Brightness:
         return min(MAX_PCT, max(MIN_PCT, self.pct_for(nits)))
 
     def set_level(self, pct, save=True):
-        """Put the screen at pct. In HDR that's one message to Hyprland, cheap
+        """Put the screen at pct. That's one message to Hyprland, cheap
         enough for 20 a second; LEVEL (which the keys and a config reload read)
         is written at the end of a move and a few times on the way."""
         self.last_set = pct
-        if not self.hdr:                         # some other screen mode: the script knows how
-            if self.saved_pct is None or round(pct) != round(self.saved_pct):
-                run("hdr-brightness", "--auto", "--no-osd", "--monitor", MONITOR, f"{round(pct)}%")
-                self.saved_pct = round(pct)
-            return
         hypr_eval(f"edp_hdr_level({pct / 100:.5f})")
         now = time.monotonic()
         if save or now - self.saved_at >= 0.5:
@@ -768,7 +743,7 @@ class Brightness:
             try:
                 kind, _, pct = SOURCE.read_text().split()[:3]
                 if kind == "user":
-                    if self.fading and self.hdr:     # a step of ours may have landed after the key press
+                    if self.fading:                  # a step of ours may have landed after the key press
                         hypr_eval(f"edp_hdr_level({int(pct) / 100:.5f})")
                     self.saved_pct = int(pct)
                     self.user_changed(int(pct), now)
@@ -777,10 +752,8 @@ class Brightness:
 
         if now - self.last_check >= 1.0:
             self.last_check = now
-            state = self.edp_state()
-            nits = state[0] if state else None
-            self.hdr = state[1] if state else None
-            current = self.get_pct(self.hdr) if nits else None
+            nits = self.edp_state()
+            current = self.get_pct() if nits else None
             self.screen_on = current is not None
             if not self.screen_on:
                 self.asleep = True               # screen off: whatever comes next, nobody watches it happen

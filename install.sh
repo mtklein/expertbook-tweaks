@@ -81,14 +81,6 @@ link hypr/hypridle.conf                 ~/.config/hypr/hypridle.conf
 link systemd-user/sdw-clash-recover.service ~/.config/systemd/user/sdw-clash-recover.service
 link systemd-user/tv-mode.service       ~/.config/systemd/user/tv-mode.service
 
-# Replaced by ambient-display (2026-11-06).
-for old in hdr-auto-brightness ambient-white; do
-  if [[ -L ~/.config/systemd/user/$old.service ]]; then
-    systemctl --user stop $old.service || true
-    rm -f ~/.config/systemd/user/$old.service ~/.config/systemd/user/*.wants/$old.service ~/.local/bin/$old
-    echo "removed $old"
-  fi
-done
 systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service
 systemctl --user enable --now hypridle.service   # pacman: hypridle

@@ -98,10 +98,4 @@ end
 
 edp_hdr_monitor(saved_hdr_brightness())
 
--- The hardware cursor plane bypasses Hyprland's final colour conversion; the
--- patched Hyprland (hyprland-patched/05) renders the cursor in the output's
--- encoding at the SDR white level, so the hardware cursor is fine in HDR.
--- On an unpatched Hyprland it renders far too bright: put this back then.
--- hl.config({ cursor = { no_hardware_cursors = true } })
-
 end

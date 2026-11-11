@@ -280,10 +280,9 @@ BarWidget {
     Item {
       id: horizontalTrayRoot
 
-      readonly property int chevronWidth: 0
       readonly property var sectionShown: root.shownSection(drawerArea.x + trayClip.x, trayClip.width, drawerArea.x + trayClip.x + drawerContent.x + section.x, section.width)
 
-      implicitWidth: pinnedRow.implicitWidth + chevronWidth + root.revealExtent
+      implicitWidth: pinnedRow.implicitWidth + root.revealExtent
       implicitHeight: root.barSize
 
       HoverHandler {
@@ -294,28 +293,15 @@ BarWidget {
       Item {
         id: drawerArea
         x: root.fixedAtStart ? pinnedRow.implicitWidth : 0
-        width: horizontalTrayRoot.chevronWidth + root.revealExtent
+        width: root.revealExtent
         height: root.barSize
         visible: root.hasDrawer
 
-        BarIconButton {
-          id: expandIcon
-          visible: false
-          bar: root.bar
-          width: implicitWidth
-          height: implicitHeight
-          x: root.fixedAtStart ? root.revealExtent : 0
-          text: root.fixedAtStart ? "\uf054" : "\uf053"
-          onPressed: function(button) {
-            if (button === Qt.RightButton) root.managePopupOpen = !root.managePopupOpen
-          }
-        }
 
         // The icons and the tray section sit beside the pinned icons, the
         // section nearest them.
         Item {
           id: trayClip
-          x: root.fixedAtStart ? 0 : horizontalTrayRoot.chevronWidth
           anchors.verticalCenter: parent.verticalCenter
           width: root.revealExtent
           height: root.barSize
@@ -374,11 +360,10 @@ BarWidget {
     Item {
       id: verticalTrayRoot
 
-      readonly property int chevronHeight: 0
       readonly property var sectionShown: root.shownSection(drawerArea.y + trayClip.y, trayClip.height, drawerArea.y + trayClip.y + drawerContent.y + section.y, section.height)
 
       implicitWidth: root.barSize
-      implicitHeight: pinnedCol.implicitHeight + chevronHeight + root.revealExtent
+      implicitHeight: pinnedCol.implicitHeight + root.revealExtent
 
       HoverHandler {
         margin: root.revealMargin
@@ -389,28 +374,14 @@ BarWidget {
         id: drawerArea
         y: root.fixedAtStart ? pinnedCol.implicitHeight : 0
         width: root.barSize
-        height: verticalTrayRoot.chevronHeight + root.revealExtent
+        height: root.revealExtent
         visible: root.hasDrawer
 
-        BarIconButton {
-          id: expandIcon
-          visible: false
-          bar: root.bar
-          width: implicitWidth
-          height: implicitHeight
-          y: root.fixedAtStart ? root.revealExtent : 0
-          text: root.fixedAtStart ? "\uf054" : "\uf053"
-          textRotation: 90
-          onPressed: function(button) {
-            if (button === Qt.RightButton) root.managePopupOpen = !root.managePopupOpen
-          }
-        }
 
         // The icons and the tray section sit beside the pinned icons, the
         // section nearest them.
         Item {
           id: trayClip
-          y: root.fixedAtStart ? 0 : verticalTrayRoot.chevronHeight
           anchors.horizontalCenter: parent.horizontalCenter
           width: root.barSize
           height: root.revealExtent

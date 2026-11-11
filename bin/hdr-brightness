@@ -1,10 +1,10 @@
 #!/bin/bash
-# Brightness that also works in HDR mode.
+# Brightness for the internal HDR panel.
 #
-# With HDR on, brightness is applied in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
+# Brightness is applied in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
 # hypr/hdr.lua). The level (0-1, perceptual) is saved to ~/.local/state/hdr-brightness,
 # which is also where the current level is read from.
-# Anything else (HDR off, another monitor, on/off) is handed to
+# Anything else (another monitor, on/off) is handed to
 # omarchy-brightness-display unchanged.
 #
 # Used by the brightness keys (~/.config/hypr/bindings.lua) and the bar's
@@ -39,9 +39,6 @@ passthrough() {
 
 [[ -n $monitor ]] || monitor="$(omarchy-hyprland-monitor-focused 2>/dev/null)"
 [[ $monitor == eDP-1 ]] || passthrough
-
-hdr=$(hyprctl monitors -j | jq -r '.[] | select(.name == "eDP-1" and .colorManagementPreset == "hdr") | .name')
-[[ -n $hdr ]] || passthrough
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}"
 current=$(cat "$state/hdr-brightness" 2>/dev/null || echo 1.00)
