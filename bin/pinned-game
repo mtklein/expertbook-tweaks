@@ -1,0 +1,24 @@
+#!/bin/bash
+# `game`, with the whole game kept on the performance cores. As a Steam launch
+# option:
+#
+#     pinned-game %command%
+#
+# For old games that do nearly all their work on one thread. This chip has 4
+# performance cores, 8 efficiency cores (about 2/3 the speed) and 4 low-power
+# ones, and the scheduler will happily leave such a thread on an efficiency
+# core at a low clock: Final Fantasy XIII's free-roam areas fell from 60 to
+# 30 fps that way. Modern games that spread over many threads are better off
+# with all sixteen: use plain `game` for those.
+#
+# The performance cores are found by the kernel's own rating (cpu_capacity,
+# within 5% of the best), so nothing here names core numbers. No power setting
+# changes. If the rating isn't there, the game runs unpinned.
+(( $# > 0 )) || { echo "usage: pinned-game command..." >&2; exit 1; }
+fast=$(awk '
+  { n = FILENAME; sub(/.*\/cpu\/cpu/, "", n); sub(/\/.*/, "", n); cap[n] = $1; if ($1 > max) max = $1 }
+  END { for (n in cap) if (cap[n] >= max * 0.95) printf "%s%s", (out++ ? "," : ""), n }
+' /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity 2>/dev/null)
+game=$(dirname "$(readlink -f "$0")")/game
+[[ -n $fast ]] && command -v taskset >/dev/null || exec "$game" "$@"
+exec taskset -c "$fast" "$game" "$@"
