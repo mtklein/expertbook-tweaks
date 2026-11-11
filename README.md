@@ -36,14 +36,9 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 | Patch | What |
 |---|---|
-| 01 | The SDR reference luminance advertised to colour-managed clients follows `sdr_max_luminance`. |
-| 02 | Clients are told when it changes. |
-| 03 | `sdrbrightness` applies to colour-managed surfaces too. |
-| 04 | Those notifications reach subsurfaces. |
-| 05 | The hardware cursor is rendered in the output's encoding. |
-| 06 | The colour matrix is applied in linear light when the output is PQ. |
-| 07 | Surfaces not yet on screen get the notifications too (single monitor). |
-| 08 | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
+| `01-sdr-white-is-reference` | The SDR white level (`sdr_max_luminance`) is advertised to colour-managed clients as the reference luminance, and they are told when it changes: subsurfaces and surfaces not yet on screen included. |
+| `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is rendered in the output's encoding. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
+| `03-leds-only-on-change` | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
@@ -109,15 +104,16 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 ## Not obvious
 
 - F14 stays unbound: the firmware sends it on every USB-C power plug and unplug.
-- KMS applies the colour matrix to the encoded signal, which is wrong for PQ; patch 06 is why kelvin values are true.
+- KMS applies the colour matrix to the encoded signal, which is wrong for PQ; `02-hdr-conversion` is why kelvin values are true.
 - Only one client may hold the colour matrix. hyprsunset must not run; `ambient-display` kills it if it does.
 - Hyprland draws window borders at a fixed 80 nits whatever the SDR white level, hence no borders.
 - Subpixel antialiasing on transparent layers overshoots white in HDR, hence greyscale (fontconfig, and `QSG_DISTANCEFIELD_ANTIALIASING` for Qt Quick).
 - An official Hyprland update replaces the patched build.
+- HDR is relative here: a game's white is its declared reference white (203 nits when it declares none), drawn at the desktop's white. Set a game's paper white to 203. Chromium declares the advertised white as its reference, so it is scaled by 1.
 - `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
 - Turning a clone off makes Omarchy put the stock widget back; `bar-item` disables both.
 - Each read of the light sensor blocks about a second.
-- Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; patch 08 stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
+- Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
 - The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
 - GeForce NOW (Flatpak, X11-only): in a stream only mouse buttons, motion and a real wheel get through.

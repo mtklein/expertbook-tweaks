@@ -1,0 +1,257 @@
+--- a/src/output/Monitor.cpp
++++ b/src/output/Monitor.cpp
+@@ -646,6 +646,12 @@
+         if (PROTO::colorManagement)
+             PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
+         m_blurFBDirty = true;
++        m_ctmUpdated  = true; // KMS or linear-light white point depends on the encoding
++        // the hardware cursor is rendered in the output's encoding
++        g_pEventLoopManager->doLater([] {
++            if (Pointer::mgr())
++                Pointer::mgr()->refreshHardwareCursors();
++        });
+     }
+ }
+ 
+@@ -687,8 +693,18 @@
+         if (m_sdrMaxLuminance != oldSdrMaxLuminance && PROTO::colorManagement)
+             PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
+ 
+-        m_sdrSaturation = m_activeMonitorRule.m_sdrSaturation;
+-        m_sdrBrightness = m_activeMonitorRule.m_sdrBrightness;
++        const auto oldSdrBrightness = m_sdrBrightness;
++        m_sdrSaturation             = m_activeMonitorRule.m_sdrSaturation;
++        m_sdrBrightness             = m_activeMonitorRule.m_sdrBrightness;
++
++        // The hardware cursor is rendered in the output's encoding at the SDR
++        // white level, so it has to be redrawn when
++        // either changes. Later: this runs in the middle of applying the rule.
++        if (m_sdrMaxLuminance != oldSdrMaxLuminance || m_sdrBrightness != oldSdrBrightness)
++            g_pEventLoopManager->doLater([] {
++                if (Pointer::mgr())
++                    Pointer::mgr()->refreshHardwareCursors();
++            });
+     } else {
+         auto image = NColorManagement::SImageDescription::fromICC(m_activeMonitorRule.m_iccFile);
+         if (!image) {
+@@ -1802,6 +1818,14 @@
+ void CMonitor::setCTM(const Mat3x3& ctm_) {
+     m_ctm        = ctm_;
+     m_ctmUpdated = true;
++    if (g_pHyprRenderer->whitePointInShader(m_self.lock())) {
++        // applied while rendering: redraw everything, the hardware cursor too
++        g_pHyprRenderer->damageMonitor(m_self.lock());
++        g_pEventLoopManager->doLater([] {
++            if (Pointer::mgr())
++                Pointer::mgr()->refreshHardwareCursors();
++        });
++    }
+     scheduleFrame(Aquamarine::IOutput::scheduleFrameReason::AQ_SCHEDULE_NEEDS_FRAME);
+ }
+ 
+--- a/src/pointer/PointerManager.cpp
++++ b/src/pointer/PointerManager.cpp
+@@ -61,6 +61,11 @@
+     });
+ }
+ 
++void CPointerManager::refreshHardwareCursors() {
++    if (hasCursor())
++        updateCursorBackend();
++}
++
+ void CPointerManager::lockSoftwareAll() {
+     for (auto const& state : m_monitorStates)
+         state->softwareLocks++;
+@@ -619,6 +624,12 @@
+         return nullptr;
+     }
+ 
++    // The cursor plane is scanned out as it is, bypassing the final colour
++    // conversion, so render the cursor straight into the output's encoding.
++    // Otherwise it's rendered for the work buffer, which in HDR is linear
++    // light: shown as PQ that is far too bright and ignores the SDR white level.
++    RBO->getFB()->setImageDescription(state->monitor->m_imageDescription);
++
+     RBO->bind();
+ 
+     CRegion damageRegion = {0, 0, INT_MAX, INT_MAX};
+--- a/src/pointer/PointerManager.hpp
++++ b/src/pointer/PointerManager.hpp
+@@ -47,6 +47,8 @@
+         void setCursorBuffer(SP<Aquamarine::IBuffer> buf, const Vector2D& hotspot, const float& scale);
+         void setCursorSurface(SP<Desktop::View::CWLSurface> buf, const Vector2D& hotspot);
+         void resetCursorImage(bool apply = true);
++        // re-render the hardware cursor, e.g. after the monitor's brightness or colour settings changed
++        void refreshHardwareCursors();
+ 
+         void lockSoftwareForMonitor(PHLMONITOR pMonitor);
+         void unlockSoftwareForMonitor(PHLMONITOR pMonitor);
+--- a/src/render/OpenGL.cpp
++++ b/src/render/OpenGL.cpp
+@@ -1160,17 +1160,17 @@
+     shader->setUniformFloat(SHADER_SDR_BRIGHTNESS, settings.sdrBrightnessMultiplier);
+ 
+     if (!targetImageDescription->value().icc.present) {
+-        const auto cacheKey = std::pair{imageDescription->id(), targetImageDescription->id()};
+-        if (!primariesConversionCache.contains(cacheKey)) {
++        // Not cached per pair of descriptions: the matrix also carries the
++        // monitor's white point, which changes.
++        {
+             const auto&                  mat             = settings.convertMatrix;
+             const std::array<GLfloat, 9> glConvertMatrix = {
+                 mat[0][0], mat[1][0], mat[2][0], //
+                 mat[0][1], mat[1][1], mat[2][1], //
+                 mat[0][2], mat[1][2], mat[2][2], //
+             };
+-            primariesConversionCache.emplace(cacheKey, glConvertMatrix);
++            shader->setUniformMatrix3fv(SHADER_CONVERT_MATRIX, 1, false, glConvertMatrix);
+         }
+-        shader->setUniformMatrix3fv(SHADER_CONVERT_MATRIX, 1, false, primariesConversionCache[cacheKey]);
+ 
+         const auto                   mat                  = settings.dstPrimaries2XYZ;
+         const std::array<GLfloat, 9> glTargetPrimariesXYZ = {
+--- a/src/render/Renderer.cpp
++++ b/src/render/Renderer.cpp
+@@ -1903,6 +1903,45 @@
+     m_cmSettingsCache.clear();
+ }
+ 
++// A monitor's CTM (hyprsunset's white point) is handed to KMS, which applies it
++// to the encoded signal. For a gamma-encoded SDR signal that is a constant
++// linear-light gain per channel ((g*v)^gamma == g^gamma * v^gamma), i.e. a real
++// white point shift. PQ has no such property: there the same matrix tints
++// white far more than the shadows, more the brighter the screen is, and makes
++// the requested colour temperature meaningless. So when the output is PQ and
++// compositing is done in a linear work buffer, the white point is applied
++// here instead, in linear light, as part of every conversion into the
++// output's encoding (the final pass, and the hardware cursor), and KMS gets
++// an identity matrix.
++bool IHyprRenderer::whitePointInShader(PHLMONITOR m) {
++    return m && m->m_imageDescription && m->useFP16() && m->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ;
++}
++
++// The CTM as a linear-light matrix for RGB in `dst`'s primaries.
++static Hyprgraphics::CMatrix3 linearWhitePoint(const Mat3x3& ctm, const NColorManagement::PImageDescription dst) {
++    const auto c    = ctm.getMatrix();
++    const auto SRGB = NColorManagement::CPrimaries::from(NColorManagement::CM_PRIMARIES_SRGB);
++    const auto DST  = dst->getPrimaries();
++
++    if (c[1] != 0 || c[2] != 0 || c[3] != 0 || c[5] != 0 || c[6] != 0 || c[7] != 0) {
++        // not a plain white point: take it as acting on linear sRGB
++        const Hyprgraphics::CMatrix3 M(std::array<std::array<double, 3>, 3>{{{c[0], c[1], c[2]}, {c[3], c[4], c[5]}, {c[6], c[7], c[8]}}});
++        return SRGB->convertMatrix(DST) * M * DST->convertMatrix(SRGB);
++    }
++
++    // Per-channel gains on display-encoded sRGB: together they are the sRGB
++    // colour white should become. Find that colour's coordinates in dst's
++    // primaries and scale the channels by them (white lands exactly on the
++    // requested chromaticity; no channel is ever boosted or goes negative).
++    const auto   lin    = [](double v) { v = std::clamp(v, 0.0, 1.0); return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
++    const auto   WHITE  = Hyprgraphics::CColor::XYZ{.x = lin(c[0]), .y = lin(c[4]), .z = lin(c[8])};
++    const double level  = std::max({WHITE.x, WHITE.y, WHITE.z});
++    const auto   g      = SRGB->convertMatrix(DST) * WHITE;
++    const double top    = std::max({g.x, g.y, g.z});
++    const double k      = top > 0 ? level / top : 0;
++    return Hyprgraphics::CMatrix3(std::array<std::array<double, 3>, 3>{{{std::max(g.x, 0.0) * k, 0, 0}, {0, std::max(g.y, 0.0) * k, 0}, {0, 0, std::max(g.z, 0.0) * k}}});
++}
++
+ SCMSettings IHyprRenderer::getCMSettings(const NColorManagement::PImageDescription imageDescription, const NColorManagement::PImageDescription targetImageDescription,
+                                          SP<CWLSurfaceResource> surface, bool modifySDR, float sdrMinLuminance, int sdrMaxLuminance, bool shouldUseSurface) {
+     const auto srcId = imageDescription->id();
+@@ -1938,19 +1977,40 @@
+ 
+     const bool  needsSDRmod     = modifySDR && isSDR2HDR(imageDescription->value(), targetImageDescription->value());
+     const bool  needsHDRmod     = !needsSDRmod && isHDR2SDR(imageDescription->value(), targetImageDescription->value());
+-    const float maxLuminance    = needsHDRmod ?
+-        imageDescription->value().getTFMaxLuminance(-1) :
+-        (imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max : imageDescription->value().luminances.reference);
+     const auto  dstMaxLuminance = targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000;
+ 
++    const auto  PMONITOR    = m_renderData.pMonitor.lock();
++    const auto& SRC         = imageDescription->value();
++    const bool  hdrSurface  = shouldUseSurface && m_renderData.surface.valid() && m_renderData.surface->m_colorManagement.valid() &&
++        (SRC.transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ || SRC.transferFunction == CM_TRANSFER_FUNCTION_HLG) && SRC.luminances.reference > 0;
++    const float sdrWhite    = PMONITOR && PMONITOR->m_imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ ? PMONITOR->m_sdrMaxLuminance : 0;
++    const float hdrScale    = hdrSurface && sdrWhite > 0 ? sdrWhite / SRC.luminances.reference : 1.0f;
++    const bool  relativeHDR = hdrScale != 1.0f;
++
++    float       maxLuminance = needsHDRmod ? SRC.getTFMaxLuminance(-1) : (SRC.luminances.max > 0 ? SRC.luminances.max : SRC.luminances.reference);
++    if (relativeHDR) {
++        const float monitorPeak = PMONITOR->m_imageDescription->value().luminances.max > 0 ? PMONITOR->m_imageDescription->value().luminances.max : dstMaxLuminance;
++        float       peak        = SRC.maxCLL > 0 ? SRC.maxCLL : SRC.masteringLuminances.max > 0 ? SRC.masteringLuminances.max : SRC.luminances.max;
++        if (peak <= 0 || peak >= SRC.getTFMaxLuminance(-1))
++            peak = monitorPeak;
++        maxLuminance = peak * hdrScale;
++    }
++
+     auto        matrix = imageDescription->getPrimaries()->convertMatrix(targetImageDescription->getPrimaries());
+     auto        toXYZ  = targetImageDescription->getPrimaries()->value().toXYZ();
+ 
+-    const bool  needsMod = needsSDRmod &&
+-        ((m_renderData.pMonitor->m_sdrSaturation > 0 && m_renderData.pMonitor->m_sdrSaturation != 1.0f) ||
+-         (m_renderData.pMonitor->m_sdrBrightness > 0 && m_renderData.pMonitor->m_sdrBrightness != 1.0f));
++    if (relativeHDR)
++        matrix = Hyprgraphics::CMatrix3(std::array<std::array<double, 3>, 3>{{{hdrScale, 0, 0}, {0, hdrScale, 0}, {0, 0, hdrScale}}}) * matrix;
++
++    if (whitePointInShader(PMONITOR) && PMONITOR->m_ctm != Mat3x3::identity() && targetImageDescription->id() == PMONITOR->m_imageDescription->id())
++        matrix = linearWhitePoint(PMONITOR->m_ctm, targetImageDescription) * matrix;
++
++    // sdrbrightness dims colour-managed (non-SDR) surfaces too, so a monitor's brightness applies to everything.
++    const bool  needsMod = (needsSDRmod && m_renderData.pMonitor->m_sdrSaturation > 0 && m_renderData.pMonitor->m_sdrSaturation != 1.0f) ||
++        (modifySDR && m_renderData.pMonitor->m_sdrBrightness > 0 && m_renderData.pMonitor->m_sdrBrightness != 1.0f);
+ 
+     const bool needsTonemap = maxLuminance >= dstMaxLuminance * 1.01;
++    const int  tonemap      = relativeHDR && tonemapMode == 1 ? 3 : tonemapMode;
+ 
+     auto       result = SCMSettings{
+         .sourceTF        = srcTF,
+@@ -1959,19 +2019,20 @@
+                             .max = imageDescription->value().getTFMaxLuminance(needsSDRmod ? sdrMaxLuminance : -1)},
+         .dstTFRange      = {.min = targetImageDescription->value().getTFMinLuminance(needsSDRmod ? sdrMinLuminance : -1),
+                             .max = targetImageDescription->value().getTFMaxLuminance(needsSDRmod ? sdrMaxLuminance : -1)},
+-        .srcRefLuminance = imageDescription->value().luminances.reference,
+-        .dstRefLuminance = targetImageDescription->value().luminances.reference,
++        .srcRefLuminance = relativeHDR ? sdrWhite : SRC.luminances.reference,
++        .dstRefLuminance = relativeHDR ? sdrWhite : targetImageDescription->value().luminances.reference,
+         .convertMatrix   = matrix.mat(),
+ 
+-        .needsTonemap            = tonemapMode != 0 && needsTonemap,
+-        .tonemapMode             = tonemapMode,
+-        .maxLuminance            = needsTonemap && tonemapMode == 2 ? dstMaxLuminance :
+-                                                                      maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
++        .needsTonemap            = tonemap != 0 && needsTonemap,
++        .tonemapMode             = tonemap,
++        .maxLuminance            = needsTonemap && tonemap == 2 ? dstMaxLuminance :
++            relativeHDR                                         ? maxLuminance :
++                                                                  maxLuminance * targetImageDescription->value().luminances.reference / SRC.luminances.reference,
+         .dstMaxLuminance         = dstMaxLuminance,
+         .dstPrimaries2XYZ        = toXYZ.mat(),
+         .needsSDRmod             = needsMod,
+         .sdrSaturation           = needsSDRmod && m_renderData.pMonitor->m_sdrSaturation > 0 ? m_renderData.pMonitor->m_sdrSaturation : 1.0f,
+-        .sdrBrightnessMultiplier = needsSDRmod && m_renderData.pMonitor->m_sdrBrightness > 0 ? m_renderData.pMonitor->m_sdrBrightness : 1.0f,
++        .sdrBrightnessMultiplier = modifySDR && m_renderData.pMonitor->m_sdrBrightness > 0 ? m_renderData.pMonitor->m_sdrBrightness : 1.0f,
+     };
+ 
+     m_cmSettingsCache.push_back({
+@@ -2464,7 +2525,8 @@
+ 
+     if (pMonitor->m_ctmUpdated && !pMonitor->m_noShaderCTM) {
+         pMonitor->m_ctmUpdated = false;
+-        pMonitor->m_output->state->setCTM(pMonitor->m_ctm);
++        // in HDR the white point is applied in linear light instead (getCMSettings)
++        pMonitor->m_output->state->setCTM(whitePointInShader(pMonitor) ? Mat3x3::identity() : pMonitor->m_ctm);
+     }
+ 
+     pMonitor->m_previousFSWindow = FULLSCREEN_WINDOW;
+--- a/src/render/Renderer.hpp
++++ b/src/render/Renderer.hpp
+@@ -208,6 +208,8 @@
+         virtual SP<ITexture> blurFramebuffer(SP<IFramebuffer> source, float a, CRegion* originalDamage) = 0;
+         void                 preBlurForCurrentMonitor(CRegion* fakeDamage);
+ 
++        // whether the monitor's CTM (white point) is applied in linear light while rendering rather than by KMS
++        static bool          whitePointInShader(PHLMONITOR m);
+         SCMSettings          getCMSettings(const NColorManagement::PImageDescription imageDescription, const NColorManagement::PImageDescription targetImageDescription,
+                                            SP<CWLSurfaceResource> surface = nullptr, bool modifySDR = false, float sdrMinLuminance = -1.0f, int sdrMaxLuminance = -1,
+                                            bool shouldUseSurface = false);

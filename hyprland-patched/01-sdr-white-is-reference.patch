@@ -1,0 +1,181 @@
+--- a/src/Compositor.cpp
++++ b/src/Compositor.cpp
+@@ -957,8 +957,15 @@
+     }
+     Log::logger->log(Log::WARN, "FIXME: color management protocol is enabled, determine correct preferred image description");
+     // should determine some common settings to avoid unnecessary transformations while keeping maximum displayable precision
+-    return State::monitorState()->monitors().size() == 1 ? State::monitorState()->monitors()[0]->m_imageDescription :
+-                                                           CImageDescription::from(SImageDescription{.primaries = NColorPrimaries::BT709});
++    if (State::monitorState()->monitors().size() != 1)
++        return CImageDescription::from(SImageDescription{.primaries = NColorPrimaries::BT709});
++    const auto MON = State::monitorState()->monitors()[0];
++    if (MON->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ && MON->m_sdrMaxLuminance > 0) {
++        auto lum      = MON->m_imageDescription->value().luminances;
++        lum.reference = MON->m_sdrMaxLuminance;
++        return MON->m_imageDescription->with(lum);
++    }
++    return MON->m_imageDescription;
+ }
+ 
+ PImageDescription CCompositor::getHDRImageDescription() {
+--- a/src/output/Monitor.cpp
++++ b/src/output/Monitor.cpp
+@@ -670,8 +670,9 @@
+ 
+         m_sdrEotf = m_activeMonitorRule.m_sdrEotf;
+ 
+-        m_sdrMinLuminance = m_activeMonitorRule.m_sdrMinLuminance;
+-        m_sdrMaxLuminance = m_activeMonitorRule.m_sdrMaxLuminance;
++        const auto oldSdrMaxLuminance = m_sdrMaxLuminance;
++        m_sdrMinLuminance             = m_activeMonitorRule.m_sdrMinLuminance;
++        m_sdrMaxLuminance             = m_activeMonitorRule.m_sdrMaxLuminance;
+ 
+         m_minLuminance    = m_activeMonitorRule.m_minLuminance;
+         m_maxLuminance    = m_activeMonitorRule.m_maxLuminance;
+@@ -679,6 +680,13 @@
+ 
+         applyCMType(m_cmType, m_sdrEotf);
+ 
++        // sdr_max_luminance is advertised to colour-managed clients as the
++        // reference luminance, but it isn't part of
++        // the monitor's image description, so applyCMType() doesn't notice a
++        // change to it. Re-check surface feedbacks so clients follow it live.
++        if (m_sdrMaxLuminance != oldSdrMaxLuminance && PROTO::colorManagement)
++            PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
++
+         m_sdrSaturation = m_activeMonitorRule.m_sdrSaturation;
+         m_sdrBrightness = m_activeMonitorRule.m_sdrBrightness;
+     } else {
+--- a/src/protocols/ColorManagement.cpp
++++ b/src/protocols/ColorManagement.cpp
+@@ -3,6 +3,8 @@
+ #include "color-management-v1.hpp"
+ #include "../output/Monitor.hpp"
+ #include "core/Output.hpp"
++#include "core/Subcompositor.hpp"
++#include "../state/MonitorState.hpp"
+ #include "../helpers/cm/ColorManagement.hpp"
+ #include <cstdint>
+ 
+@@ -269,7 +271,13 @@
+         if (!m_output || !m_output->m_monitor.valid())
+             RESOURCE->m_resource->sendFailed(WP_IMAGE_DESCRIPTION_V1_CAUSE_NO_OUTPUT, "No output");
+         else {
+-            RESOURCE->m_settings = m_output->m_monitor->m_imageDescription;
++            const auto MON = m_output->m_monitor;
++            if (MON->m_imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ && MON->m_sdrMaxLuminance > 0) {
++                auto lum             = MON->m_imageDescription->value().luminances;
++                lum.reference        = MON->m_sdrMaxLuminance;
++                RESOURCE->m_settings = MON->m_imageDescription->with(lum);
++            } else
++                RESOURCE->m_settings = MON->m_imageDescription;
+ 
+             RESOURCE->sendMaybeReady();
+         }
+@@ -457,7 +465,25 @@
+ }
+ 
+ void CColorManagementFeedbackSurface::onPreferredChanged() {
+-    if (m_surface->m_enteredOutputs.size() == 1) {
++    // Subsurfaces get no wl_surface.enter here, so check the outputs of the
++    // toplevel they belong to (as getPreferredImageDescription() does).
++    // Otherwise e.g. Chromium's omnibox dropdown never hears about a new
++    // reference luminance and keeps the brightness it opened with.
++    auto root = m_surface.lock();
++    if (root && root->m_role->role() == SURFACE_ROLE_SUBSURFACE) {
++        if (auto subsurface = sc<CSubsurfaceRole*>(root->m_role.get())->m_subsurface.lock())
++            root = subsurface->t1Parent();
++    }
++    // A surface on no output at all (not mapped yet) is kept up to date too
++    // when there is only one monitor it could appear on; otherwise it would
++    // open with whatever it was told last, e.g. an old reference luminance.
++    const auto singleMonitor = [] {
++        size_t enabled = 0;
++        for (auto& m : State::monitorState()->monitors())
++            enabled += m->m_enabled ? 1 : 0;
++        return enabled == 1;
++    };
++    if (root && (root->m_enteredOutputs.size() == 1 || (root->m_enteredOutputs.empty() && singleMonitor()))) {
+         const auto newId = m_surface->getPreferredImageDescription()->id();
+         if (m_currentPreferredId != newId) {
+             const uint32_t lo = sc<uint32_t>(newId & 0xFFFFFFFF);
+@@ -892,6 +918,14 @@
+     }
+ }
+ 
++void CColorManagementProtocol::onSurfaceRoleChanged(SP<CWLSurfaceResource> surface) {
++    // e.g. it just became a subsurface: what it should prefer may now be known
++    for (auto const& feedback : m_feedbackSurfaces) {
++        if (feedback->m_surface == surface)
++            feedback->onPreferredChanged();
++    }
++}
++
+ void CColorManagementProtocol::onMonitorImageDescriptionChanged(PHLMONITORREF monitor) {
+     for (auto const& output : m_outputs) {
+         if (output->m_output && output->m_output->m_monitor == monitor)
+--- a/src/protocols/ColorManagement.hpp
++++ b/src/protocols/ColorManagement.hpp
+@@ -195,6 +195,7 @@
+ 
+     void         onImagePreferredChanged(uint32_t preferredId);
+     void         onMonitorImageDescriptionChanged(PHLMONITORREF monitor);
++    void         onSurfaceRoleChanged(SP<CWLSurfaceResource> surface);
+ 
+     bool         isClientCMAware(wl_client* client);
+ 
+--- a/src/protocols/core/Compositor.cpp
++++ b/src/protocols/core/Compositor.cpp
+@@ -685,7 +685,31 @@
+     else if (m_hlSurface.valid() && WINDOW)
+         monitor = WINDOW->m_monitor;
+ 
+-    return monitor ? monitor->m_imageDescription : g_pCompositor->getPreferredImageDescription();
++    if (!monitor) {
++        // A surface that isn't on any output yet (clients keep some around
++        // unmapped, e.g. Chromium's omnibox dropdown): with a single monitor
++        // there is no doubt where it will appear, so answer for that one
++        // rather than with the compositor-wide default.
++        PHLMONITORREF only;
++        size_t        enabled = 0;
++        for (auto& m : State::monitorState()->monitors()) {
++            if (!m->m_enabled)
++                continue;
++            only = m;
++            enabled++;
++        }
++        if (enabled == 1)
++            monitor = only;
++    }
++
++    if (!monitor)
++        return g_pCompositor->getPreferredImageDescription();
++    if (monitor->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ && monitor->m_sdrMaxLuminance > 0) {
++        auto lum      = monitor->m_imageDescription->value().luminances;
++        lum.reference = monitor->m_sdrMaxLuminance;
++        return monitor->m_imageDescription->with(lum);
++    }
++    return monitor->m_imageDescription;
+ }
+ 
+ void CWLSurfaceResource::sortSubsurfaces() {
+--- a/src/protocols/core/Subcompositor.cpp
++++ b/src/protocols/core/Subcompositor.cpp
+@@ -1,5 +1,6 @@
+ #include "Subcompositor.hpp"
+ #include "Compositor.hpp"
++#include "../ColorManagement.hpp"
+ #include <algorithm>
+ 
+ CWLSubsurfaceResource::CWLSubsurfaceResource(SP<CWlSubsurface> resource_, SP<CWLSurfaceResource> surface_, SP<CWLSurfaceResource> parent_) :
+@@ -197,6 +198,10 @@
+         SURF->m_role     = makeShared<CSubsurfaceRole>(RESOURCE);
+         PARENT->m_subsurfaces.emplace_back(RESOURCE);
+ 
++        // its preferred image description now follows its parent's outputs
++        if (PROTO::colorManagement)
++            PROTO::colorManagement->onSurfaceRoleChanged(SURF);
++
+         LOGM(Log::DEBUG, "New wl_subsurface with id {} at {:x}", id, (uintptr_t)RESOURCE.get());
+ 
+         PARENT->m_events.newSubsurface.emit(RESOURCE);

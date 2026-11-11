@@ -316,7 +316,7 @@ def kelvin_gains(k):
     """Per-channel gains for a colour temperature: the display-encoded sRGB
     colour of that white (Tanner Helland's fit, as hyprsunset uses, but for any
     kelvin rather than hundreds). The patched Hyprland turns these into a
-    linear-light white point (hyprland-patched/06)."""
+    linear-light white point (hyprland-patched/02)."""
     t = k / 100
     if t <= 66:
         g = min(255.0, max(0.0, 99.4708025861 * math.log(t) - 161.1195681661))
