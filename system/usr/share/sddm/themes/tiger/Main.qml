@@ -210,8 +210,10 @@ Rectangle {
 
       onAccepted: {
         var submitted = text
+        if (submitted.length === 0) return
+        root.authenticating = true
         text = ""
-        if (submitted.length > 0) root.submitPassword(submitted)
+        root.submitPassword(submitted)
       }
 
       Keys.onPressed: function(event) {
