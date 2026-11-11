@@ -1,7 +1,7 @@
 -- Tiger: Chromium's pale frame blue on the focused window's border (it runs
 -- into a Chromium window's tab strip), soft grey on the rest, and
 -- Aqua-style drop shadows (big and soft under the focused window, smaller and
--- fainter under the others). Borders are off in hypr/looknfeel.lua; the colours
+-- fainter under the others). Borders are off in ~/.config/hypr/looknfeel.lua; the colours
 -- stay for anything that still draws one (window groups).
 local active_border_color = "rgba(d3e3fdff)"
 local inactive_border_color = "rgba(b4b4b4aa)"

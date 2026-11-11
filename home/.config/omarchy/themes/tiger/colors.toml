@@ -35,6 +35,6 @@ bright_blue = "#3875d7"
 bright_magenta = "#a557c9"
 
 # Chromium's pale frame blue, for anything that still draws a border (window
-# borders are off in hypr/looknfeel.lua).
+# borders are off in ~/.config/hypr/looknfeel.lua).
 hyprland_active_border = "rgba(d3e3fdff)"
 hyprland_inactive_border = "rgba(b4b4b4aa)"

@@ -1,86 +1,116 @@
 # expertbook-tweaks
 
-Personal tweaks for an ASUS ExpertBook Ultra (B9406CAA) running Omarchy, on top
-of the community fixes in [asus-expertbook-linux](https://github.com/burakgon/asus-expertbook-linux),
-used unmodified from upstream `main`.
+ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
+[asus-expertbook-linux](https://github.com/burakgon/asus-expertbook-linux) (used unmodified).
 
-Files here are the real copies; `./install.sh` symlinks them into place, so
-editing either path edits the tracked file. `./install.sh --system` also copies
-`system/` into `/` via pkexec (those can't be symlinks into a home directory).
+## Layout
 
-## What's here
+| Path | What |
+|---|---|
+| `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the Tiger theme as one directory). |
+| `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
+| `plugins/` | One patch per Omarchy plugin clone. `plugins/sync apply` rebuilds `~/.config/omarchy/plugins/mtklein.*` from the installed Omarchy plus its patch. |
+| `hyprland-patched/` | Patches and `build.sh` for the Hyprland package. |
+| `ctm/` | Source of `white-point-ctm`. |
+| `tools/` | Power load tests (run with pkexec). |
 
-| Path | Linked to | Purpose |
-|---|---|---|
-| `hypr/hdr.lua` | loaded by `~/.config/hypr/monitors.lua` | Internal OLED in always-on HDR, 10-bit (`edp_hdr_monitor()`). The hardware cursor works in HDR because `hyprland-patched/05` renders it in the output's encoding (the cursor plane skips Hyprland's final colour conversion). `monitors.lua` itself stays a real file because Omarchy edits its scale lines with `sed -i`, which would replace a symlink. |
-| `hypr/input.lua` | `~/.config/hypr/` | Caps Lock is Ctrl (`ctrl:nocaps`; the keyboard has no Right Ctrl), no Compose key; both Shifts toggle Caps Lock. Natural touchpad scrolling. |
-| `hypr/looknfeel.lua` | `~/.config/hypr/` | Look and feel overrides: no window borders; variable refresh while a window is fullscreen (`misc:vrr = 2`; the panel does 30–120 Hz), so games that dip below their cap stay smooth. |
-| `hypr/bindings.lua` | `~/.config/hypr/` | Brightness keys (plain/Alt) call `hdr-brightness`; Shift + them calls `white-point`. F14 (code:192) is deliberately unbound: the ASUS firmware sends it on every USB-C power plug/unplug (asus_wmi 0x77), not just Fn+F9. |
-| `hypr/hypridle.conf` | `~/.config/hypr/` | Display off after 8 min idle, suspend (Omarchy locks on suspend) at 10 min; both skipped in Omarchy stay-awake. On wake from suspend, `bin/brightness-wake-floor` raises the screen to at least 5% so the lock screen is visible. Needs `pacman -S hypridle`. Omarchy shell.json (not in repo) has `idle.screensaver = 0`, `idle.lock = 0`. |
-| `bin/hdr-brightness` | `~/.local/bin/` | In HDR the panel ignores its backlight, so brightness is Hyprland's `sdrbrightness`, saved to `~/.local/state/hdr-brightness` and reapplied by `monitors.lua`. Another monitor: passes through to `omarchy-brightness-display`. No step prints the current percent. |
-| `bin/ambient-display`, `systemd-user/ambient-display.service`, `bin/white-point` | `~/.local/bin/`, `~/.config/systemd/user/` | Ambient-light brightness **and** white point in one daemon. One sensor thread reads lux ~1 Hz and colour every third read (each ISH read blocks ~1 s). Both controllers work the same way: a model predicts from the sensors, the screen glides there calmly, and manual changes are learned once left alone for 4 s. **Brightness** (through `hdr-brightness`, works in HDR) is learned from *evidence*, not a curve edited in place: every manual choice (room light, time of day, nits, how long you kept it) plus silent approvals (an automatic level left untouched 20 min, worth 0.3 of a manual choice), kept 60 days. The curve is refitted for the current time of day: kernel-weighted robust medians on a log-lux grid (weights: closeness in lux and in time of day on the 24 h circle, so mornings and evenings can differ; dwell time; two-week recency half-life), made non-decreasing in lux by weighted isotonic regression, so one odd moment can't erase anything. Who changed the level is told, not guessed: `hdr-brightness` stamps `~/.local/state/hdr-brightness.source` on every user change (keys, bar slider) and the daemon writes with `--auto`. A user change owns the level until the room's light moves ~2× (or 3 h); automatic control then resumes from there, easing out your offset from the curve. Below 10% (~3 nits) is yours until you change it. `brightness-why` prints the room light, who owns the level, the model's suggestion and the nearby evidence. The level meter is perceptual: nits = 500 × (level ÷ 100)^2.2 (`edp_sdr_white` and `edp_brightness_gamma` in `hypr/hdr.lua`, published to `~/.local/state/hdr-sdr-white` and `hdr-brightness-gamma`), so 50% is ~109 nits, 25% ~24, 10% ~3, and every key press looks about the same size. Hyprland takes the SDR white level in whole nits (a 5% jump at 20 nits), so it's rounded up and the fraction rides on `sdrbrightness`: brightness is continuous. **How it moves** (brightness and white point alike): it follows a steadied reading of the room and stays put until that asks for a change worth making (about 12% of the light, 12 mired), so a passing shadow does nothing. Then it moves through a critically damped second-order follower, the fastest response that never overshoots: a gentle start, quickest in the middle, easing in, and about the same time whatever the size (15 s for brightness, 60 s for white point), in ln(nits) and mireds where equal distances look equal. Brightness steps of about 0.5% go to Hyprland ~20 times a second (`edp_hdr_level()`, over its socket). When the screen has been off, both go straight to the right value: nobody saw the old one. **White point** (any kelvin, real ones: see "White point accuracy" below; set through `ctm/white-point-ctm`, our own small client of Hyprland's colour matrix protocol, which `ambient-display` keeps running; hyprsunset, with its 100 K steps, is no longer used and must not run alongside, since only one client may hold the matrix): lit → partway (70% in mireds) toward the room's colour, 3400–6600 K; dark (the sensor's fixed 4500 K "can't measure" reading for 15 s, colour lost around 7–37 lux) → fades on log lux from the last lit value at the lux where colour was lost to 3300 K at ≤ 3 lux; plus a learned correction. Shift + brightness keys run `white-point` (dim = warmer, bright = cooler, to the next of nine round marks about 30 mired apart: 2500, 2700, 3000, 3300, 3700, 4200, 4800, 5600, 6600 K; OSD bar empty at 2500 K), which writes `~/.local/state/white-point.manual`; `ambient-display` applies it at once. White point is learned from *evidence* the same way as brightness: your choice owns the screen until the room's light moves ~2×, 3 h pass, or the room turns dark/lit, then it's kept as an event (lux, nightness, mireds vs the model, how long you kept it); automatic white left untouched 20 min is a silent approval. (In both learners approvals count for at most half the weight of the manual choices nearby, so hours of leaving it alone never outvote a correction.) The choice holding the screen is saved, so it survives a restart or re-login without being counted twice. The correction is the weighted median of nearby events (closeness in log lux and in nightness by the sun's elevation through civil twilight, ±6°, location from wttr.in's IP lookup, cached; dwell; two-week half-life), shrunk toward the plain model when evidence is thin, so a brief odd choice can't decide it. Bad moments stay in the evidence on purpose: if one sways the model, the model is what gets fixed. Room colour is steadied over 30 s (lux 20 s). 6600 K is neutral. State: `~/.local/state/ambient-display.json` (`brightness`, `white_offsets`, `dark_fade`; delete a key to forget it). SIGUSR1 = adopt the current brightness without learning it. Logs: `journalctl --user -u ambient-display`. |
-| `bin/brightness-wake-floor` | `~/.local/bin/` | Called by `hypridle.conf` on wake: if brightness is below 15% (`FLOOR`, ~8 nits), sets 5% and sends `ambient-display` SIGUSR1 so it adopts the new level without learning it, then fades to its usual level for the room. |
-| `fontconfig/60-grayscale-antialias.conf`, `hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")` in `hypr/hdr.lua` | `~/.config/fontconfig/conf.d/` | Greyscale text antialiasing instead of subpixel. The Omarchy 4.5 bar draws text and icons on a transparent layer, where subpixel AA's per-channel coverage ends up with RGB above the single alpha (correct would be alpha = max channel coverage). Blending that overshoots 1.0: clamped invisibly in an 8-bit (unorm8) SDR buffer, but kept in Hyprland's higher-precision HDR blending and shown brighter than white (stray bright pixels on icon edges). Qt Quick ignores fontconfig here, hence the env var as well. |
-| `omarchy-themes/tiger/` | `~/.config/omarchy/themes/tiger` | **Tiger**: Mac OS X 10.4 as a light Omarchy theme (`omarchy theme set tiger`). White, near-black and neutral greys; Chromium's strong blue (`#0b57d0`) for focus and selection, Tiger's `#b5d5ff` text selection; stoplight hues for red/yellow/green, deepened so every colour reads as text on white (normal ≥ 4.5:1, bright ≥ 3.4:1). `foot.ini` replaces the generated one, whose template uses the background as ANSI black (invisible black text on a light theme). `hyprland.lua`: border colours for anything that still draws one (window borders themselves are off, `hypr/looknfeel.lua`), soft Aqua-style drop shadows. Icons Yaru-blue. `shell.bar.toml` (Omarchy merges a theme's `shell.<section>.toml` over that section of the generated shell styling) makes the bar OLED black with light-grey text and stoplight-red alerts, while popups stay light; the bar sits at the bottom, opaque (`omarchy bar position bottom`, `omarchy bar background opaque`). `shell.menu.toml` and `shell.launcher.toml` set the menu's and launcher's `scrim-alpha` to 0: light themes otherwise wash the whole screen in 50% white behind the card. `shell.polkit.toml` gives the password prompt a real dim instead (Tiger near-black at 45%). `shell.popups.toml`, `shell.tooltip.toml` and `shell.controls.toml` make the bar's panels (Wi-Fi, Bluetooth, battery, calendar…), tooltips and OSDs dark (`#161618`, light-grey text and control chrome): Omarchy draws panel text in the bar's own text colour (`bar.foreground`), so with the black bar's light-grey text, white panels were unreadable. The rest of the shell followed (`shell.{menu,launcher,notifications,polkit,lock,image-picker}.toml`: `#161618`, light-grey text, brighter Aqua `#6aa8ff` for selections, no haze behind the menu/launcher, a dark dim behind the password prompt), so the desktop's own surfaces are dark while terminals and apps stay Tiger-light. The OSD clone takes the popup background too. Chromium uses its own stock colours: Omarchy's `BrowserThemeColor` policy (`/etc/chromium/policies/managed/color.json`, which seeds a generated palette, teal accents and all, from the theme) was removed by hand. `omarchy theme set` writes it again, so delete it again after a theme change (`pkexec rm` that file, then restart Chromium). The wallpaper (the 10.4 Aqua swoosh, 6016×3760 from 512pixels.net) is Apple's artwork, so it's gitignored and `install.sh` fetches it, plus the theme picker's preview. |
-| `omarchy-plugins/mtklein.workspaces/`, `mtklein.active-window/`, `mtklein.clock/`, `mtklein.tray/`, `omarchy/bar-layout.json` | `~/.config/omarchy/plugins/` | A Mac-style menu bar (clones of Omarchy's widgets). Left: desktop numbers for occupied desktops only, plus the one on screen (like Super+Tab; the current one bright, the others dim; no layout glyph; hidden entirely while only one desktop is in use), then the focused app's name in bold Luxi Sans (from its desktop entry; the window title is the tooltip), then `omarchy.indicators`. Tray: app icons are on the bar unless you unpin them (the tray's own Pin/Unpin; stock is the reverse, in the drawer unless pinned). Unpinned ones are kept in the widget's `drawer` setting (Steam is there) and have no `<` chevron. They, and any bar widgets dragged into the tray section, keep their place in the bar all the time, invisible, and fade in at 45% while the pointer is over that place, the way the inactive indicators look, and stay dim under the pointer: only the icon being pressed, or whose menu or panel is open, is solid; nothing else on the bar moves. Shift + right-click on a tray icon opens the pin / hide list the chevron used to; picking up a newly cloned widget needed `omarchy restart shell`. Right: status icons, world time, the clock in Luxi Sans as `ddd h:mm AP` (Tiger's "Sat 1:04 PM"), weather in the corner. The indicators' hover-reveal opens while the pointer is left of where the centre box starts, so they must sit in the left section to appear near the pointer. `bar-layout.json` is a snapshot of `shell.json`'s bar layout (which isn't in the repo); merge it back with `jq -s '.[0] * .[1]' ~/.config/omarchy/shell.json omarchy/bar-layout.json`. Bar background (clear/glassy/opaque) is left to taste: double-click the bar to cycle. |
-| `omarchy-plugins/mtklein.power/`, `mtklein.network/`, `mtklein.bluetooth/` | `~/.config/omarchy/plugins/` | Clones of the bar's Power, Network and Bluetooth panels (from Omarchy 4.5.0-3) with the rotating joke phrases ("Slurping power", "Untangling wires", …) replaced by plain status: the power mode, "Connected", and "Connected" / "On". They read like information and aren't. Each change is marked `(mtklein)` in `Panel.qml`. Clones don't receive upstream panel updates. |
-| `omarchy-plugins/mtklein.audio/`, `mtklein.dropbox/`, `mtklein.tailscale/`, `mtklein.agents/` | `~/.config/omarchy/plugins/` | Clones of the Audio, Dropbox, Tailscale and Agents panels (from Omarchy 4.5.0-3) with the remaining decorative text made plain, each change marked `(mtklein)`. Audio: the volume mood names ("Concert hall", "Whisper", …) become the output device's name, or "Muted". Dropbox and Tailscale: the rotating phrases become Dropbox's own status line and "Connected · <address>". Agents: "MAKE SOMETHING COOL" becomes "STARTER PROMPTS". The Display clone (`mtklein.monitor`) likewise shows the level in nits on the internal panel where it said "Golden hour" and the like. Only Audio is on the bar; the rest are off and reachable from Appearance > Menu Bar > Bar Items. Cloning a widget enables it, and turning a clone off restores the stock one, so both need disabling. Clones don't receive upstream panel updates. |
-| `omarchy-plugins/mtklein.weather/` | `~/.config/omarchy/plugins/` | Clone of the bar's weather widget (from Omarchy 4.5.0-3) that shows the current temperature to the right of the icon, in the clock's Luxi Sans (`BarWidget.qml`; the stock button can only put a label on the icon's left). Doesn't receive upstream updates. |
-| `bin/bar-item`, rows in `omarchy/omarchy-menu.jsonc` | `~/.local/bin/` | **Bar Items** in the Omarchy menu (Appearance > Menu Bar > Bar Items): one row per widget that's usually off the bar (Display, Audio, Microphone, Media, Agents, World Clock, Tailscale, Dropbox, the Omarchy menu button). The same file hides Omarchy's Trigger > Toggle > Nightlight rows: they start hyprsunset, which would take the colour matrix from `ambient-display` (`omarchy toggle nightlight` on the command line still would). Choosing a row puts the widget on the bar (before Bluetooth, which is in the tray's hidden area now) or takes it off; a tick marks the ones that are on. Taking one of our clones off also removes the stock widget Omarchy would put back in its place. |
-| `fontconfig/61-tiger-sans.conf` | `~/.config/fontconfig/conf.d/` | Luxi Sans (AUR `ttf-luxi`, Bigelow & Holmes' free sibling of Lucida Grande) as the default sans-serif. Matches only requests whose *first* family is Liberation Sans: Omarchy's `50-omarchy.conf` has already rewritten `sans-serif` to it, and every pattern carries generic fallbacks, so matching any position hijacked named fonts (foot got Luxi instead of its monospace font). Monospace is DejaVu Sans Mono via `omarchy font set "DejaVuSansM Nerd Font"` (the Nerd variant keeps the bar's icons). |
-| `bin/workspace-layout-toggle` | `~/.local/bin/` | Omarchy's workspace layout cycle (tiling → scrolling → floating) without the notification it posts on every change: an exported bash function shadows `omarchy-notification-send` for the child script. Super+L / Super+Alt+L (`hypr/bindings.lua`) and clicking the current desktop number (`mtklein.workspaces`) use it. |
-| `omarchy-plugins/mtklein.osd/` | `~/.config/omarchy/plugins/` | Omarchy's on-screen display minus the app launcher's "Launching <app>…" box (shown when a window takes over 2 s, e.g. Steam), recognised by its icon (U+F14DE); volume, brightness and white point OSDs are unchanged. Instead it raises `$XDG_RUNTIME_DIR/omarchy-launching` (cleared when the launcher closes the box: window up, or its 15 s timeout), which `mtklein.active-window` shows as a Tiger-style 12-spoke spinner after the app name (20 s safety timeout; static with animations off). The launcher is core shell code, the OSD a clonable plugin. Like the other clones, it took `omarchy restart shell` to load. |
-| `hypr/super-console.lua` | loaded by `hypr/bindings.lua` | A tap of Super on its own (released within 300 ms, no other key) toggles Omarchy's Quake console (`special:qconsole`, also Super+\`). Longer presses and chords do nothing, so pausing on Super before a shortcut never toggles it. (A hold-to-peek mode existed briefly; removed 2026-11-08.) New windows that would open inside the console (anything launched from its terminal) are moved to the monitor's regular desktop instead, and the console closes to show them; only the agent terminal itself stays in. Moving a window in deliberately (Super+Shift+\`) still works. To move a window out by hand: Super+Shift+number. Built on Hyprland's Lua `input.keyboard.key(keycode, ?, state)` event and a one-shot `hl.timer` (Super = evdev 125/126 or xkb 133/134). |
-| `bin/brightness-why` | `~/.local/bin/` | Explains the current brightness: room light and time of day, who owns the level (you or automatic), the learned model's suggestion and target, and the evidence near this light level (`--all` for everything). Reads `ambient-display`'s status file and state. |
-| `bin/sdw-clash-recover`, `systemd-user/sdw-clash-recover.service` | `~/.local/bin/`, `~/.config/systemd/user/` | Brings the bass back after a SoundWire glitch. The CS35L56 woofer amps are on link 2; a sporadic "Bus clash" / "Parity error" there (a few a day, seen mid-playback with nothing else happening) can leave them silent while the tweeters keep playing. The kernel's Cadence driver only logs these and never resyncs, so this follows the kernel log and suspends/resumes the speaker sink, which re-prepares the stream (sub-second blip). Recoveries: `journalctl --user -u sdw-clash-recover`. |
-| `bin/tv-mode`, `hypr/tv-mode.lua`, `systemd-user/tv-mode.service` | `~/.local/bin/`, loaded by `~/.config/hypr/monitors.lua`, `~/.config/systemd/user/` | **TV mode**: plug into a 1080p TV (any external display whose largest mode is 1920x1080) while on power, and after 2 s the laptop becomes a console. The TV is the only screen (1920x1080 at its best refresh, scale 1, sRGB, 8-bit; the panel off through Omarchy's own `internal-monitor-disable` toggle, so its clamshell poll, lid inhibitor and reloads agree), Steam Big Picture opens fullscreen and focused on it (moved there and re-fullscreened if it lands elsewhere), sound goes to the TV's HDMI/DP sink once its port turns available, the profile goes to Performance, a systemd idle inhibitor (which hypridle honours) keeps it from blanking or sleeping, the pointer hides after 3 s, and `ambient-display` holds the white point neutral (no learning meanwhile). Omarchy's per-monitor workspaces carry the panel's workspaces to the TV and back. Unplugging the TV ends it at once; losing power ends it after 3 s (docks renegotiate power on plug). Everything is put back: Big Picture closed (Steam stays running), panel on at its saved HDR brightness, previous profile, and sound set explicitly to the previous output, or the laptop speakers if that was an HDMI one (PipeWire falls back to the speakers by itself on unplug but keeps the TV as the configured default, which grabbed the sound again on the next dock and was then saved as the output to return to). A TV connected without power just gets the 1080p/sRGB rule as an extra screen. `tv-mode off` leaves TV mode while still docked (until the next dock), `tv-mode on` undoes that, `tv-mode status` shows what it sees. Simulation: `tv-mode sim plug` (a headless `TVSIM` output, the only TV considered while it exists), `tv-mode sim ac on\|off\|real`, `tv-mode sim dry on\|off` (dry, the default, only logs the panel, sound and Big Picture steps), `tv-mode sim unplug`. State in `$XDG_RUNTIME_DIR/tv-mode/`; logs: `journalctl --user -u tv-mode`. |
-| `ctm/` (`white-point-ctm.c`, `Makefile`) | built by `install.sh`, linked to `~/.local/bin/white-point-ctm` | The helper that holds the white point: a ~120-line Wayland client of `hyprland-ctm-control-v1` that reads `red green blue` gains on stdin and sets them on every output, staying alive because Hyprland resets the matrix when its setter exits. The protocol's 24.8 fixed point gives about a mired per step across the range (hyprsunset's 100 K steps are 3 to 16). Exits with status 3 if another client (hyprsunset) already holds the matrix; `ambient-display` then stops hyprsunset and retries. |
-| `bin/game`, `mangohud/MangoHud.conf` | `~/.local/bin/`, `~/.config/MangoHud/` | Steam launch option for games: `game %command%`. Asks for a native Wayland window where the game can make one (`SDL_VIDEODRIVER=wayland,x11`), which is what lets a native game such as Baldur's Gate 3 send HDR straight to Hyprland, and loads MangoHud hidden (`MANGOHUD_CONFIG=read_cfg,no_display`); Right Shift + F12 shows and hides it (one compact line, top left). Anything set in the launch option itself wins. Deliberately not gamescope: nested in Hyprland it passes no touch to the game, and BG3 stayed silent in it (it mutes itself when it thinks it has lost focus). A gamescope launcher that put the overlay in the letterbox band was tried and dropped for those reasons (`letterbox-hud`, in git history). |
-| `bin/hdr-monitor-state` | `~/.local/bin/` | `omarchy-monitor-state` with the brightness line from `hdr-brightness`. |
-| `omarchy-plugins/mtklein.monitor/` | `~/.config/omarchy/plugins/` | Clone of the bar's Display panel; `Panel.qml` reads/sets brightness through the two scripts above. Doesn't receive upstream `omarchy.monitor` updates. |
-| `fingerprint/omarchy-hw-fingerprint` | `~/.local/share/fp-shim/` | Detection shim: Omarchy misses the FocalTech FT9349 (`2808:a97a`), which libfprint supports. Run setup as `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. |
-| `fingerprint/fp-storage.py` | `~/.local/share/fp-shim/` | List (`sudo python3 fp-storage.py`) or wipe (`--clear`) templates stored on the sensor chip. Stale Windows Hello templates there made every verify fail. |
-| `system/usr/local/bin/rapl-sync`, `system/etc/systemd/system/rapl-sync.service` | `/usr/local/bin/`, `/etc/systemd/system/` | Copies the firmware's (MMIO) PL1/PL2 onto the MSR RAPL limits every 2 s, as Windows does. The BIOS leaves MSR PL1 at 15 W and the CPU obeys the lower copy, so without this every profile sustains only 15 W. |
-| `system/etc/systemd/system/ollama.service.d/override.conf` | `/etc/systemd/system/ollama.service.d/` | Ollama on the Arc B390 iGPU, flash attention, q8_0 KV cache, 32k context. |
-| `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | `/etc/udev/hwdb.d/` | Button names for [PocketPad](https://github.com/Dathaze20/PocketPad), the Android app that makes the Retroid Pocket Nova a Bluetooth HID gamepad (`0005:001D:1200`, "RPN"). It declares 16 anonymous buttons, so the kernel names them in order and SDL's automatic mapping (Steam, native games) put X/Y, bumpers, Select/Start and stick clicks on the wrong functions; this renames them to the standard codes. Android keeps Home for itself. Connect from the Nova (PocketPad → Settings → Connect to a paired device). |
-| `system/etc/modules-load.d/uinput.conf` | `/etc/modules-load.d/` | Loads `uinput` at boot. steam-devices grants `/dev/uinput` access (uaccess) only once the module is loaded; without it Steam Input can't create virtual controllers, so Proton games get no input from controllers Steam itself reads fine. |
+`~/.config/hypr/monitors.lua` stays Omarchy's file (it rewrites it with `sed -i`); `install.sh` appends two `dofile` lines to it.
 
-## White point accuracy
+## Display
 
-Hyprland hands hyprsunset's matrix to KMS, which applies it to the encoded signal. On a gamma-encoded SDR signal that is a constant linear-light gain per channel, a real white point shift. On this always-HDR setup the signal is PQ, where the same matrix tints white far more than the shadows, and more the brighter the screen: until 2026-11-09, "5100 K" here put white near 3300 K at 50 nits (2750 K at 400 nits) while deep shadows sat near 4400 K. `hyprland-patched/06` applies the matrix in linear light during the final conversion to PQ instead (white lands exactly on the chromaticity asked for; KMS gets an identity matrix), and `ambient-display` and `white-point` moved to real kelvin: night default 3300 K (what "5100 K", the usual choice at night, really was), floor 2500 K (what the old "4500 K" floor was), lit rooms followed 70% of the way, never warmer than 3400 K. White point choices learned on the old scale were dropped (`white_scale` in the state file marks the new one); brightness evidence was kept. `~/.local/state/white-point.legacy` holds the pid of an unpatched Hyprland still running at install time; while that process lives the white point is left alone.
+| File | What |
+|---|---|
+| `.config/hypr/hdr.lua` | eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (500, 2.2). |
+| `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. |
+| `.local/bin/hdr-brightness` | Brightness keys and the Display panel. Asks `ambient-display`; sets the level itself if the daemon is down; hands other monitors to `omarchy-brightness-display`. |
+| `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
+| `.local/bin/white-point-ctm` | Holds Hyprland's colour matrix; run by `ambient-display`. |
+| `.local/bin/brightness-why` | Explains the current brightness and the evidence behind it. |
+| `.local/bin/hdr-monitor-state` | `omarchy-monitor-state` with the HDR brightness level, for the Display panel. |
+| `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. |
+| `.config/fontconfig/conf.d/60-grayscale-antialias.conf` | Greyscale text antialiasing. |
 
-## Known quirks
+State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level, plus `user <epoch>` while a manual choice holds it), `hdr-sdr-white` and `hdr-brightness-gamma` (written by `hdr.lua`). Status: `$XDG_RUNTIME_DIR/ambient-display-status.json`.
 
-- **GeForce NOW** (NVIDIA's Flatpak, X11-only: its CEF UI won't start with `--nosocket=x11`): in a stream only mouse buttons/motion and a real mouse wheel get through; other keys (Ctrl/Shift excepted, read from pointer modifiers), touchpad scrolling (even with `input:emulate_discrete_scroll = 2`) and touch don't, and its Ctrl+G / Ctrl+N shortcuts don't fire, though `xinput test-xi2` shows the keys reaching XWayland. Running it inside gamescope changed nothing. Its settings live in `~/.var/app/com.nvidia.geforcenow/.local/state/NVIDIA/GeForceNOW/`: `sharedstorage.json` (stream profile; `chromaFormat` 1 = 4:4:4, which the app resets here since Intel's Vulkan video has no HEVC 4:4:4 decode) and `Share/ShareSettings.json` (shortcuts; `micmode` set to `off` to drop the mic indicator).
-- Hyprland draws window borders at a fixed 80-nit white, whatever the SDR white level (measured from screenshots: a border colour comes out at colour × 80 nits). With brightness done through the SDR white level they'd be brighter than the windows below 80 nits and dimmer above, so borders are off (`hypr/looknfeel.lua`, `border_size = 0`); focus shows in the theme's drop shadows.
+### Hyprland patches
+
+| Patch | What |
+|---|---|
+| 01 | The SDR reference luminance advertised to colour-managed clients follows `sdr_max_luminance`. |
+| 02 | Clients are told when it changes. |
+| 03 | `sdrbrightness` applies to colour-managed surfaces too. |
+| 04 | Those notifications reach subsurfaces. |
+| 05 | The hardware cursor is rendered in the output's encoding. |
+| 06 | The colour matrix is applied in linear light when the output is PQ. |
+| 07 | Surfaces not yet on screen get the notifications too (single monitor). |
+
+`build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
+
+## Desktop
+
+| File | What |
+|---|---|
+| `.config/hypr/bindings.lua` | Brightness and white point keys, layout cycle, dictation. |
+| `.config/hypr/super-console.lua` | A tap of Super toggles the Quake console; windows opened from it move to the desktop. |
+| `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
+| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows. |
+| `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
+| `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
+| `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
+| `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
+| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: warns if Hyprland is no longer the patched build, reapplies the plugin patches. |
+
+### Plugin patches
+
+| Patch | What |
+|---|---|
+| `active-window` | App name in bold Luxi Sans; a spinner while an app is launching. |
+| `workspaces` | Occupied desktops only; hidden when there is one; click cycles the layout. |
+| `tray` | Icons on the bar unless listed in `drawer`; those fade in under the pointer. Shift + right-click for the pin list. |
+| `clock` | Luxi Sans. |
+| `weather` | Temperature beside the icon. |
+| `osd` | No "Launching…" box; raises `$XDG_RUNTIME_DIR/omarchy-launching` instead. |
+| `monitor` | Brightness through `hdr-brightness`; shows nits. |
+| `audio`, `power`, `network`, `bluetooth`, `dropbox`, `tailscale`, `agents` | Plain status in place of the decorative phrases. |
+
+To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart shell`, then `plugins/sync record <name>`. `sync apply` refuses to overwrite a clone with unrecorded edits.
+
+## Hardware
+
+| File | What |
+|---|---|
+| `.local/bin/sdw-clash-recover` + service | Suspends and resumes the speaker sink after a SoundWire bus clash on link 2, which otherwise leaves the woofers silent. |
+| `system/usr/local/bin/rapl-sync` + service | Copies the firmware's MMIO PL1/PL2 onto the MSR limits; without it every profile sustains 15 W. |
+| `system/etc/modules-load.d/uinput.conf` | Steam Input needs `uinput` loaded to make virtual controllers. |
+| `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | Button names for the Retroid Pocket Nova as a Bluetooth gamepad (PocketPad). |
+| `system/etc/systemd/system/ollama.service.d/override.conf` | Ollama on the iGPU. |
+| `.local/share/fp-shim/` | Fingerprint setup for the FocalTech reader Omarchy doesn't detect: `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. `fp-storage.py` lists or clears templates on the chip. |
+
+## Games and TV
+
+| File | What |
+|---|---|
+| `.local/bin/game`, `.config/MangoHud/MangoHud.conf` | Steam launch option `game %command%`: native Wayland window, MangoHud hidden until Right Shift + F12. |
+| `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Run only against its simulator so far (`tv-mode sim …`). |
+
+## Not obvious
+
+- F14 stays unbound: the firmware sends it on every USB-C power plug and unplug.
+- KMS applies the colour matrix to the encoded signal, which is wrong for PQ; patch 06 is why kelvin values are true.
+- Only one client may hold the colour matrix. hyprsunset must not run; `ambient-display` kills it if it does.
+- Hyprland draws window borders at a fixed 80 nits whatever the SDR white level, hence no borders.
+- Subpixel antialiasing on transparent layers overshoots white in HDR, hence greyscale (fontconfig, and `QSG_DISTANCEFIELD_ANTIALIASING` for Qt Quick).
+- An official Hyprland update replaces the patched build.
+- `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
+- Turning a clone off makes Omarchy put the stock widget back; `bar-item` disables both.
+- Each read of the light sensor blocks about a second.
+- The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
+- GeForce NOW (Flatpak, X11-only): in a stream only mouse buttons, motion and a real wheel get through.
+
+## Packages added to Omarchy
+
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland).
 
 ## License
 
-MIT; see `LICENSE`.
-
-## Third-party code
-
-`omarchy-plugins/mtklein.monitor/`, `mtklein.workspaces/`, `mtklein.active-window/`,
-`mtklein.clock/`, `mtklein.tray/` and `mtklein.osd/` are modified copies of Omarchy's plugins of the same names (`omarchy.*`), Copyright (c) David Heinemeier Hansson, MIT licensed; see the
-`LICENSE.omarchy` in each.
-
-## Packages added on top of Omarchy
-
-Installed by us (2026-11-04):
-
-| Package | Why |
-|---|---|
-| `libfprint-git`, `fprintd` | Fingerprint reader (via `omarchy-setup-security-fingerprint` with the shim). |
-| `ollama`, `ollama-vulkan` | Local LLMs on the Arc iGPU (see the Ollama override). |
-| `cmake`, `glaze`, `hyprland-protocols`, `hyprwayland-scanner` | Build deps for `hyprland-patched/` (installed `--asdeps`). |
-| `hyprland` `<ver>-<rel>.1` | Patched build from `hyprland-patched/` (replaces the official package until the next official update). |
-| `ttf-dejavu`, `ttf-dejavu-nerd` | Tiger theme: DejaVu Sans Mono (what Apple's Menlo is based on) for terminals and the bar (added 2026-11-07). |
-| `ttf-luxi` (AUR, built locally) | Tiger theme: Luxi Sans for the interface. Its PKGBUILD lists an older X.org signing key; the tarball is signed by Alan Coopersmith's current one (checked by hand, sha256 pinned), hence `makepkg --skippgpcheck`. |
-| `mangohud`, `gamescope` | Framerate overlay; nested compositor for games (e.g. FFRS with the overlay drawn in its letterbox band). |
-
-Installed by `asus-expertbook-linux` modules: `thermald`, `dkms`, `v4l2loopback-dkms`, `obs-studio`, `libinput-tools`, `fwupd`, `meson`, `ninja`, plus its files under `/usr/local` and `/etc` (see `./patch.sh status`).
-
-## Tools
-
-- `tools/power-profile-loadtest.sh`: 60 s all-core load in each power profile, reporting package power. Run on AC and on battery to compare (`pkexec bash tools/power-profile-loadtest.sh`).
-- `tools/power-trace.sh`: 50 s load in Performance, printing power, temperature and PL1 every 5 s.
+MIT; see `LICENSE`. The plugin patches carry context lines from Omarchy's plugins, Copyright (c) David Heinemeier Hansson, MIT; see `plugins/LICENSE.omarchy`.

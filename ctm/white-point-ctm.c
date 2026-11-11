@@ -5,15 +5,12 @@
 //
 //     <red> <green> <blue>      per-channel gains, 0..1 ("1 1 1" is neutral)
 //
-// It replaces hyprsunset here, which only takes temperatures in 100 K steps
-// (a visible jump at the warm end). Same protocol, hyprland-ctm-control-v1;
-// the patched Hyprland applies the matrix in linear light (hyprland-patched/06).
-// The protocol carries 24.8 fixed point, so a gain has 256 steps: about a
-// mired apiece across the range, where 100 K is 3 to 16.
+// The protocol (hyprland-ctm-control-v1) carries 24.8 fixed point, so a gain
+// has 256 steps: about a mired apiece across the range.
 //
 // Hyprland resets the matrix to neutral when the client that set it goes
 // away, so this stays running; it exits when its stdin closes. Only one
-// client may control the matrix: if another already does (hyprsunset), this
+// client may control the matrix: if another already does, this
 // prints "blocked" and exits with status 3.
 #include <errno.h>
 #include <poll.h>

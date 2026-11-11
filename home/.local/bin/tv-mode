@@ -1,32 +1,12 @@
 #!/usr/bin/python3
-"""TV mode: plug into a 1080p TV while on power and the laptop turns into a
-console. The TV becomes the only screen (1080p, sRGB), Steam Big Picture opens
-on it, sound goes to the TV, the power profile goes to Performance and nothing
-idles, locks or sleeps. Unplug the TV or the charger and everything goes back.
-
-Usage:
-  tv-mode watch            the daemon (tv-mode.service) that does all of this
-  tv-mode status           what it sees and whether TV mode is on
-  tv-mode off              leave TV mode while still docked (until the next dock)
-  tv-mode on               undo that: TV mode again, if a TV and power are there
-  tv-mode sim plug|unplug  pretend a 1080p TV is connected (a headless output)
+"""Usage:
+  tv-mode watch                the daemon (tv-mode.service)
+  tv-mode status               what it sees and whether TV mode is on
+  tv-mode off                  leave TV mode while still docked (until the next dock)
+  tv-mode on                   undo that
+  tv-mode sim plug|unplug      pretend a 1080p TV is connected (a headless output)
   tv-mode sim ac on|off|real   pretend the charger is (un)plugged, or stop pretending
-  tv-mode sim dry on|off   in simulation, only log what would black out the
-                           laptop screen, move sound or open Big Picture
-
-A "1080p TV" is any external display whose largest mode is 1920x1080. Big
-Picture's window is left fullscreen and focused, so a controller drives it from
-the first button press.
-
-Pieces elsewhere:
-  hypr/tv-mode.lua   re-applies the TV's monitor rule (and the hidden cursor)
-                     on config reloads; loaded from ~/.config/hypr/monitors.lua
-  ambient-display    holds a neutral white point while $RUN/active exists (the
-                     panel's own brightness pauses by itself while it's off)
-  Omarchy            its internal-monitor-disable toggle keeps the panel off,
-                     its clamshell logic and lid inhibitor handle the closed
-                     lid, and its per-monitor workspaces move workspaces to the
-                     TV and back
+  tv-mode sim dry on|off       in simulation, only log the panel, sound and Big Picture steps
 """
 import json
 import os
@@ -38,7 +18,7 @@ import time
 from pathlib import Path
 
 RUN = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "tv-mode"
-TV_RULE = RUN / "tv"            # "<connector> <mode>": hypr/tv-mode.lua applies it
+TV_RULE = RUN / "tv"            # "<connector> <mode>": tv-mode.lua applies it
 ACTIVE = RUN / "active"         # JSON: what TV mode changed, to put back
 SUPPRESS = RUN / "suppressed"   # `tv-mode off` while docked; cleared on undock
 SIM = RUN / "sim.json"          # simulation: {"ac": bool|None, "dry": bool}
@@ -183,10 +163,10 @@ def panel(on, saved):
         if saved.get("made_flag"):
             PANEL_OFF_FLAG.unlink(missing_ok=True)
         try:
-            level = float((Path.home() / ".local/state/hdr-brightness").read_text())
-        except (OSError, ValueError):
+            level = float((Path.home() / ".local/state/hdr-brightness").read_text().split()[0])
+        except (OSError, ValueError, IndexError):
             level = 1.0
-        hypr_eval(f'hl.monitor({{ output = "{INTERNAL}", disabled = false }}) edp_hdr_monitor({level})')
+        hypr_eval(f'hl.monitor({{ output = "{INTERNAL}", disabled = false }}) edp_hdr_level({level})')
         hypr_dispatch(f'hl.dsp.dpms({{ action = "on", monitor = "{INTERNAL}" }})')
     else:
         # Omarchy's own "laptop display off" toggle: its clamshell poll and

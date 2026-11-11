@@ -1,28 +1,4 @@
 #!/bin/bash
-# Rebuild the installed Hyprland version from Arch's PKGBUILD with
-# the patches here (applied in name order): 01 makes the SDR reference luminance advertised
-# to colour-managed clients (Chromium, Electron) follow the monitor's
-# sdr_max_luminance instead of a hard-coded 203 nits; 02 notifies those clients when
-# sdr_max_luminance changes at runtime, so they follow brightness changes live.
-# 03 applies sdrbrightness to colour-managed surfaces too (not just SDR ones), so
-# 0% brightness (sdrbrightness ~0, hypr/hdr.lua) blacks out Chromium and HDR video as well.
-# 04 sends those notifications to subsurfaces too (they get no wl_surface.enter, so the
-# feedback's one-output check never passed): Chromium's omnibox dropdown is one.
-# 05 renders the hardware cursor in the output's encoding (it was rendered for the linear
-# work buffer, so in HDR it was far too bright) and redraws it when brightness changes;
-# with it the software-cursor override in hypr/hdr.lua isn't needed.
-# 06 applies the white point (the colour matrix) in linear light when the output is PQ.
-# KMS applies it to the encoded signal, which for PQ tints white far more than shadows,
-# more the brighter the screen, and made "5100 K" really ~3300 K.
-# 07 keeps surfaces that aren't on screen yet up to date too (single monitor), and rechecks
-# one when it becomes a subsurface: Chromium's omnibox dropdown opened one brightness behind.
-# Upstream: https://github.com/hyprwm/Hyprland/discussions/14999 (francomeisterm),
-# tracked in https://github.com/hyprwm/Hyprland/issues/16329.
-#
-#   ./build.sh            build, then install with: sudo pacman -U <printed package>
-#
-# The package is versioned <pkgver>-<pkgrel>.1, so any official update replaces
-# it; re-run this after updates until upstream fixes #16329.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 installed=$(pacman -Q hyprland | awk '{print $2}')

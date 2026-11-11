@@ -1,86 +1,50 @@
 #!/bin/bash
-# Brightness for the internal HDR panel.
-#
-# Brightness is applied in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
-# hypr/hdr.lua). The level (0-1, perceptual) is saved to ~/.local/state/hdr-brightness,
-# which is also where the current level is read from.
-# Anything else (another monitor, on/off) is handed to
-# omarchy-brightness-display unchanged.
-#
-# Used by the brightness keys (~/.config/hypr/bindings.lua) and the bar's
-# Display panel (~/.config/omarchy/plugins/*.monitor and hdr-monitor-state).
-#
-# Usage: hdr-brightness [--no-osd] [--auto] [--monitor NAME] [+5% | 5%- | +1% | 1%- | N%]
-#        --auto: an automatic change (ambient-display), not a person's choice.
-#        With no step, prints the current brightness percent.
-
+args=("$@")
 no_osd=0
-auto=0
-monitor=""
+monitor=-
 while (( $# > 0 )); do
   case $1 in
     --no-osd) no_osd=1; shift ;;
-    --auto) auto=1; shift ;;
-    --monitor) monitor="$2"; shift 2 ;;
+    --monitor) monitor=$2; shift 2 ;;
     *) break ;;
   esac
 done
-step="$1"
+step=${1:-}
+level_file="${XDG_STATE_HOME:-$HOME/.local/state}/hdr-brightness"
 
-passthrough() {
-  local args=()
-  (( no_osd )) && args+=(--no-osd)
-  [[ -n $monitor ]] && args+=(--monitor "$monitor")
-  [[ -n $step ]] && args+=("$step")
-  exec omarchy-brightness-display "${args[@]}"
+saved_percent() { awk 'NR == 1 { printf "%d", $1 * 100 + 0.5 }' "$level_file" 2>/dev/null || printf 100; }
+on_internal_panel() {
+  [[ $monitor != - ]] || monitor=$(omarchy-hyprland-monitor-focused 2>/dev/null)
+  [[ $monitor == eDP-1 ]]
 }
+elsewhere() { exec omarchy-brightness-display "${args[@]}"; }
 
-[[ -z $step || $step =~ ^(\+?[0-9]+%|[0-9]+%-|[0-9]+\.[0-9]+%)$ ]] || passthrough
-
-[[ -n $monitor ]] || monitor="$(omarchy-hyprland-monitor-focused 2>/dev/null)"
-[[ $monitor == eDP-1 ]] || passthrough
-
-state="${XDG_STATE_HOME:-$HOME/.local/state}"
-current=$(cat "$state/hdr-brightness" 2>/dev/null || echo 1.00)
-
-current=$(awk -v b="$current" 'BEGIN { printf "%d", b * 100 + 0.5 }')
 if [[ -z $step ]]; then
-  echo "$current"
-  exit 0
+  on_internal_panel || elsewhere
+  saved_percent
+  echo
+  exit
 fi
 
-exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/hdr-brightness.lock"
-flock -n "$lock_fd" || exit 0
-
-# A fractional level ("42.37%") is set exactly: ambient-display moves in steps
-# too small to see. Whole numbers and +/- steps are the keys and the slider.
-exact=""
-[[ $step =~ ^[0-9]+\.[0-9]+%$ ]] && exact=${step%\%}
-n=${step//[^0-9]/}
-# The level is perceptual (hypr/hdr.lua turns it into nits on a 2.2 power
-# curve), so every step looks about the same size, all the way down.
-# The keys step 10%: eleven marks, 0% (off) to 100%. Steps of 5 or 10 snap to
-# their own grid (43 -> 50 up, 47 -> 40 down), since automatic brightness
-# leaves the level anywhere. Other step sizes (Alt's 1%) move by exactly that.
-case $step in
-  +*) if (( n == 5 || n == 10 )); then target=$(( current / n * n + n )); else target=$(( current + n )); fi ;;
-  *-) if (( n == 5 || n == 10 )); then target=$(( (current + n - 1) / n * n - n )); else target=$(( current - n )); fi ;;
-  *)  target=$n ;;
+reply=$(socat -t 2 - "UNIX-CONNECT:${XDG_RUNTIME_DIR:-/run/user/$UID}/ambient-display.sock" <<<"brightness $monitor $step" 2>/dev/null)
+case $reply in
+  "ok "*) percent=${reply#ok } ;;
+  elsewhere) elsewhere ;;
+  *)
+    on_internal_panel && [[ $step =~ ^(\+?)([0-9]+)%(-?)$ ]] || elsewhere
+    percent=$(saved_percent)
+    if [[ -n ${BASH_REMATCH[1]} ]]; then
+      percent=$(( percent + BASH_REMATCH[2] ))
+    elif [[ -n ${BASH_REMATCH[3]} ]]; then
+      percent=$(( percent - BASH_REMATCH[2] ))
+    else
+      percent=${BASH_REMATCH[2]}
+    fi
+    (( percent = percent > 100 ? 100 : percent < 0 ? 0 : percent ))
+    level=$(awk -v p="$percent" 'BEGIN { printf "%.4f", p / 100 }')
+    hyprctl eval "edp_hdr_level($level)" >/dev/null
+    printf '%s\nuser %s\n' "$level" "$(date +%s)" >"$level_file"
+    ;;
 esac
-(( target > 100 )) && target=100
-(( target < 0 )) && target=0
 
-if [[ -n $exact ]]; then
-  value=$(awk -v t="$exact" 'BEGIN { if (t > 100) t = 100; printf "%.4f", t / 100 }')
-  target=$(awk -v t="$exact" 'BEGIN { printf "%d", (t > 100 ? 100 : t) + 0.5 }')
-else
-  value=$(awk -v t="$target" 'BEGIN { printf "%.2f", t / 100 }')
-fi
-hyprctl eval "edp_hdr_monitor($value)" >/dev/null
-
-mkdir -p "$state" && echo "$value" > "$state/hdr-brightness"
-# Tell ambient-display a person chose this level (keys, bar slider); its own
-# changes pass --auto. It learns from these instead of guessing who changed it.
-(( auto )) || echo "user $(date +%s) $target" > "$state/hdr-brightness.source"
-
-(( no_osd )) || omarchy-osd -i brightness -p "$target"
+(( no_osd )) || omarchy-osd -i brightness -p "$percent"

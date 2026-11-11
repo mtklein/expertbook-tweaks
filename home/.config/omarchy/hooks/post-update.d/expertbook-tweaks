@@ -1,0 +1,12 @@
+#!/bin/bash
+repo=$(realpath "${BASH_SOURCE[0]}")
+repo=${repo%/home/.config/*}
+
+if [[ $(pacman -Q hyprland) != *.1 ]]; then
+  omarchy-notification-send -u critical "Hyprland is no longer the patched build" \
+    "Rebuild and install it: $repo/hyprland-patched/build.sh"
+fi
+
+if ! problems=$("$repo/plugins/sync" apply 2>&1 >/dev/null); then
+  omarchy-notification-send -u critical "Plugin clones need attention" "$problems"
+fi

@@ -2,8 +2,6 @@
   "trigger.toggle.nightlight-on": {"icon":"󰔎","label":"Nightlight On","when":"false","action":"true"},
   "trigger.toggle.nightlight-off": {"icon":"󰔎","label":"Nightlight Off","when":"false","action":"true"},
 
-  // Bar Items: widgets that are off the bar most of the time, one row each.
-  // Choosing a row puts it on the bar or takes it off again; a tick marks the ones that are on. ~/.local/bin/bar-item.
   "appearance.top-bar.items": {"icon":"󰍜","label":"Bar Items","description":"Show or hide optional bar widgets"},
   "appearance.top-bar.items.display": {"icon":"󰍹","label":"Display","checked":"$HOME/.local/bin/bar-item on mtklein.monitor","action":"$HOME/.local/bin/bar-item toggle mtklein.monitor"},
   "appearance.top-bar.items.audio": {"icon":"󰕾","label":"Audio","checked":"$HOME/.local/bin/bar-item on mtklein.audio","action":"$HOME/.local/bin/bar-item toggle mtklein.audio"},
