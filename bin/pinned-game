@@ -1,24 +1,131 @@
-#!/bin/bash
-# `game`, with the whole game kept on the performance cores. As a Steam launch
-# option:
-#
-#     pinned-game %command%
-#
-# For old games that do nearly all their work on one thread. This chip has 4
-# performance cores, 8 efficiency cores (about 2/3 the speed) and 4 low-power
-# ones, and the scheduler will happily leave such a thread on an efficiency
-# core at a low clock: Final Fantasy XIII's free-roam areas fell from 60 to
-# 30 fps that way. Modern games that spread over many threads are better off
-# with all sixteen: use plain `game` for those.
-#
-# The performance cores are found by the kernel's own rating (cpu_capacity,
-# within 5% of the best), so nothing here names core numbers. No power setting
-# changes. If the rating isn't there, the game runs unpinned.
-(( $# > 0 )) || { echo "usage: pinned-game command..." >&2; exit 1; }
-fast=$(awk '
-  { n = FILENAME; sub(/.*\/cpu\/cpu/, "", n); sub(/\/.*/, "", n); cap[n] = $1; if ($1 > max) max = $1 }
-  END { for (n in cap) if (cap[n] >= max * 0.95) printf "%s%s", (out++ ? "," : ""), n }
-' /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity 2>/dev/null)
-game=$(dirname "$(readlink -f "$0")")/game
-[[ -n $fast ]] && command -v taskset >/dev/null || exec "$game" "$@"
-exec taskset -c "$fast" "$game" "$@"
+#!/usr/bin/env python3
+"""`game`, tuned for an old game that does nearly all its work on one thread.
+As a Steam launch option:
+
+    pinned-game %command%
+
+What it does:
+  - Keeps the whole game on the performance cores.
+  - Finds the game's one hard-working thread and keeps that on a single core,
+    the fastest.
+
+Why both. This chip has 4 performance cores, 8 efficiency cores (about 2/3 the
+speed) and 4 low-power ones. Final Fantasy XIII's main thread is 60-70% busy,
+in bursts. Left alone, the scheduler ran it on the efficiency cores; kept to
+the performance cores, it hopped evenly between the four. Either way no one
+core looked busy, each stayed near 1.3 GHz, and the game's busy areas fell
+from 60 to 30 fps. Held on one core its load is plain to the processor, which
+clocks that core up (about 4 GHz) and the game holds 60. Measured 2026-11-11.
+
+No power setting changes. Modern games that spread over many threads are
+better off with all sixteen cores: use plain `game` for those.
+
+The performance cores are found by the kernel's own rating (cpu_capacity,
+within 5% of the best), so nothing here names core numbers. Without that
+rating the game runs as under plain `game`.
+"""
+import glob, os, re, sys, time
+
+BUSY = 0.35        # share of a core that marks the hard-working thread
+EVERY = 10         # seconds between looks
+GAME = os.path.join(os.path.dirname(os.path.realpath(__file__)), "game")
+
+
+def cores():
+    cap = {}
+    for path in glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpu_capacity"):
+        try:
+            cap[int(re.search(r"/cpu(\d+)/cpu_capacity$", path).group(1))] = int(open(path).read())
+        except (OSError, ValueError):
+            pass
+    if not cap:
+        return None, None
+    top = max(cap.values())
+    return {c for c, v in cap.items() if v >= top * 0.95}, max(cap, key=cap.get)
+
+
+def cpu_ticks(pid, tid):
+    with open(f"/proc/{pid}/task/{tid}/stat") as f:
+        fields = f.read().rsplit(")", 1)[1].split()
+    return int(fields[11]) + int(fields[12])      # utime + stime
+
+
+def game_threads(fast, held):
+    """Every thread still carrying the mask the game was started with (nothing
+    else on the system has it), plus the one we hold on a single core."""
+    found = {}
+    me = os.getpid()
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        if int(pid) == me:
+            continue
+        try:
+            for tid in os.listdir(f"/proc/{pid}/task"):
+                t = int(tid)
+                if t == held or os.sched_getaffinity(t) == fast:
+                    found[t] = cpu_ticks(pid, tid)
+        except OSError:
+            continue
+    return found
+
+
+def watch(fast, best):
+    """Hold the game's busiest thread on the best core, until the game is gone."""
+    os.sched_setaffinity(0, range(os.cpu_count()))   # this watcher isn't the game
+    hz = os.sysconf("SC_CLK_TCK")
+    held = candidate = None
+    streak = 0
+    seen = False
+    before = {}
+    started = time.monotonic()
+    while True:
+        time.sleep(EVERY)
+        now = game_threads(fast, held)
+        if not now:
+            if seen or time.monotonic() - started > 600:
+                return
+            continue
+        seen = True
+        share = {t: (now[t] - before[t]) / (EVERY * hz) for t in now if t in before}
+        before = now
+        if not share:
+            continue
+        busiest = max(share, key=share.get)
+        if share[busiest] < BUSY:
+            continue
+        # The same thread twice running, so a loading burst doesn't get the core.
+        streak = streak + 1 if busiest == candidate else 1
+        candidate = busiest
+        if streak < 2 or busiest == held:
+            continue
+        try:
+            if held is not None:
+                os.sched_setaffinity(held, fast)
+        except OSError:
+            pass
+        try:
+            os.sched_setaffinity(busiest, {best})
+            held = busiest
+        except OSError:
+            held = None
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: pinned-game command...")
+    fast, best = cores()
+    if fast:
+        os.sched_setaffinity(0, fast)
+        if os.fork() == 0:
+            # Detached from Steam's pipes; ends within seconds of the game.
+            null = os.open(os.devnull, os.O_RDWR)
+            for fd in (0, 1, 2):
+                os.dup2(null, fd)
+            try:
+                watch(fast, best)
+            finally:
+                os._exit(0)
+    os.execv(GAME, [GAME] + sys.argv[1:])
+
+
+if __name__ == "__main__":
+    main()
