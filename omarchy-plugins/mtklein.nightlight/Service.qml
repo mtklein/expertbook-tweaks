@@ -9,8 +9,6 @@ Item {
   // Injected by omarchy-shell (the first-party service loader).
   property var shell: null
 
-  // Keep in sync with bin/omarchy-toggle-nightlight, which sets the same
-  // temperatures for callers outside the shell (keybindings, menu, ssh).
   // 3300 K, in real kelvin (the patched Hyprland applies the white point in
   // linear light). Matches NIGHT_TEMP in ~/expertbook-tweaks/bin/ambient-display;
   // 6600 K is its neutral.
@@ -30,7 +28,6 @@ Item {
 
   // ~/expertbook-tweaks/bin/ambient-display owns the white point; a manual toggle
   // records an override it honours until the room next changes dark <-> lit.
-  // The temperature is also applied here so the toggle feels instant.
   function setNightlight(value) {
     overrideProcess.command = ["sh", "-c",
       "mkdir -p \"${XDG_STATE_HOME:-$HOME/.local/state}\" && printf %s " + (value ? "night" : "day") +
@@ -97,9 +94,8 @@ Item {
     }
   }
 
-  // ~/expertbook-tweaks/bin/ambient-display changes hyprsunset's temperature on
-  // its own (dark room -> night light) without telling the bar, so re-read it
-  // every 30 s to keep the indicator honest.
+  // ~/expertbook-tweaks/bin/ambient-display changes the white point on its own
+  // (dark room -> night light), so re-read it every 30 s.
   Timer {
     interval: 30000
     running: true

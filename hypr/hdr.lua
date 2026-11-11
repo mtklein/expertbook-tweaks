@@ -12,8 +12,8 @@ return function(omarchy_monitor_scale)
 hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")
 
 -- Internal Samsung OLED: HDR (needs asus-expertbook-linux hdr-fix so aquamarine sees the PQ/BT.2020 EDID data).
--- In HDR the panel ignores its backlight, so brightness is done in the compositor
--- by scaling the SDR white level (sdr_max_luminance). ~/.local/bin/hdr-brightness (bound to the brightness keys)
+-- Brightness is done in the compositor by scaling the SDR white level
+-- (sdr_max_luminance). ~/.local/bin/hdr-brightness (bound to the brightness keys)
 -- calls edp_hdr_monitor() and saves the level to ~/.local/state/hdr-brightness.
 
 -- The panel's scale. Omarchy's Display panel (omarchy-hyprland-monitor-scaling)

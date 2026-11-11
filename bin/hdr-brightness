@@ -1,8 +1,7 @@
 #!/bin/bash
 # Brightness that also works in HDR mode.
 #
-# With HDR on, the internal OLED ignores its backlight, so brightness is applied
-# in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
+# With HDR on, brightness is applied in Hyprland by scaling eDP-1's SDR white level (edp_hdr_monitor() in
 # hypr/hdr.lua). The level (0-1, perceptual) is saved to ~/.local/state/hdr-brightness,
 # which is also where the current level is read from.
 # Anything else (HDR off, another monitor, on/off) is handed to

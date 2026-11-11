@@ -5,8 +5,8 @@
 #   bar-item on <id>       succeeds if the widget is on the bar (for the row's tick)
 #   bar-item toggle <id>   on -> off, off -> on
 #
-# Turned on, a widget goes in with the status icons on the right (before
-# Bluetooth, or at the end of the right section if that isn't there).
+# Turned on, a widget goes in before Bluetooth, wherever that is, or at the
+# end of the right section if Bluetooth isn't on the bar.
 # Turning off one of our clones (mtklein.monitor) makes Omarchy put the stock
 # widget it replaced (omarchy.monitor) back in its place, so that goes too.
 set -uo pipefail

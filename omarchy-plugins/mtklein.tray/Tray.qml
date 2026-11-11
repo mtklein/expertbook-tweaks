@@ -21,7 +21,7 @@ BarWidget {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var pinnedIds: settings.pinned instanceof Array ? settings.pinned : []
   readonly property var hiddenIds: settings.hidden instanceof Array ? settings.hidden : []
-  // Icons you've unpinned: they wait in the drawer behind the chevron (mtklein).
+  // Icons you've unpinned (mtklein).
   readonly property var drawerIds: settings.drawer instanceof Array ? settings.drawer : []
   readonly property var pinnedItems: bucket("pinned")
   readonly property var drawerItems: bucket("drawer")
@@ -41,7 +41,6 @@ BarWidget {
   readonly property var sectionShown: trayContent.item ? trayContent.item.sectionShown : null
   readonly property int sectionCount: bar && bar.layoutConfig && Array.isArray(bar.layoutConfig.tray) ? bar.layoutConfig.tray.length : 0
   readonly property real sectionExtent: sectionHost ? (vertical ? sectionHost.implicitHeight : sectionHost.implicitWidth) : 0
-  // The chevron only when the drawer has something in it (tray-section widgets).
   readonly property bool hasDrawer: drawerCount > 0 || sectionCount > 0 || barDragging
   readonly property int drawerExtent: drawerCount * trayItemExtent + Math.max(0, drawerCount - 1) * trayItemGap + sectionExtent
   // A widget being dragged along the bar opens the drawer, to show where it
@@ -60,10 +59,8 @@ BarWidget {
   readonly property int animationDuration: 200
   property real revealProgress: expanded || holdOpen ? 1 : 0
   readonly property real revealExtent: drawerExtent
-  // The pinned icons sit against the tray's fixed edge with the chevron past
-  // them. Opening, the drawer grows the tray between the two and pushes the
-  // chevron out of the way, while the pointer that opened it stays over the
-  // drawer. A centered tray keeps the end-fixed arrangement.
+  // The pinned icons sit against the tray's fixed edge. A centered tray keeps
+  // the end-fixed arrangement.
   readonly property bool fixedAtStart: fixedEdge === "start"
   // The edge the tray section's widgets grow from: the one the pinned icons
   // keep to, beside which the section opens.
@@ -314,8 +311,8 @@ BarWidget {
           }
         }
 
-        // The icons and the tray section travel out with the chevron from
-        // beside the pinned icons, the section nearest them.
+        // The icons and the tray section sit beside the pinned icons, the
+        // section nearest them.
         Item {
           id: trayClip
           x: root.fixedAtStart ? 0 : horizontalTrayRoot.chevronWidth
@@ -409,8 +406,8 @@ BarWidget {
           }
         }
 
-        // The icons and the tray section travel out with the chevron from
-        // beside the pinned icons, the section nearest them.
+        // The icons and the tray section sit beside the pinned icons, the
+        // section nearest them.
         Item {
           id: trayClip
           y: root.fixedAtStart ? 0 : verticalTrayRoot.chevronHeight

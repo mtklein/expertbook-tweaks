@@ -34,7 +34,7 @@ bright_cyan = "#1a8ca0"
 bright_blue = "#3875d7"
 bright_magenta = "#a557c9"
 
-# The focused window's border is Chromium's pale frame blue, so a Chromium
-# window's border runs into its tab strip.
+# Chromium's pale frame blue, for anything that still draws a border (window
+# borders are off in hypr/looknfeel.lua).
 hyprland_active_border = "rgba(d3e3fdff)"
 hyprland_inactive_border = "rgba(b4b4b4aa)"
