@@ -27,6 +27,7 @@ Rectangle {
   property bool authenticating: false
   property bool fingerprintAvailable: true
   property bool listeningForFinger: false
+  property bool readerLive: false
   property double listeningSince: 0
   property bool passwordInFlight: false
   property double passwordSince: 0
@@ -114,8 +115,15 @@ Rectangle {
     }
   }
 
+  onListeningForFingerChanged: if (!listeningForFinger) readerLive = false
+
   Connections {
     target: sddm
+    function onInformationMessage(message) {
+      if (!root.listeningForFinger) return
+      if (message.indexOf("Place") === 0) root.readerLive = true
+      else if (/timed out|failure/i.test(message)) root.readerLive = false
+    }
     function onLoginFailed() {
       if (root.listeningForFinger) {
         root.listeningForFinger = false
@@ -135,6 +143,7 @@ Rectangle {
       next.restart()
     }
     function onLoginSucceeded() {
+      root.readerLive = false
       root.failureMessage = ""
     }
   }
@@ -260,7 +269,8 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       text: "󰈷"
       color: root.placeholderColor
-      visible: root.fingerprintOffered
+      opacity: root.readerLive && passwordInput.text.length === 0 ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 120 } }
       font.family: root.fontFamily
       font.pixelSize: Math.round(root.fieldFontSize * 1.1)
     }
