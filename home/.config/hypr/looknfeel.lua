@@ -1,5 +1,5 @@
 hl.config({ general = { border_size = 0 } })
-hl.config({ misc = { vrr = 2 } })
+hl.config({ misc = { vrr = 1 } })
 o.window({ class = "steam", title = "Steam" }, { tile = true })
 o.window("GeForceNOW", { tag = "+wheel_scroll" })
 o.window({ class = "GeForceNOW", fullscreen = true }, { tag = "+touch_mouse" })
