@@ -39,6 +39,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `01-sdr-white-is-reference` | The SDR white level (`sdr_max_luminance`) is advertised to colour-managed clients as the reference luminance, and they are told when it changes: subsurfaces and surfaces not yet on screen included. |
 | `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is rendered in the output's encoding. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
 | `03-leds-only-on-change` | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
+| `04-touchpad-scroll-as-wheel` | Windows tagged `wheel_scroll` get touchpad scrolling as wheel detents (15 units each). GeForce NOW's stream ignores smooth scrolling and is tagged in `looknfeel.lua`. |
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
@@ -117,7 +118,6 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 - Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
 - The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
-- GeForce NOW (Flatpak, X11-only): in a stream only mouse buttons, motion and a real wheel get through.
 
 ## Packages added to Omarchy
 

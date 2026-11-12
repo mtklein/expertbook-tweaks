@@ -1,0 +1,46 @@
+--- a/src/managers/input/InputManager.cpp
++++ b/src/managers/input/InputManager.cpp
+@@ -1003,11 +1003,15 @@
+     if (!passEvent)
+         return;
+ 
++    bool touchpadAsWheel = false;
++
+     if (!m_lastFocusOnLS) {
+         const auto MOUSECOORDS = g_pInputManager->getMouseCoordsInternal();
+         const auto PWINDOW = Desktop::viewState()->hitTest().windowAt(MOUSECOORDS, Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING);
+ 
+         if (PWINDOW) {
++            touchpadAsWheel = e.source == WL_POINTER_AXIS_SOURCE_FINGER && PWINDOW->m_ruleApplicator->m_tagKeeper.isTagged("wheel_scroll");
++
+             if (PWINDOW->checkInputOnDecos(INPUT_TYPE_AXIS, MOUSECOORDS, e))
+                 return;
+ 
+@@ -1043,6 +1047,27 @@
+         }
+     }
+ 
++    if (touchpadAsWheel) {
++        static double   accumulated[2] = {0, 0};
++        static uint32_t lastTime[2]    = {0, 0};
++        const int       AXIS           = e.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? 0 : 1;
++
++        if (e.timeMs - lastTime[AXIS] > 500)
++            accumulated[AXIS] = 0;
++        lastTime[AXIS] = e.timeMs;
++        accumulated[AXIS] += e.delta * factor;
++
++        const int DETENTS = sc<int>(accumulated[AXIS] / 15.0);
++        if (DETENTS == 0)
++            return;
++        accumulated[AXIS] -= DETENTS * 15.0;
++
++        g_pSeatManager->sendPointerAxis(e.timeMs, e.axis, 15.0 * DETENTS, DETENTS, 120 * DETENTS, WL_POINTER_AXIS_SOURCE_WHEEL, WL_POINTER_AXIS_RELATIVE_DIRECTION_IDENTICAL);
++        m_pointerAxisFramePending = false;
++        g_pSeatManager->sendPointerFrame();
++        return;
++    }
++
+     double discrete = (e.deltaDiscrete != 0) ? (factor * e.deltaDiscrete / std::abs(e.deltaDiscrete)) : 0;
+     double delta    = e.delta * factor;
+ 
