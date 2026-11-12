@@ -39,7 +39,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `01-sdr-white-is-reference` | The SDR white level (`sdr_max_luminance`) is advertised to colour-managed clients as the reference luminance, and they are told when it changes: subsurfaces and surfaces not yet on screen included. |
 | `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is rendered in the output's encoding. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
 | `03-leds-only-on-change` | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
-| `04-touchpad-scroll-as-wheel` | Windows tagged `wheel_scroll` get touchpad scrolling as wheel detents (15 units each). GeForce NOW's stream ignores smooth scrolling and is tagged in `looknfeel.lua`. |
+| `04-touchpad-scroll-as-wheel` | A window tagged `wheel_scroll` gets touchpad scrolling as wheel detents (15 units each), decided by which window holds pointer focus. GeForce NOW's stream ignores smooth scrolling and is tagged in `looknfeel.lua`. |
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
@@ -100,6 +100,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 | File | What |
 |---|---|
 | `.local/bin/game`, `.config/MangoHud/MangoHud.conf` | Steam launch option `game %command%`: native Wayland window, MangoHud hidden until Right Shift + F12. |
+| `.local/share/flatpak/overrides/com.nvidia.geforcenow` | GeForce NOW uses the Flatpak runtime's SDL (`SDL_DYNAMIC_API`) in place of its bundled one, which was built without Xcursor and turns the game's cursors into two-colour blobs. |
 | `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Run only against its simulator so far (`tv-mode sim …`). |
 
 ## Not obvious
