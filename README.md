@@ -65,6 +65,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
+| `.config/omarchy/plugins/mtklein.dictation/` | Bar widget: a microphone icon while Voxtype records (red) or transcribes (white), nothing otherwise. Needs `omarchy bar put mtklein.dictation --section center`, `voxtype config set osd.enabled false`, and a shell restart the first time. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `hdr.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 | `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build, reapplies the plugin patches. |
