@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
@@ -30,7 +31,7 @@ BarWidget {
 
   Process {
     id: follow
-    command: ["voxtype", "status", "--follow"]
+    command: [Quickshell.env("HOME") + "/.local/bin/voxtype-patched", "status", "--follow"]
     running: true
     stdout: SplitParser { onRead: function(line) { root.read(line) } }
     onExited: function() {

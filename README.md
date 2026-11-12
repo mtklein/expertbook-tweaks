@@ -56,7 +56,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 ### Voxtype patch
 
-`voxtype-patched/01-wait-for-commands.patch` makes the service wait on a file watch of its runtime folder instead of polling it every 100 ms. `voxtype-patched/build.sh` builds the installed version from source in `~/voxtype`, installs it as `~/.local/bin/voxtype-patched` and restarts the service; `.config/systemd/user/voxtype.service.d/patched.conf` makes the service run it. The packaged `voxtype` command is untouched.
+`voxtype-patched/01-wait-for-commands.patch` makes the service wait on a file watch of its runtime folder instead of polling it every 100 ms; `02-follow-without-polling.patch` does the same for `status --follow`, which the dictation bar widget runs. `voxtype-patched/build.sh` builds the installed version from source in `~/voxtype`, installs it as `~/.local/bin/voxtype-patched` and restarts the service; `.config/systemd/user/voxtype.service.d/patched.conf` makes the service run it. The packaged `voxtype` command is untouched.
 
 ## Desktop
 

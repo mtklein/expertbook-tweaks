@@ -1,0 +1,129 @@
+diff --git i/src/app/status.rs w/src/app/status.rs
+index aa2f124..d9e99b8 100644
+--- i/src/app/status.rs
++++ w/src/app/status.rs
+@@ -5,7 +5,7 @@
+ 
+ use voxtype::{
+     config,
+-    daemon_status::is_daemon_running,
++    daemon_status::{is_daemon_running, is_running, read_pid_if_alive},
+     status_json::{format_state_json, ExtendedStatusInfo},
+ };
+ 
+@@ -67,7 +67,6 @@ pub(crate) async fn run_status(
+     // Follow mode: watch for changes using inotify
+     use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
+     use std::sync::mpsc::channel;
+-    use std::time::Duration;
+ 
+     // Print initial state (check if daemon is running to avoid stale state)
+     let state = if !is_daemon_running() {
+@@ -84,11 +83,12 @@ pub(crate) async fn run_status(
+ 
+     // Set up file watcher
+     let (tx, rx) = channel();
++    let exit_tx = tx.clone();
+     let mut watcher = RecommendedWatcher::new(
+         move |res| {
+             let _ = tx.send(res);
+         },
+-        NotifyConfig::default().with_poll_interval(Duration::from_millis(100)),
++        NotifyConfig::default(),
+     )?;
+ 
+     // Watch the state file's parent directory (file may not exist yet)
+@@ -103,44 +103,63 @@ pub(crate) async fn run_status(
+     }
+ 
+     let mut last_state = state.to_string();
++    let mut watched_pid: Option<i32> = None;
+ 
+     loop {
+-        match rx.recv_timeout(Duration::from_millis(500)) {
+-            Ok(Ok(_event)) => {
+-                // File changed, read new state
+-                if let Ok(new_state) = std::fs::read_to_string(&state_path) {
+-                    let new_state = new_state.trim().to_string();
+-                    if new_state != last_state {
+-                        if format == "json" {
+-                            println!(
+-                                "{}",
+-                                format_state_json(&new_state, &icons, ext_info.as_ref())
+-                            );
+-                        } else {
+-                            println!("{}", new_state);
+-                        }
+-                        last_state = new_state;
++        let pid = read_pid_if_alive();
++        if let Some(pid) = pid.filter(|_| pid != watched_pid) {
++            watched_pid = Some(pid);
++            let exit_tx = exit_tx.clone();
++            std::thread::spawn(move || {
++                let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) } as i32;
++                if fd >= 0 {
++                    let mut pfd = libc::pollfd {
++                        fd,
++                        events: libc::POLLIN,
++                        revents: 0,
++                    };
++                    while unsafe { libc::poll(&mut pfd, 1, -1) } < 0
++                        && std::io::Error::last_os_error().kind()
++                            == std::io::ErrorKind::Interrupted
++                    {}
++                    unsafe { libc::close(fd) };
++                }
++                for _ in 0..100 {
++                    if !is_running(pid) {
++                        break;
+                     }
++                    std::thread::sleep(std::time::Duration::from_millis(20));
++                }
++                let _ = exit_tx.send(Ok(notify::Event::new(notify::EventKind::Any)));
++            });
++        }
++
++        match rx.recv() {
++            Ok(Ok(_event)) => {
++                let new_state = if !state_path.exists() || !is_daemon_running() {
++                    "stopped".to_string()
++                } else {
++                    match std::fs::read_to_string(&state_path) {
++                        Ok(text) => text.trim().to_string(),
++                        Err(_) => continue,
++                    }
++                };
++                if new_state != last_state {
++                    if format == "json" {
++                        println!(
++                            "{}",
++                            format_state_json(&new_state, &icons, ext_info.as_ref())
++                        );
++                    } else {
++                        println!("{}", new_state);
++                    }
++                    last_state = new_state;
+                 }
+             }
+             Ok(Err(e)) => {
+                 tracing::warn!("Watch error: {:?}", e);
+             }
+-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+-                // Check if daemon stopped (file deleted or process died)
+-                if (!state_path.exists() || !is_daemon_running()) && last_state != "stopped" {
+-                    if format == "json" {
+-                        println!(
+-                            "{}",
+-                            format_state_json("stopped", &icons, ext_info.as_ref())
+-                        );
+-                    } else {
+-                        println!("stopped");
+-                    }
+-                    last_state = "stopped".to_string();
+-                }
+-            }
+-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
++            Err(_) => {
+                 break;
+             }
+         }
