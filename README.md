@@ -12,7 +12,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `plugins/` | One patch per Omarchy plugin clone. `plugins/sync apply` rebuilds `~/.config/omarchy/plugins/mtklein.*` from the installed Omarchy plus its patch. |
 | `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
 | `ctm/` | Source of `white-point-ctm`. |
-| `tools/` | Power load tests (run with pkexec). |
+| `tools/` | Power load tests (run with pkexec). `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
 `~/.config/hypr/monitors.lua` stays Omarchy's file (it rewrites it with `sed -i`); `install.sh` appends two `dofile` lines to it.
 
