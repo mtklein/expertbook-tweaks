@@ -1,0 +1,77 @@
+--- a/src/managers/input/InputManager.hpp
++++ b/src/managers/input/InputManager.hpp
+@@ -61,6 +61,7 @@
+     WP<CWLSurfaceResource>  touchFocusSurface;
+     Vector2D                touchSurfaceOrigin;
+     Vector2D                lastTouchPos;
++    int32_t                 asMouseID = -1;
+ };
+ 
+ // The third row is always 0 0 1 and is not expected by `libinput_device_config_calibration_set_matrix`
+--- a/src/managers/input/Touch.cpp
++++ b/src/managers/input/Touch.cpp
+@@ -13,6 +13,10 @@
+ #include "../../protocols/core/DataDevice.hpp"
+ #include "debug/log/Logger.hpp"
+ #include "UnifiedWorkspaceSwipeGesture.hpp"
++#include "../../desktop/state/ViewState.hpp"
++#include "../../desktop/rule/windowRule/WindowRuleApplicator.hpp"
++#include "../../pointer/PointerController.hpp"
++#include <linux/input-event-codes.h>
+ 
+ void CInputManager::onTouchDown(ITouch::SDownEvent e) {
+     m_lastInputTouch = true;
+@@ -41,6 +45,20 @@
+ 
+     m_touchData.lastTouchPos = TOUCH_COORDS;
+ 
++    if (m_touchData.asMouseID >= 0)
++        return;
++
++    if (const auto PTOUCHED = Desktop::viewState()->hitTest().windowAt(TOUCH_COORDS, Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS | Desktop::View::ALLOW_FLOATING);
++        PTOUCHED && PTOUCHED->m_ruleApplicator->m_tagKeeper.isTagged("touch_mouse")) {
++        m_touchData.asMouseID = e.touchID;
++        Pointer::pointerController()->warpTo(TOUCH_COORDS);
++        mouseMoveUnified(e.timeMs);
++        m_lastInputTouch = false;
++        g_pSeatManager->sendPointerFrame();
++        onMouseButton(IPointer::SButtonEvent{.timeMs = e.timeMs, .button = BTN_LEFT, .state = WL_POINTER_BUTTON_STATE_PRESSED, .mouse = true}, nullptr);
++        return;
++    }
++
+     refocus(TOUCH_COORDS);
+ 
+     if (m_clickBehavior == CLICKMODE_KILL) {
+@@ -125,6 +143,15 @@
+     if (info.cancelled)
+         return;
+ 
++    if (m_touchData.asMouseID >= 0) {
++        if (e.touchID == m_touchData.asMouseID) {
++            m_touchData.asMouseID = -1;
++            m_lastInputTouch      = false;
++            onMouseButton(IPointer::SButtonEvent{.timeMs = e.timeMs, .button = BTN_LEFT, .state = WL_POINTER_BUTTON_STATE_RELEASED, .mouse = true}, nullptr);
++        }
++        return;
++    }
++
+     if (g_pUnifiedWorkspaceSwipe->isGestureInProgress()) {
+         // If there was a swipe from this finger, end it.
+         if (e.touchID == g_pUnifiedWorkspaceSwipe->m_touchID)
+@@ -152,6 +179,16 @@
+     if (info.cancelled)
+         return;
+ 
++    if (m_touchData.asMouseID >= 0) {
++        if (e.touchID == m_touchData.asMouseID) {
++            Pointer::pointerController()->warpTo(m_touchData.lastTouchPos);
++            mouseMoveUnified(e.timeMs);
++            m_lastInputTouch = false;
++            g_pSeatManager->sendPointerFrame();
++        }
++        return;
++    }
++
+     if (g_pUnifiedWorkspaceSwipe->isGestureInProgress()) {
+         // Do nothing if this is using a different finger.
+         if (e.touchID != g_pUnifiedWorkspaceSwipe->m_touchID)

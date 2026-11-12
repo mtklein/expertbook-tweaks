@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+import glob
+import sys
+
+DISPLAYID_EXTENSION = 0x70
+CTA_EXTENSION = 0x02
+DISPLAYID_CTA_DATA = 0x81
+CTA_EXTENDED = 7
+COLORIMETRY, HDR_STATIC_METADATA = 0x05, 0x06
+
+
+def cta_blocks_in_displayid(edid):
+    for n in range(1, len(edid) // 128):
+        block = edid[n * 128:(n + 1) * 128]
+        if block[0] != DISPLAYID_EXTENSION:
+            continue
+        i, end = 5, 5 + block[2]
+        while i + 3 <= end and (block[i] or block[i + 2]):
+            length = block[i + 2]
+            if block[i] == DISPLAYID_CTA_DATA:
+                yield block[i + 3:i + 3 + length]
+            i += 3 + length
+
+
+def hdr_data_blocks(payload):
+    i = 0
+    while i < len(payload):
+        tag, length = payload[i] >> 5, payload[i] & 31
+        if tag == CTA_EXTENDED and length and payload[i + 1] in (COLORIMETRY, HDR_STATIC_METADATA):
+            yield payload[i:i + 1 + length]
+        i += 1 + length
+
+
+def with_checksum(block):
+    return block[:127] + bytes([-sum(block[:127]) % 256])
+
+
+def main():
+    source = glob.glob("/sys/class/drm/card*-eDP-1/edid")[0]
+    edid = open(source, "rb").read()
+    data = b"".join(b for payload in cta_blocks_in_displayid(edid) for b in hdr_data_blocks(payload))
+    if not any(b[1] == HDR_STATIC_METADATA for b in hdr_data_blocks(data)):
+        sys.exit("the panel's EDID declares no HDR static metadata")
+    base = bytearray(edid[:128])
+    base[126] = 1
+    cta = bytes([CTA_EXTENSION, 3, 4 + len(data), 0]) + data
+    cta += bytes(128 - len(cta))
+    open(sys.argv[1], "wb").write(with_checksum(bytes(base)) + with_checksum(cta))
+
+
+main()

@@ -40,6 +40,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is rendered in the output's encoding. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
 | `03-leds-only-on-change` | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
 | `04-touchpad-scroll-as-wheel` | A window tagged `wheel_scroll` gets touchpad scrolling as wheel detents (15 units each), decided by which window holds pointer focus. GeForce NOW's stream ignores smooth scrolling and is tagged in `looknfeel.lua`. |
+| `05-touch-as-mouse` | On a window tagged `touch_mouse`, the first finger is the mouse: the pointer goes to the touch and the left button follows the finger. Stock Hyprland drops touches on a window that has captured the pointer. GeForce NOW is tagged while fullscreen. |
 
 `build.sh` rebuilds the installed version as `<pkgver>-<pkgrel>.1`; install the package it prints with `pacman -U`.
 
@@ -60,7 +61,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). The toggle happens 20 ms after the release, so the window that gains focus never sees the key as held. Windows opened from the console move to the desktop. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
-| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; Steam's main window tiles like any other (its dialogs and Friends List still float). |
+| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; Steam's main window tiles; GeForce NOW's tags for wheel scrolling and touch. |
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
