@@ -1,0 +1,64 @@
+diff --git i/src/daemon.rs w/src/daemon.rs
+index f17f7b5..c84eaea 100644
+--- i/src/daemon.rs
++++ w/src/daemon.rs
+@@ -4060,6 +4060,29 @@ impl Daemon {
+         let mut transcribing_poll = tokio::time::interval(Duration::from_millis(100));
+         transcribing_poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+ 
++        let (command_tx, mut command_rx) = tokio::sync::mpsc::channel::<()>(1);
++        let _ = command_tx.try_send(());
++        let command_watcher = {
++            use notify::Watcher;
++            let dir = Config::runtime_dir();
++            let _ = std::fs::create_dir_all(&dir);
++            let tx = command_tx.clone();
++            notify::recommended_watcher(move |_: notify::Result<notify::Event>| {
++                let _ = tx.try_send(());
++            })
++            .and_then(|mut watcher| {
++                watcher.watch(&dir, notify::RecursiveMode::NonRecursive)?;
++                Ok(watcher)
++            })
++            .map_err(|e| {
++                tracing::warn!("Cannot watch {:?} for commands, polling instead: {}", dir, e)
++            })
++            .ok()
++        };
++        let watching_commands = command_watcher.is_some();
++        let mut eviction_poll = tokio::time::interval(Duration::from_secs(60));
++        eviction_poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
++
+         loop {
+             tokio::select! {
+                 // Handle hotkey events (only if hotkey listener is enabled)
+@@ -4912,7 +4935,7 @@ impl Daemon {
+                 }
+ 
+                 // Clean up stale cancel file when idle and evict idle models
+-                _ = tokio::time::sleep(Duration::from_millis(500)), if matches!(state, State::Idle) => {
++                _ = tokio::time::sleep(Duration::from_millis(500)), if !watching_commands && matches!(state, State::Idle) => {
+                     // Silently consume any stale cancel request, unless it
+                     // may belong to a start signal that has not landed yet.
+                     if !Config::runtime_dir().join(START_REQUEST_FILE).exists() {
+@@ -4933,7 +4956,19 @@ impl Daemon {
+                 // starvation; eviction was the other half, and it meant a
+                 // daemon that loaded a model on demand never released it
+                 // (#644).
+-                _ = tokio::time::sleep(Duration::from_millis(100)) => {
++                Some(()) = command_rx.recv(), if watching_commands => {
++                    self.handle_meeting_triggers().await;
++                }
++
++                _ = eviction_poll.tick(), if watching_commands && self.model_manager.is_some() => {
++                    if matches!(state, State::Idle) {
++                        if let Some(ref mut mm) = self.model_manager {
++                            mm.evict_idle_models();
++                        }
++                    }
++                }
++
++                _ = tokio::time::sleep(Duration::from_millis(100)), if !watching_commands => {
+                     // Evict roughly every 60s, and only while idle — unloading
+                     // a model out from under a recording would be worse than
+                     // holding it.

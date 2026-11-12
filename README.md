@@ -11,6 +11,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `plugins/` | One patch per Omarchy plugin clone. `plugins/sync apply` rebuilds `~/.config/omarchy/plugins/mtklein.*` from the installed Omarchy plus its patch. |
 | `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
+| `voxtype-patched/` | Patch and `build.sh` for the Voxtype dictation service. |
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
@@ -52,6 +53,10 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 - The daemon can cancel the attempt being checked (SIGINT to the helper, SIGKILL after 3 s) and reports nothing for it.
 - A login that arrives while another is being checked replaces it; one that arrives once a session is starting is still refused.
 - Themes get `sddm.cancelLogin()` and `sddm.canCancelLogin`.
+
+### Voxtype patch
+
+`voxtype-patched/01-wait-for-commands.patch` makes the service wait on a file watch of its runtime folder instead of polling it every 100 ms. `voxtype-patched/build.sh` builds the installed version from source in `~/voxtype`, installs it as `~/.local/bin/voxtype-patched` and restarts the service; `.config/systemd/user/voxtype.service.d/patched.conf` makes the service run it. The packaged `voxtype` command is untouched.
 
 ## Desktop
 
@@ -124,7 +129,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 
 ## Packages added to Omarchy
 
-`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM).
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
 
 ## License
 
