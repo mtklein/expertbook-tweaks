@@ -14,7 +14,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-The `omarchy` and `omarchy-settings` packages are removed and nothing here calls them. Still Omarchy's: the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, the packages only its repository supplies (Voxtype, the fingerprint library, `tzupdate`), and the name in `/etc/os-release` and the boot menu.
+The `omarchy` and `omarchy-settings` packages are removed and nothing here calls them. The kernel is Arch's `linux`, first in the boot menu; `linux-omarchy` is still installed as the fallback entry. Still Omarchy's: a few packages only its repository supplies (Voxtype, the fingerprint library, `tzupdate`, the boot-menu tools, the icon theme) and the name on the boot menu.
 
 ## Display
 
