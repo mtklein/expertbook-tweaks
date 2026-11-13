@@ -57,6 +57,7 @@ Scope {
     readerLive = false
     if (!session.locked) return
     quickFailures = Date.now() - fingerStarted < 1000 ? quickFailures + 1 : 0
+    retry.interval = quickFailures <= 1 ? 100 : 1500
     if (quickFailures < 5) retry.restart()
   }
 
