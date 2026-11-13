@@ -1,0 +1,9 @@
+#!/bin/sh
+[ "$1" = post ] || exit 0
+for led in /sys/class/leds/platform::mute /sys/class/leds/platform::micmute; do
+  [ -e "$led/trigger" ] || continue
+  trigger=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$led/trigger")
+  [ -n "$trigger" ] && [ "$trigger" != none ] || continue
+  echo none >"$led/trigger"
+  echo "$trigger" >"$led/trigger"
+done

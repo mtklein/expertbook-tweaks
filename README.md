@@ -82,6 +82,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | `etc/systemd/user/bt-agent.service` | Pairing agent the Bluetooth panel relies on. |
 | `etc/systemd/zram-generator.conf.d/`, `etc/sysctl.d/90-expertbook.conf`, `etc/udev/rules.d/60-expertbook-io-scheduler.rules` | Compressed RAM swap the size of RAM with matching memory tuning; BBR; more file watchers; the kyber disk scheduler. |
 | `usr/lib/systemd/system-sleep/unmount-fuse` | Unmounts GVFS mounts before sleep and restarts GVFS after. |
+| `usr/lib/systemd/system-sleep/mute-leds` | After any wake, re-attaches the speaker and microphone mute lights to their triggers: the firmware turns both lights on after hibernation while the kernel still believes they are off. |
 | `etc/systemd/resolved.conf.d/`, `etc/NetworkManager/conf.d/expertbook-wifi-powersave.conf`, `etc/modprobe.d/expertbook-usb-autosuspend.conf` | mDNS left to Avahi; Wi-Fi power save off; USB autosuspend off. |
 | `etc/systemd/system/*pcr*`, `*tpm2*`, `*binfmt*`, `plocate-updatedb.service.d/` | Boot services that would report failure on this machine; file index only on mains and skipping snapshots. |
 | `etc/xdg/mimeapps.list`, `etc/gnupg/dirmngr.conf` | Default apps for folders, images and PDFs; key servers. |
