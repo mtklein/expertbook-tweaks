@@ -118,7 +118,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 ## Not obvious
 
 - Changing focus from a Lua key handler while that key is still being processed leaves XWayland believing the key is held (it arrives in the new window's list of pressed keys and is never released there). X11 apps then see every key with that modifier: this is what broke typing in GeForce NOW.
-- F14 stays unbound: the firmware sends it on every USB-C power plug and unplug.
+- Fn+F9 sends F14, unbound. A USB-C power plug or unplug sends the same "unknown key" (code 240) as Fn+F10 and Fn+F11 would, so nothing is bound to that key either; they differ only in scan code (charger 0x77).
 - KMS applies the colour matrix to the encoded signal, which is wrong for PQ; `02-hdr-conversion` is why kelvin values are true.
 - Only one client may hold the colour matrix. hyprsunset must not run; `ambient-display` kills it if it does.
 - Hyprland draws window borders at a fixed 80 nits whatever the SDR white level, hence no borders.
