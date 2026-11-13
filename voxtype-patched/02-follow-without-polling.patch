@@ -1,5 +1,5 @@
 diff --git i/src/app/status.rs w/src/app/status.rs
-index aa2f124..d9e99b8 100644
+index 2dec441..3627513 100644
 --- i/src/app/status.rs
 +++ w/src/app/status.rs
 @@ -5,7 +5,7 @@
@@ -33,7 +33,7 @@ index aa2f124..d9e99b8 100644
      )?;
  
      // Watch the state file's parent directory (file may not exist yet)
-@@ -103,44 +103,63 @@ pub(crate) async fn run_status(
+@@ -103,51 +103,70 @@ pub(crate) async fn run_status(
      }
  
      let mut last_state = state.to_string();
@@ -41,20 +41,6 @@ index aa2f124..d9e99b8 100644
  
      loop {
 -        match rx.recv_timeout(Duration::from_millis(500)) {
--            Ok(Ok(_event)) => {
--                // File changed, read new state
--                if let Ok(new_state) = std::fs::read_to_string(&state_path) {
--                    let new_state = new_state.trim().to_string();
--                    if new_state != last_state {
--                        if format == "json" {
--                            println!(
--                                "{}",
--                                format_state_json(&new_state, &icons, ext_info.as_ref())
--                            );
--                        } else {
--                            println!("{}", new_state);
--                        }
--                        last_state = new_state;
 +        let pid = read_pid_if_alive();
 +        if let Some(pid) = pid.filter(|_| pid != watched_pid) {
 +            watched_pid = Some(pid);
@@ -76,7 +62,7 @@ index aa2f124..d9e99b8 100644
 +                for _ in 0..100 {
 +                    if !is_running(pid) {
 +                        break;
-                     }
++                    }
 +                    std::thread::sleep(std::time::Duration::from_millis(20));
 +                }
 +                let _ = exit_tx.send(Ok(notify::Event::new(notify::EventKind::Any)));
@@ -84,7 +70,13 @@ index aa2f124..d9e99b8 100644
 +        }
 +
 +        match rx.recv() {
-+            Ok(Ok(_event)) => {
+             Ok(Ok(_event)) => {
+-                // File changed, read new state
+-                if let Ok(new_state) = std::fs::read_to_string(&state_path) {
+-                    let new_state = new_state.trim().to_string();
+-                    if new_state != last_state {
+-                        // An offer accepted, declined or cleaned up since
+-                        // the follower started shows up on the next change.
 +                let new_state = if !state_path.exists() || !is_daemon_running() {
 +                    "stopped".to_string()
 +                } else {
@@ -94,6 +86,22 @@ index aa2f124..d9e99b8 100644
 +                    }
 +                };
 +                if new_state != last_state {
++                    if new_state != "stopped" {
+                         if let Some(info) = ext_info.as_mut() {
+                             let current =
+                                 config::load_config(None).unwrap_or_else(|_| config.clone());
+                             info.refresh_model_upgrade(&current);
+                         }
+-                        if format == "json" {
+-                            println!(
+-                                "{}",
+-                                format_state_json(&new_state, &icons, ext_info.as_ref())
+-                            );
+-                        } else {
+-                            println!("{}", new_state);
+-                        }
+-                        last_state = new_state;
+                     }
 +                    if format == "json" {
 +                        println!(
 +                            "{}",

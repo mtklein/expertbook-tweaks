@@ -14,7 +14,8 @@ git checkout -q -f "v$version"
 for patch in "$HERE"/*.patch; do
   git apply "$patch"
 done
-RUSTFLAGS="-C target-cpu=native" cargo build --release --bin voxtype
+features=$(grep -B1 'cp target/release/voxtype /tmp/voxtype-avx2' Dockerfile.build | grep -o -- '--features [^ ]*' | head -1)
+RUSTFLAGS="-C target-cpu=native" cargo build --release --bin voxtype $features
 install -Dm755 target/release/voxtype "$HOME/.local/bin/voxtype-patched"
 systemctl --user daemon-reload
 systemctl --user restart voxtype.service
