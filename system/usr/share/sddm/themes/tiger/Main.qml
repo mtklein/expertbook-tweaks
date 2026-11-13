@@ -20,7 +20,6 @@ Rectangle {
   readonly property color textColor: "#d8d8d8"
   readonly property color placeholderColor: "#8e8e93"
   readonly property color errorColor: "#ff5f57"
-  readonly property color borderColor: "#d3e3fd"
   readonly property color selectionColor: Qt.rgba(0x6a / 255, 0xa8 / 255, 0xff / 255, 0.45)
 
   property string currentUser: userModel.lastUser
@@ -172,8 +171,8 @@ Rectangle {
     anchors.centerIn: parent
     color: root.fieldColor
     radius: root.cornerRadius
-    border.width: root.outlineThickness
-    border.color: root.failureMessage.length > 0 ? root.errorColor : root.borderColor
+    border.width: root.failureMessage.length > 0 ? root.outlineThickness : 0
+    border.color: root.errorColor
     clip: true
 
     TextInput {

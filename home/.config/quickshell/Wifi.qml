@@ -124,9 +124,7 @@ BarIcon {
           width: parent.width
           height: Theme.rowHeight
           radius: 4
-          color: "#000000"
-          border.width: 1
-          border.color: Theme.panelBorder
+          color: Theme.hover
           onVisibleChanged: if (visible) password.forceActiveFocus()
 
           TextInput {

@@ -7,7 +7,6 @@ Singleton {
   readonly property color barText: "#d8d8d8"
   readonly property color active: "#ff5f57"
   readonly property color panelBackground: "#161618"
-  readonly property color panelBorder: "#d3e3fd"
   readonly property color dimText: "#8e8e93"
   readonly property color selected: "#6aa8ff"
   readonly property color hover: "#2a2a2e"

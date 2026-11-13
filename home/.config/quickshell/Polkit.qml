@@ -32,8 +32,6 @@ PanelWindow {
     width: parent.width
     height: column.height + 2 * 16
     color: Theme.panelBackground
-    border.color: Theme.panelBorder
-    border.width: 1
     radius: Theme.radius
 
     Column {
@@ -66,9 +64,7 @@ PanelWindow {
         width: parent.width
         height: 32
         radius: 4
-        color: "#000000"
-        border.width: 1
-        border.color: Theme.panelBorder
+        color: Theme.hover
         opacity: root.flow && root.flow.isResponseRequired ? 1 : 0.4
 
         TextInput {

@@ -167,8 +167,8 @@ Scope {
         anchors.centerIn: parent
         color: Qt.rgba(0x16 / 255, 0x16 / 255, 0x18 / 255, 0.8)
         radius: Theme.radius
-        border.width: 3
-        border.color: root.failure !== "" ? Theme.active : Theme.panelBorder
+        border.width: root.failure !== "" ? 3 : 0
+        border.color: Theme.active
         clip: true
 
         TextInput {

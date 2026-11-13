@@ -40,8 +40,6 @@ PanelWindow {
     width: root.panelWidth
     height: body.implicitHeight + 2 * Theme.pad
     color: Theme.panelBackground
-    border.color: Theme.panelBorder
-    border.width: 1
     radius: Theme.radius
 
     MouseArea {
