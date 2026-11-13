@@ -26,7 +26,7 @@ done
 (cd "$R/home" && find . "${skip[@]}" -type f -print) | while read -r f; do link "${f#./}"; done
 
 systemctl --user daemon-reload
-systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service
+systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service fn-keys.service
 
 if [[ ${1:-} == --system ]]; then
   wallpaper="$R/system/usr/local/share/expertbook-tweaks/wallpaper.jpg"
@@ -56,7 +56,7 @@ if [[ ${1:-} == --system ]]; then
     done
     udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
-    systemctl enable rapl-sync.service lightbar-off.service psr-after-desktop.service
+    systemctl enable rapl-sync.service lightbar-off.service fn-keys-on.service psr-after-desktop.service
     systemctl restart rapl-sync.service
   ' _ "$R"
 fi

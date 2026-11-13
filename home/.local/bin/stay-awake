@@ -1,0 +1,11 @@
+#!/bin/bash
+flag=~/.local/state/stay-awake
+case ${1:-} in
+  toggle) if [[ -e $flag ]]; then rm -f "$flag"; else mkdir -p "${flag%/*}" && touch "$flag"; fi ;;
+  on) mkdir -p "${flag%/*}" && touch "$flag" ;;
+  off) rm -f "$flag" ;;
+  *) echo "usage: stay-awake toggle|on|off" >&2; exit 2 ;;
+esac
+[[ -e $flag ]] && state=on || state=off
+qs ipc call stayawake refresh >/dev/null
+qs ipc call osd pop stay-awake -1 "Stay awake $state" >/dev/null

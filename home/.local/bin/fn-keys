@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+import glob, os, struct, subprocess, sys
+
+DEVICE = "Asus WMI hotkeys"
+EV_MSC, MSC_SCAN = 4, 4
+ACTIONS = {
+    0x19: ["hyprctl", "eval", "cycle_window_mode()"],
+    0x1A: ["stay-awake", "toggle"],
+}
+EVENT = struct.Struct("llHHi")
+
+
+def find():
+    for path in glob.glob("/sys/class/input/event*"):
+        try:
+            if open(f"{path}/device/name").read().strip() == DEVICE:
+                return "/dev/input/" + os.path.basename(path)
+        except OSError:
+            pass
+    return None
+
+
+def main():
+    node = find()
+    if not node:
+        sys.exit(f"fn-keys: no input device named {DEVICE}")
+    with open(node, "rb", buffering=0) as dev:
+        print(f"fn-keys: listening on {node}", file=sys.stderr, flush=True)
+        while True:
+            data = dev.read(EVENT.size)
+            if len(data) < EVENT.size:
+                sys.exit("fn-keys: device went away")
+            _, _, kind, code, value = EVENT.unpack(data)
+            if kind == EV_MSC and code == MSC_SCAN and value in ACTIONS:
+                r = subprocess.run(ACTIONS[value], capture_output=True, text=True)
+                if r.returncode != 0:
+                    print(f"fn-keys: {ACTIONS[value][0]} failed: {(r.stderr or r.stdout).strip()}", file=sys.stderr, flush=True)
+
+
+main()

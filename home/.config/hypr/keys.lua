@@ -44,6 +44,7 @@ o.bind("XF86AudioRaiseVolume", "Volume up", shell("volume-up"), held)
 o.bind("XF86AudioLowerVolume", "Volume down", shell("volume-down"), held)
 o.bind("XF86AudioMute", "Mute", shell("mute"), { locked = true })
 o.bind("XF86AudioMicMute", "Mute microphone", shell("microphone-mute"), { locked = true })
+o.bind("F14", "Dictate to Claude", function() console_dictate() end)
 
 o.bind("XF86MonBrightnessUp", "Brightness up", "hdr-brightness +10%", held)
 o.bind("XF86MonBrightnessDown", "Brightness down", "hdr-brightness 10%-", held)

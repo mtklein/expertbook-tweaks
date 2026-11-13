@@ -1,0 +1,6 @@
+#!/bin/sh
+d=/sys/kernel/debug/asus-nb-wmi
+[ -d "$d" ] || modprobe asus-nb-wmi
+echo 0x00100046 >"$d/dev_id"
+echo 0x600 >"$d/ctrl_param"
+cat "$d/devs" >/dev/null

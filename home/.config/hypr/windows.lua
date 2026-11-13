@@ -35,3 +35,16 @@ o.window("GeForceNOW", { idle_inhibit = "fullscreen", tag = "+wheel_scroll" })
 o.window({ class = "GeForceNOW", fullscreen = true }, { tag = "+touch_mouse" })
 
 hl.layer_rule({ match = { namespace = "^shell-.*$" }, no_anim = true, animation = "none" })
+
+function cycle_window_mode()
+  local window = hl.get_active_window()
+  if not window then return end
+  if window.fullscreen and window.fullscreen > 0 then
+    hl.dispatch(hl.dsp.window.fullscreen({ action = "unset" }))
+    hl.dispatch(hl.dsp.window.float({ action = "unset" }))
+  elseif window.floating then
+    hl.dispatch(hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
+  else
+    hl.dispatch(hl.dsp.window.float({ action = "set" }))
+  end
+end

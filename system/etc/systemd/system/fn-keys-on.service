@@ -1,0 +1,11 @@
+[Unit]
+Description=Make the firmware report Fn+F10 and Fn+F11
+After=sys-kernel-debug.mount systemd-modules-load.service
+Requires=sys-kernel-debug.mount
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/local/share/expertbook-tweaks/fn-keys-on
+
+[Install]
+WantedBy=basic.target

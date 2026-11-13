@@ -17,16 +17,13 @@ BarIcon {
     onExited: function(code) { root.on = code === 0 }
   }
 
-  Process {
-    id: toggle
-    onExited: check.running = true
+  IpcHandler {
+    target: "stayawake"
+    function refresh(): void { check.running = true }
   }
 
   MouseArea {
     anchors.fill: parent
-    onClicked: {
-      toggle.command = root.on ? ["rm", "-f", root.flag] : ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && touch \"$1\"", "sh", root.flag]
-      toggle.running = true
-    }
+    onClicked: Quickshell.execDetached(["stay-awake", "toggle"])
   }
 }

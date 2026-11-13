@@ -136,3 +136,23 @@ hl.on("window.open", function(window)
   hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
   hl.dispatch(hl.dsp.focus({ window = target }))
 end)
+
+function console_dictate()
+  local ws = hl.get_workspace(SPECIAL)
+  if not (ws and ws.visible) then
+    hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
+  end
+  if not ws then return end
+  local target
+  for _, window in ipairs(hl.get_workspace_windows(SPECIAL)) do
+    if CONSOLE_APPS[window.class] then target = "address:" .. window.address end
+  end
+  if not target then return end
+  hl.timer(function()
+    hl.dispatch(hl.dsp.focus({ window = target }))
+    hl.dispatch(hl.dsp.send_shortcut({ mods = "CTRL", key = "X", window = target }))
+    hl.timer(function()
+      hl.dispatch(hl.dsp.send_shortcut({ mods = "", key = "V", window = target }))
+    end, { timeout = 60, type = "oneshot" })
+  end, { timeout = 60, type = "oneshot" })
+end
