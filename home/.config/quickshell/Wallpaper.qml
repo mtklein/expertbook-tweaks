@@ -35,8 +35,8 @@ Variants {
     }
 
     Timer {
-      property int left: 3
-      interval: 2500
+      property int left: 14
+      interval: left > 1 ? 400 : 2500
       running: left > 0
       repeat: true
       onTriggered: {
