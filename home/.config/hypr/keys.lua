@@ -57,8 +57,6 @@ o.bind("XF86KbdLightOnOff", "Keyboard backlight", "keyboard-backlight cycle", { 
 o.bind("XF86KbdBrightnessUp", "Keyboard backlight up", "keyboard-backlight up", held)
 o.bind("XF86KbdBrightnessDown", "Keyboard backlight down", "keyboard-backlight down", held)
 
-o.bind_hold("ALT + Alt_R", "Start dictation", "voxtype record start", "Stop dictation", "voxtype record stop")
-
 o.bind("switch:on:Lid Switch", nil, function() edp_lid(true) end, { locked = true })
 o.bind("switch:off:Lid Switch", nil, function() edp_lid(false) end, { locked = true })
 

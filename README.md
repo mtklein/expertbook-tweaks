@@ -10,11 +10,10 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the Tiger theme as one directory). |
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
-| `voxtype-patched/` | Patch and `build.sh` for the Voxtype dictation service. |
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: Voxtype, the fingerprint library, `tzupdate`, the boot-menu tools. The icon theme is Arch's Adwaita (`gsettings set org.gnome.desktop.interface icon-theme Adwaita`).
+No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: the fingerprint library, `tzupdate`, the boot-menu tools. The icon theme is Arch's Adwaita (`gsettings set org.gnome.desktop.interface icon-theme Adwaita`).
 
 ## Display
 
@@ -52,22 +51,18 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 - A login that arrives while another is being checked replaces it; one that arrives once a session is starting is still refused.
 - Themes get `sddm.cancelLogin()` and `sddm.canCancelLogin`.
 
-### Voxtype patch
-
-`voxtype-patched/01-wait-for-commands.patch` makes the service wait on a file watch of its runtime folder instead of polling it every 100 ms; `02-follow-without-polling.patch` does the same for `status --follow`, which the dictation bar widget runs. `voxtype-patched/build.sh` builds the installed version from source in `~/voxtype`, installs it as `~/.local/bin/voxtype-patched` and restarts the service; `.config/systemd/user/voxtype.service.d/patched.conf` makes the service run it. The packaged `voxtype` command is untouched.
-
 ## Desktop
 
 | File | What |
 |---|---|
-| `.config/quickshell/` | Our own shell (Quickshell), run by `shell.service`; after an edit, `systemctl --user restart shell`. `shell.qml` lists the parts and `Bar.qml` is the bar's fixed layout. Bar: workspaces that have windows, shown only when there is more than one (`Workspaces.qml`); a microphone while Voxtype records (red) or transcribes (`Dictation.qml`; Voxtype's own indicators are off: `voxtype config set osd.enabled false`, `tray.enabled false`); tray icons with Bluetooth and stay-awake appearing under the pointer (`Tray.qml`); weather; Wi-Fi; battery; clock. Panels open from their icon (`Panel.qml`, one at a time; a click anywhere else or Escape closes them). The bar sits on the layer beneath windows: on the top layer, Hyprland hands focus to the last window, hidden console included, whenever something closes with the pointer over it: battery level, watts and time left; Wi-Fi on/off, networks, password to join; Bluetooth on/off, devices, connect, pair. `Osd.qml` is the volume, brightness, white point and keyboard backlight pop-up; `Audio.qml` the volume and mute keys; `Menu.qml` the app launcher and the power menu (log out, restart, shut down); `Polkit.qml` the permission prompt; `Lock.qml` the lock screen (password or fingerprint, PAM files in `pam/`), which locks again if the shell restarts while locked; `Wallpaper.qml` the wallpaper, the login screen's image. `Theme.qml` holds colours, fonts and sizes. From scripts: `qs ipc call osd pop <icon> <percent> <text>`, `qs ipc call lock lock`, `qs ipc call menu open\|power`. |
+| `.config/quickshell/` | Our own shell (Quickshell), run by `shell.service`; after an edit, `systemctl --user restart shell`. `shell.qml` lists the parts and `Bar.qml` is the bar's fixed layout. Bar: workspaces that have windows, shown only when there is more than one (`Workspaces.qml`); tray icons with Bluetooth and stay-awake appearing under the pointer (`Tray.qml`); weather; Wi-Fi; battery; clock. Panels open from their icon (`Panel.qml`, one at a time; a click anywhere else or Escape closes them). The bar sits on the layer beneath windows: on the top layer, Hyprland hands focus to the last window, hidden console included, whenever something closes with the pointer over it: battery level, watts and time left; Wi-Fi on/off, networks, password to join; Bluetooth on/off, devices, connect, pair. `Osd.qml` is the volume, brightness, white point and keyboard backlight pop-up; `Audio.qml` the volume and mute keys; `Menu.qml` the app launcher and the power menu (log out, restart, shut down); `Polkit.qml` the permission prompt; `Lock.qml` the lock screen (password or fingerprint, PAM files in `pam/`), which locks again if the shell restarts while locked; `Wallpaper.qml` the wallpaper, the login screen's image. `Theme.qml` holds colours, fonts and sizes. From scripts: `qs ipc call osd pop <icon> <percent> <text>`, `qs ipc call lock lock`, `qs ipc call menu open\|power`. |
 | `.config/systemd/user/shell.service` | Runs the shell in the graphical session and restarts it if it fails. |
 | `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
 | `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
 | `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vim` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
-| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
+| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
 | `.config/hypr/inputs.lua` | US layout, Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling, key repeat. |
 | `.config/hypr/look.lua` | Gaps, rounding, shadows, animations; no window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen. |
@@ -102,7 +97,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 | File under `home/` | What |
 |---|---|
-| `.inputrc`, `system/etc/modprobe.d/expertbook-no-beep.conf` | No bell from the shell and no PC speaker. With desktop event sounds off (`gsettings set org.gnome.desktop.sound event-sounds false`, `org.gnome.desktop.wm.preferences audible-bell false`), `[bell] system=no` in `foot.ini` and `voxtype config set audio.feedback.enabled false`, the system itself makes no alert sounds; apps keep their own settings. |
+| `.inputrc`, `system/etc/modprobe.d/expertbook-no-beep.conf` | No bell from the shell and no PC speaker. With desktop event sounds off (`gsettings set org.gnome.desktop.sound event-sounds false`, `org.gnome.desktop.wm.preferences audible-bell false`) and `[bell] system=no` in `foot.ini`, the system itself makes no alert sounds; apps keep their own settings. |
 | `.config/uwsm/env` | Session environment: `~/.local/bin` on `PATH` (Claude Code lives there, from Anthropic's installer, and updates itself), `vim`, `foot`. |
 
 ## Hardware
@@ -149,7 +144,7 @@ Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Oma
 
 ## Packages added to Omarchy
 
-`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM).
 
 Removed from Omarchy: `herdr`, the titlebar plugin, the input-method framework (`fcitx5`), the video wallpaper engine (`owe`), Omarchy's Neovim setup and Neovim, Docker, printing, Moonlight, the capture tools (screen recorder, colour picker, OCR, QR), the virtual-webcam module, and the command-line extras its shell setup used (`eza`, `bat`, `zoxide`, `fzf`, `starship`, `tmux`, `lazygit`, `tldr`, `yt-dlp`, `fastfetch`). `SUPER + CTRL + RETURN` no longer does anything.
 

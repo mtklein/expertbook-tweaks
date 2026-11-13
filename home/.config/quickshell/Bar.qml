@@ -25,10 +25,6 @@ Variants {
       screen: bar.modelData
     }
 
-    Dictation {
-      anchors.horizontalCenter: parent.horizontalCenter
-    }
-
     Row {
       anchors.right: parent.right
       anchors.rightMargin: 12
