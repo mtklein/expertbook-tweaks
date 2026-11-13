@@ -14,7 +14,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-The `omarchy` package (its commands, shell and themes) is removed and nothing here calls it. Still Omarchy's: `omarchy-settings` (system configuration, including the boot image and boot menu setup and the login session entry), the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, and the packages its repository supplies (Quickshell among them).
+The `omarchy` and `omarchy-settings` packages are removed and nothing here calls them. Still Omarchy's: the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, the packages its repository supplies (Quickshell among them), and the name in `/etc/os-release` and the boot menu.
 
 ## Display
 
@@ -79,6 +79,32 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 
+## System settings
+
+Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE.omarchy`).
+
+| File under `system/` | What |
+|---|---|
+| `etc/mkinitcpio.conf.d/expertbook.conf` | Boot image hooks: splash, disk unlock, snapshot boot; Thunderbolt early. |
+| `etc/limine-entry-tool.d/expertbook.conf` | Boot menu: one unified kernel image, quiet boot, six snapshot entries. Rebuild with `limine-mkinitcpio`. |
+| `etc/plymouth/plymouthd.conf` | The stock `spinner` boot splash, which also asks for the disk password. |
+| `usr/local/share/wayland-sessions/hyprland.desktop`, `etc/sddm.conf.d/zz-expertbook.conf` | The login session (Hyprland under uwsm) and the login screen running on Wayland. |
+| `etc/systemd/logind.conf.d/expertbook.conf` | The power key is left to the shell's power menu; 15 s for the lock to draw before sleep. |
+| `etc/systemd/system.conf.d/`, `user.conf.d/`, `system/user@.service.d/` | 5 s stop timeouts; high open-file limits (games). |
+| `etc/systemd/oomd.conf.d/`, `etc/systemd/user/app.slice.d/` | Apps under sustained memory pressure are killed. |
+| `etc/systemd/user/wayland-wm@hyprland.desktop.service.d/` | Logging out stops the compositor first and the rest after. |
+| `etc/systemd/user/bt-agent.service` | Pairing agent the Bluetooth panel relies on. |
+| `etc/systemd/zram-generator.conf.d/`, `etc/sysctl.d/90-expertbook.conf`, `etc/udev/rules.d/60-expertbook-io-scheduler.rules` | Compressed RAM swap the size of RAM with matching memory tuning; BBR; more file watchers; the kyber disk scheduler. |
+| `usr/lib/systemd/system-sleep/unmount-fuse` | Unmounts GVFS mounts before sleep and restarts GVFS after. |
+| `etc/systemd/resolved.conf.d/`, `etc/NetworkManager/conf.d/expertbook-wifi-powersave.conf`, `etc/modprobe.d/expertbook-usb-autosuspend.conf` | mDNS left to Avahi; Wi-Fi power save off; USB autosuspend off. |
+| `etc/systemd/system/*pcr*`, `*tpm2*`, `*binfmt*`, `plocate-updatedb.service.d/` | Boot services that would report failure on this machine; file index only on mains and skipping snapshots. |
+| `etc/xdg/mimeapps.list`, `etc/gnupg/dirmngr.conf` | Default apps for folders, images and PDFs; key servers. |
+
+| File under `home/` | What |
+|---|---|
+| `.config/uwsm/env` | Session environment: mise's tools and `~/.local/bin` on `PATH`, `vi`, `foot`. |
+| `.config/mise/config.toml` | The tools mise installs: `claude` (updates itself every 4 h) and `gh`. |
+
 ## Hardware
 
 | File | What |
@@ -117,7 +143,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 ## Omarchy is frozen
 
-Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = omarchy-settings quickshell` in `/etc/pacman.conf`. Update with `sudo pacman -Syu`.
+Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = quickshell` in `/etc/pacman.conf`. Update with `sudo pacman -Syu`.
 
 ## Packages added to Omarchy
 
@@ -127,4 +153,4 @@ Removed from Omarchy: `herdr`, the titlebar plugin, the input-method framework (
 
 ## License
 
-MIT; see `LICENSE`.
+MIT; see `LICENSE`. Files adopted from Omarchy are Copyright (c) David Heinemeier Hansson, MIT; see `LICENSE.omarchy`.

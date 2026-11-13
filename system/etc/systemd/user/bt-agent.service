@@ -1,0 +1,16 @@
+[Unit]
+Description=Bluetooth pairing agent (auto-accept)
+Documentation=man:bt-agent(1)
+ConditionPathIsDirectory=/sys/class/bluetooth
+After=dbus.socket
+Requires=dbus.socket
+
+[Service]
+Type=simple
+ExecCondition=/usr/bin/systemctl is-active --quiet bluetooth.service
+ExecStart=/usr/bin/bt-agent -c NoInputNoOutput
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

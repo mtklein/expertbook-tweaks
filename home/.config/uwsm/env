@@ -1,0 +1,3 @@
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+export EDITOR=vi
+export TERMINAL=foot

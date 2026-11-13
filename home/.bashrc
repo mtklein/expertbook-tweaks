@@ -1,12 +1,11 @@
-wrappers="$HOME/.local/share/mise/command-wrappers/bin"
 PATH=":$PATH:"
-for dir in "$wrappers" "$HOME/.local/share/mise/shims" "$HOME/.local/bin"; do
+for dir in "$HOME/.local/share/mise/shims" "$HOME/.local/bin"; do
   PATH=${PATH//:$dir:/:}
 done
 PATH=${PATH#:}
 PATH=${PATH%:}
-export PATH="$wrappers:$PATH:$HOME/.local/share/mise/shims:$HOME/.local/bin"
-unset wrappers dir
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+unset dir
 
 export EDITOR=vi
 export SUDO_EDITOR=vi
