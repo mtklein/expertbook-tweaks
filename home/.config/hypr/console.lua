@@ -137,19 +137,41 @@ hl.on("window.open", function(window)
   hl.dispatch(hl.dsp.focus({ window = target }))
 end)
 
+local function console_window()
+  for _, window in ipairs(hl.get_workspace_windows(SPECIAL)) do
+    if CONSOLE_APPS[window.class] then return "address:" .. window.address end
+  end
+end
+
+local function voice_key(target)
+  hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target }))
+end
+
 function console_dictate()
   local ws = hl.get_workspace(SPECIAL)
   if not (ws and ws.visible) then
     hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
   end
-  if not ws then return end
-  local target
-  for _, window in ipairs(hl.get_workspace_windows(SPECIAL)) do
-    if CONSOLE_APPS[window.class] then target = "address:" .. window.address end
-  end
-  if not target then return end
+  local target = ws and console_window()
+  if not target then return false end
   hl.timer(function()
     hl.dispatch(hl.dsp.focus({ window = target }))
-    hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target }))
+    voice_key(target)
   end, { timeout = 60, type = "oneshot" })
+  return true
 end
+
+local RIGHT_ALT = 108
+local talking = false
+
+hl.on("input.keyboard.key", function(code, _, state)
+  if code ~= RIGHT_ALT then return end
+  if state == 1 and not talking then
+    talking = console_dictate()
+  elseif state == 0 and talking then
+    talking = false
+    local target = console_window()
+    if not target then return end
+    hl.timer(function() voice_key(target) end, { timeout = 150, type = "oneshot" })
+  end
+end)
