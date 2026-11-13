@@ -31,6 +31,7 @@ Variants {
       anchors.rightMargin: 12
       height: Theme.barHeight
       spacing: 4
+      Tray {}
       Weather {}
       Battery {}
       Item { width: 6; height: 1 }
