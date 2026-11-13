@@ -1,0 +1,10 @@
+[Unit]
+Description=Keep panel self-refresh off until the desktop has settled
+After=sys-kernel-debug.mount
+Requires=sys-kernel-debug.mount
+
+[Service]
+ExecStart=/bin/bash /usr/local/share/expertbook-tweaks/psr-after-desktop
+
+[Install]
+WantedBy=basic.target

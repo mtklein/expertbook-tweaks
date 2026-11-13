@@ -1,0 +1,16 @@
+#!/bin/bash
+psr=/sys/kernel/debug/dri/0000:00:02.0/i915_edp_psr_debug
+echo 1 >"$psr"
+desktop_up() {
+  local pid
+  for pid in $(pgrep -x Hyprland); do
+    (( $(stat -c %u "/proc/$pid" 2>/dev/null || echo 0) >= 1000 )) && return 0
+  done
+  return 1
+}
+for (( waited = 0; waited < 120; waited++ )); do
+  desktop_up && break
+  sleep 1
+done
+sleep 10
+echo 0 >"$psr"

@@ -21,38 +21,10 @@ Variants {
 
     Image {
       anchors.fill: parent
-      visible: settled.left === 0
       source: Theme.wallpaper
       fillMode: Image.PreserveAspectCrop
       sourceSize.width: parent.width * 2
       sourceSize.height: parent.height * 2
-    }
-
-    Rectangle {
-      id: nudge
-      width: 1
-      height: 1
-      color: "#000000"
-    }
-
-    Timer {
-      id: settled
-      property int left: 3
-      interval: 400
-      running: left > 0
-      repeat: true
-      onTriggered: left -= 1
-    }
-
-    Timer {
-      property int left: 14
-      interval: left > 1 ? 400 : 2500
-      running: left > 0
-      repeat: true
-      onTriggered: {
-        left -= 1
-        nudge.color = left % 2 ? "#000001" : "#000000"
-      }
     }
   }
 }

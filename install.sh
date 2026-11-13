@@ -56,7 +56,7 @@ if [[ ${1:-} == --system ]]; then
     done
     udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
-    systemctl enable rapl-sync.service lightbar-off.service
+    systemctl enable rapl-sync.service lightbar-off.service psr-after-desktop.service
     systemctl restart rapl-sync.service
   ' _ "$R"
 fi
