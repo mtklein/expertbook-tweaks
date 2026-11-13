@@ -1,6 +1,0 @@
-[settings]
-upgrade.auto_prune = false
-
-[tools]
-claude = { version = "latest", auto_update = "4h", minimum_release_age = "0s" }
-gh = { version = "latest", minimum_release_age = "0s" }

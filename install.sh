@@ -52,8 +52,12 @@ if [[ ${1:-} == --system ]]; then
     chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
-    grep -q "^IgnorePkg = quickshell$" /etc/pacman.conf ||
-      sed -i -e "/^IgnorePkg/d" -e "/^HoldPkg/a IgnorePkg = quickshell" /etc/pacman.conf
+    sed -i "/^IgnorePkg/d" /etc/pacman.conf
+    if [[ $(grep "^\[" /etc/pacman.conf | tail -1) != "[omarchy]" ]] && grep -q "^\[omarchy\]$" /etc/pacman.conf; then
+      server=$(sed -n "/^\[omarchy\]$/,/^\[/{/^Server/p}" /etc/pacman.conf)
+      sed -i "/^\[omarchy\]$/,/^\[/{/^\[omarchy\]$/d;/^Server/d}" /etc/pacman.conf
+      printf "\n[omarchy]\n%s\n" "$server" >>/etc/pacman.conf
+    fi
     for f in sudo polkit-1; do
       sed -i "s|pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed|pam_exec.so quiet /bin/sh /usr/local/share/expertbook-tweaks/lid-closed|" /etc/pam.d/$f
     done

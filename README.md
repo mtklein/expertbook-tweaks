@@ -14,7 +14,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-The `omarchy` and `omarchy-settings` packages are removed and nothing here calls them. Still Omarchy's: the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, the packages its repository supplies (Quickshell among them), and the name in `/etc/os-release` and the boot menu.
+The `omarchy` and `omarchy-settings` packages are removed and nothing here calls them. Still Omarchy's: the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, the packages only its repository supplies (Voxtype, the fingerprint library, `tzupdate`), and the name in `/etc/os-release` and the boot menu.
 
 ## Display
 
@@ -64,7 +64,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/systemd/user/shell.service` | Runs the shell in the graphical session and restarts it if it fails. |
 | `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
 | `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
-| `.bashrc` | A plain shell: mise's tools on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
+| `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
 | `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
@@ -102,8 +102,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 | File under `home/` | What |
 |---|---|
-| `.config/uwsm/env` | Session environment: mise's tools and `~/.local/bin` on `PATH`, `vi`, `foot`. |
-| `.config/mise/config.toml` | The tools mise installs: `claude` (updates itself every 4 h) and `gh`. |
+| `.config/uwsm/env` | Session environment: `~/.local/bin` on `PATH` (Claude Code lives there, from Anthropic's installer, and updates itself), `vi`, `foot`. |
 
 ## Hardware
 
@@ -143,7 +142,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 ## Omarchy is frozen
 
-Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = quickshell` in `/etc/pacman.conf`. Update with `sudo pacman -Syu`.
+Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` lists Omarchy's repository last in `/etc/pacman.conf`, so anything Arch also packages (Quickshell) comes from Arch. Update with `sudo pacman -Syu`.
 
 ## Packages added to Omarchy
 
