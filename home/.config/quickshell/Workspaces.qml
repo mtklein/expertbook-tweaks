@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 
 Row {
   id: root
@@ -34,8 +33,6 @@ Row {
     }
   }
 
-  Process { id: focus }
-
   Repeater {
     model: root.ids
     Item {
@@ -46,13 +43,6 @@ Row {
         anchors.centerIn: parent
         text: String(parent.modelData)
         opacity: parent.modelData === root.activeId ? 1 : 0.5
-      }
-      MouseArea {
-        anchors.fill: parent
-        onClicked: {
-          focus.command = ["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + parent.modelData + "\" })"]
-          focus.running = true
-        }
       }
     }
   }
