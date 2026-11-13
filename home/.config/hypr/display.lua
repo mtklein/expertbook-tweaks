@@ -1,6 +1,6 @@
 local home = os.getenv("HOME") or ""
 local state = home .. "/.local/state/"
-local SCALES = { 1.5, 1.6, 1.8, 2 }
+local SCALES = { 1.5, 1.8, 2 }
 
 local function read_number(path, fallback)
   local f = io.open(path)
@@ -19,7 +19,7 @@ hl.env("GDK_SCALE", "2")
 hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 2 })
 
-local edp_scale = read_number(state .. "edp-scale", 1.6)
+local edp_scale = read_number(state .. "edp-scale", 1.8)
 
 edp_sdr_white = 600
 edp_brightness_gamma = 2.2

@@ -21,7 +21,7 @@ Omarchy commands the Hyprland config still calls: `omarchy-launch-shell`, `omarc
 
 | File | What |
 |---|---|
-| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.6, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). |
+| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). |
 | `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. |
 | `.local/bin/hdr-brightness` | Brightness keys and the Display panel. Asks `ambient-display`; sets the level itself if the daemon is down; hands other monitors to `omarchy-brightness-display`. |
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
