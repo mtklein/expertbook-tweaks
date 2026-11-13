@@ -64,7 +64,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/systemd/user/shell.service` | Runs the shell in the graphical session and restarts it if it fails. |
 | `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
 | `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
-| `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
+| `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vim` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
 | `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
@@ -102,7 +102,8 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 | File under `home/` | What |
 |---|---|
-| `.config/uwsm/env` | Session environment: `~/.local/bin` on `PATH` (Claude Code lives there, from Anthropic's installer, and updates itself), `vi`, `foot`. |
+| `.inputrc`, `system/etc/modprobe.d/expertbook-no-beep.conf` | No bell from the shell and no PC speaker. With desktop event sounds off (`gsettings set org.gnome.desktop.sound event-sounds false`, `org.gnome.desktop.wm.preferences audible-bell false`), `[bell] system=no` in `foot.ini` and `voxtype config set audio.feedback.enabled false`, nothing on the machine makes an alert sound. |
+| `.config/uwsm/env` | Session environment: `~/.local/bin` on `PATH` (Claude Code lives there, from Anthropic's installer, and updates itself), `vim`, `foot`. |
 
 ## Hardware
 

@@ -1,7 +1,7 @@
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
 
-export EDITOR=vi
-export SUDO_EDITOR=vi
+export EDITOR=vim
+export SUDO_EDITOR=vim
 
 [[ $- != *i* ]] && return
 
