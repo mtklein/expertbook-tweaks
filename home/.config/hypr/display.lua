@@ -53,13 +53,11 @@ function edp_cycle_scale()
   end
   edp_scale = following
   write_number(state .. "edp-scale", edp_scale)
-  write_number("/var/lib/expertbook-tweaks/greeter-scale", edp_scale)
   edp_hdr_level(saved_level())
 end
 
 write_number(state .. "hdr-sdr-white", edp_sdr_white)
 write_number(state .. "hdr-brightness-gamma", edp_brightness_gamma)
-write_number("/var/lib/expertbook-tweaks/greeter-scale", edp_scale)
 edp_hdr_level(saved_level())
 
 dofile(home .. "/.config/hypr/tv-mode.lua")

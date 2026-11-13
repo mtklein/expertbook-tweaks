@@ -29,11 +29,11 @@ systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
-  login_background="$R/system/usr/share/sddm/themes/tiger/background.jpg"
-  if [[ ! -f $login_background ]]; then
+  wallpaper="$R/system/usr/local/share/expertbook-tweaks/wallpaper.jpg"
+  if [[ ! -f $wallpaper ]]; then
     original=$(mktemp --suffix=.jpg)
     curl -fsSL -o "$original" https://media.512pixels.net/downloads/macos-wallpapers-6k/10-4-6k.jpg &&
-      magick "$original" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$login_background"
+      magick "$original" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$wallpaper"
     rm -f "$original"
   fi
   pkexec bash -c '

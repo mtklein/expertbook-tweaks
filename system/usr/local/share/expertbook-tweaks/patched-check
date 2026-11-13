@@ -1,5 +1,5 @@
 #!/bin/sh
-for package in hyprland sddm; do
+for package in hyprland; do
   version=$(pacman -Q "$package" | cut -d" " -f2)
   case $version in
     *.1) ;;

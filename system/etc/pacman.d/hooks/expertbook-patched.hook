@@ -3,9 +3,8 @@ Operation = Install
 Operation = Upgrade
 Type = Package
 Target = hyprland
-Target = sddm
 
 [Action]
-Description = Checking that Hyprland and SDDM are still our patched builds...
+Description = Checking that Hyprland is still our patched build...
 When = PostTransaction
 Exec = /bin/sh /usr/local/share/expertbook-tweaks/patched-check

@@ -1,8 +1,0 @@
-[SddmGreeterTheme]
-Name=Tiger
-Description=Login window that looks like the Omarchy lock screen
-Type=sddm-theme
-Version=1.0
-QtVersion=6
-MainScript=Main.qml
-ConfigFile=theme.conf

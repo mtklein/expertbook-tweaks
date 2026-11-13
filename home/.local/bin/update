@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 repo=$HOME/expertbook-tweaks
-watched=(linux hyprland sddm quickshell limine)
+watched=(linux hyprland quickshell limine)
 attention=()
 
 [[ $EUID -ne 0 ]] || { echo "run update as yourself, not root" >&2; exit 1; }
@@ -21,9 +21,7 @@ report() {
 }
 
 check_state() {
-  for package in hyprland sddm; do
-    patched "$package" || note "$package is the stock build; our patches are missing"
-  done
+  patched hyprland || note "hyprland is the stock build; our patches are missing"
   local leftover
   leftover=$(find /etc -name '*.pacnew' 2>/dev/null)
   [[ -z $leftover ]] || note "config files waiting for a merge: $(tr '\n' ' ' <<<"$leftover")"
@@ -67,9 +65,7 @@ fi
 after=$(versions)
 changed=$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | cut -d' ' -f1)
 
-for package in hyprland sddm; do
-  patched "$package" || rebuild "$package"
-done
+patched hyprland || rebuild hyprland
 
 if grep -qx hyprland <<<"$changed"; then
   say "Checking the Hyprland config against the new build"
@@ -85,7 +81,6 @@ if grep -qx quickshell <<<"$changed"; then
   systemctl --user is-active --quiet shell.service || note "the shell did not start on the new Quickshell: journalctl --user -u shell"
 fi
 
-grep -qx sddm <<<"$changed" && note "the login screen changed: it takes effect at the next boot"
 grep -qx limine <<<"$changed" && note "the bootloader changed: it takes effect at the next boot"
 
 check_state

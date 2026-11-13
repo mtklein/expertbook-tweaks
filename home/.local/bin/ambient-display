@@ -16,7 +16,6 @@ STATE = STATE_DIR / "ambient-display.json"
 WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from display.lua
 GAMMA = STATE_DIR / "hdr-brightness-gamma"     # the level curve's exponent, from display.lua
 LEVEL = STATE_DIR / "hdr-brightness"           # "<level 0..1>\n" plus "user <epoch>\n" while a person's choice holds it
-GREETER_NITS = Path("/var/lib/expertbook-tweaks/greeter-nits")   # the login screen shows white at this
 SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display.sock"
 MONITOR = "eDP-1"
 
@@ -673,11 +672,6 @@ class Brightness:
             self.saved_at = time.monotonic()
         except OSError:
             pass
-        if self.white:
-            try:
-                GREETER_NITS.write_text(f"{self.nits_at(self.last_set):.1f}\n")
-            except OSError:
-                pass
 
     def set_level(self, pct, save=True):
         self.last_set = pct
