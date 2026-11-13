@@ -42,7 +42,7 @@ if [[ ${1:-} == --system ]]; then
     find . -type f | while read -r f; do
       install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
     done
-    chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse /usr/lib/systemd/system-sleep/mute-leds
+    chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse /usr/lib/systemd/system-sleep/firmware-state
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
     sed -i "/^IgnorePkg/d" /etc/pacman.conf

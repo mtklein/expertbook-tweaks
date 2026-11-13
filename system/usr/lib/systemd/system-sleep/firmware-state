@@ -7,3 +7,5 @@ for led in /sys/class/leds/platform::mute /sys/class/leds/platform::micmute; do
   echo none >"$led/trigger"
   echo "$trigger" >"$led/trigger"
 done
+/bin/sh /usr/local/share/expertbook-tweaks/lightbar-off
+/bin/sh /usr/local/share/expertbook-tweaks/fn-keys-on
