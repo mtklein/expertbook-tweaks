@@ -9,9 +9,10 @@ PanelWindow {
   id: root
   property bool open: false
   readonly property var power: [
-    { name: "Log Out", glyph: "󰍃", command: ["uwsm", "stop"] },
-    { name: "Restart", glyph: "󰜉", command: ["systemctl", "reboot"] },
-    { name: "Shut Down", glyph: "󰐥", command: ["systemctl", "poweroff"] }
+    { name: "Sleep", words: "sleep suspend", glyph: "󰒲", command: ["systemctl", "suspend"] },
+    { name: "Log Out", words: "log out logout", glyph: "󰍃", command: ["uwsm", "stop"] },
+    { name: "Restart", words: "restart reboot", glyph: "󰜉", command: ["systemctl", "reboot"] },
+    { name: "Shut Down", words: "shut down shutdown power off poweroff", glyph: "󰐥", command: ["systemctl", "poweroff"] }
   ]
   readonly property var entries: {
     var needle = filter.text.trim().toLowerCase()
@@ -27,7 +28,7 @@ PanelWindow {
     }
     apps.sort(function(a, b) { return a.rank - b.rank || a.name.localeCompare(b.name) })
     for (var j = 0; j < power.length; j++) {
-      if (needle === "" || power[j].name.toLowerCase().indexOf(needle) >= 0) apps.push(power[j])
+      if (needle === "" || power[j].words.indexOf(needle) >= 0) apps.push(power[j])
     }
     return apps
   }
