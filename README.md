@@ -14,7 +14,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: Voxtype, the fingerprint library, `tzupdate`, the boot-menu tools, the icon theme.
+No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: Voxtype, the fingerprint library, `tzupdate`, the boot-menu tools. The icon theme is Arch's Adwaita (`gsettings set org.gnome.desktop.interface icon-theme Adwaita`).
 
 ## Display
 
