@@ -1,0 +1,92 @@
+#!/bin/bash
+set -uo pipefail
+repo=$HOME/expertbook-tweaks
+watched=(linux hyprland sddm quickshell limine)
+attention=()
+
+[[ $EUID -ne 0 ]] || { echo "run update as yourself, not root" >&2; exit 1; }
+
+say() { printf '\n== %s\n' "$*"; }
+note() { attention+=("$*"); }
+versions() { pacman -Q "${watched[@]}" 2>/dev/null; }
+patched() { [[ $(pacman -Q "$1" | cut -d' ' -f2) == *.1 ]]; }
+
+report() {
+  say "Summary"
+  if (( ${#attention[@]} )); then
+    printf '  ATTENTION: %s\n' "${attention[@]}"
+  else
+    echo "  Nothing needs attention."
+  fi
+}
+
+check_state() {
+  for package in hyprland sddm; do
+    patched "$package" || note "$package is the stock build; our patches are missing"
+  done
+  local leftover
+  leftover=$(find /etc -name '*.pacnew' 2>/dev/null)
+  [[ -z $leftover ]] || note "config files waiting for a merge: $(tr '\n' ' ' <<<"$leftover")"
+  local installed running
+  installed=$(pacman -Q linux | cut -d' ' -f2)
+  running=$(uname -r)
+  [[ ${installed//[.-]/} == "${running//[.-]/}" ]] || note "the running kernel is $running, the installed one is $installed: reboot"
+}
+
+rebuild() {
+  local package=$1 built
+  say "Rebuilding $package with our patches"
+  if built=$("$repo/$package-patched/build.sh" | tail -1) && [[ -f $built ]]; then
+    sudo pacman -U --noconfirm "$built" || note "$package was rebuilt but did not install: $built"
+  else
+    note "$package did not rebuild; the stock build stays in place. Ask Claude to re-fit $repo/$package-patched"
+  fi
+}
+
+say "Pending updates"
+pending=$(checkupdates)
+if [[ -z $pending ]]; then
+  echo "  none"
+else
+  echo "$pending" | sed 's/^/  /'
+fi
+
+if [[ ${1:-} == --check ]]; then
+  check_state
+  report
+  exit 0
+fi
+
+before=$(versions)
+if [[ -n $pending ]]; then
+  say "Snapshot"
+  sudo snapper -c root create -d "before update $(date +%F)"
+  say "Updating"
+  sudo pacman -Syu || note "pacman did not finish; see its output above"
+fi
+after=$(versions)
+changed=$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | cut -d' ' -f1)
+
+for package in hyprland sddm; do
+  patched "$package" || rebuild "$package"
+done
+
+if grep -qx hyprland <<<"$changed"; then
+  say "Checking the Hyprland config against the new build"
+  Hyprland --verify-config -c "$HOME/.config/hypr/hyprland.lua" 2>&1 | grep -q 'config ok' ||
+    note "the Hyprland config has errors with the new build; run: Hyprland --verify-config -c ~/.config/hypr/hyprland.lua"
+  note "Hyprland changed: log out and back in to run it"
+fi
+
+if grep -qx quickshell <<<"$changed"; then
+  say "Restarting the shell on the new Quickshell"
+  systemctl --user restart shell.service
+  sleep 3
+  systemctl --user is-active --quiet shell.service || note "the shell did not start on the new Quickshell: journalctl --user -u shell"
+fi
+
+grep -qx sddm <<<"$changed" && note "the login screen changed: it takes effect at the next boot"
+grep -qx limine <<<"$changed" && note "the bootloader changed: it takes effect at the next boot"
+
+check_state
+report

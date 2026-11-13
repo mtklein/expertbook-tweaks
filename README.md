@@ -81,6 +81,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 |---|---|
 | `etc/mkinitcpio.conf.d/expertbook.conf` | Boot image hooks: splash, disk unlock, snapshot boot, resume from hibernation; Thunderbolt early. |
 | `etc/limine-entry-tool.d/expertbook.conf` | Boot menu: one unified kernel image, quiet boot, six snapshot entries. Rebuild with `limine-mkinitcpio`. |
+| `home/.local/bin/update` | The way to update: lists what is pending, takes a snapshot, runs `pacman -Syu`, rebuilds and reinstalls Hyprland or SDDM with our patches if the update replaced them, checks the Hyprland config against a new Hyprland, restarts the shell on a new Quickshell, and ends with a summary of anything needing attention (failed rebuild, config files to merge, reboot or re-login). `update --check` only reports. |
 | `etc/pacman.d/hooks/expertbook-patched.hook`, `usr/local/share/expertbook-tweaks/patched-check` | After any update that installs Hyprland or SDDM, says in pacman's output if either is now the stock build (ours end in `.1`) and which build script to run. |
 | `etc/pacman.d/hooks/expertbook-limine-deploy.hook` | Copies a new Limine bootloader to the boot partition when the `limine` package updates. |
 | `etc/plymouth/plymouthd.conf` | The stock `spinner` boot splash, which also asks for the disk password. |
@@ -140,7 +141,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 ## Omarchy is frozen
 
-Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` lists Omarchy's repository last in `/etc/pacman.conf`, so anything Arch also packages (Quickshell) comes from Arch. Update with `sudo pacman -Syu`.
+Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` lists Omarchy's repository last in `/etc/pacman.conf`, so anything Arch also packages (Quickshell) comes from Arch. Update with `update`.
 
 ## Packages added to Omarchy
 
