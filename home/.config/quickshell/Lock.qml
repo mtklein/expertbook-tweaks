@@ -14,6 +14,7 @@ Scope {
   property int quickFailures: 0
   property double fingerStarted: 0
   property string pending: ""
+  property bool dark: false
 
   readonly property string flag: Quickshell.env("XDG_RUNTIME_DIR") + "/shell-locked"
 
@@ -28,6 +29,7 @@ Scope {
   }
 
   function unlock() {
+    dark = false
     Quickshell.execDetached(["rm", "-f", flag])
     session.locked = false
     checking = false
@@ -79,6 +81,11 @@ Scope {
   IpcHandler {
     target: "lock"
     function lock(): void { root.lock() }
+    function blank(): void {
+      root.dark = true
+      root.lock()
+    }
+    function reveal(): void { root.dark = false }
     function locked(): bool { return session.locked && session.secure }
   }
 
@@ -198,6 +205,7 @@ Scope {
             root.submit(typed)
           }
           Keys.onPressed: function(event) {
+            root.dark = false
             root.nudge()
             if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
               text = ""
@@ -232,6 +240,18 @@ Scope {
           Behavior on opacity { NumberAnimation { duration: 120 } }
           font.family: Theme.iconFont
           font.pixelSize: 20
+        }
+      }
+
+      Rectangle {
+        anchors.fill: parent
+        visible: root.dark
+        color: "#000000"
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.BlankCursor
+          onPressed: root.dark = false
         }
       }
     }

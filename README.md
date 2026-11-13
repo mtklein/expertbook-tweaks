@@ -25,7 +25,7 @@ No Omarchy package is left except `omarchy-keyring`, which goes with its reposit
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
 | `.local/bin/white-point-ctm` | Holds Hyprland's colour matrix; run by `ambient-display`. |
 | `.local/bin/brightness-why` | Explains the current brightness and the evidence behind it. |
-| `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. Locks before every suspend and holds the suspend until the lock is drawn. |
+| `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. Locks before every suspend with the lock screen drawn black (`qs ipc call lock blank`), holds the suspend until the lock is up, and shows the password box on wake (`lock reveal`, or any key or click). |
 | `.config/fontconfig/conf.d/60-grayscale-antialias.conf` | Greyscale text antialiasing. |
 
 State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level, plus `user <epoch>` while a manual choice holds it), `hdr-sdr-white` and `hdr-brightness-gamma` (written by `display.lua`). Status: `$XDG_RUNTIME_DIR/ambient-display-status.json`.
