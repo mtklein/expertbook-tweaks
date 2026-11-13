@@ -75,7 +75,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | `etc/pacman.d/hooks/expertbook-patched.hook`, `usr/local/share/expertbook-tweaks/patched-check` | After any update that installs Hyprland, says in pacman's output if it is now the stock build (ours ends in `.1`) and which build script to run. |
 | `etc/pacman.d/hooks/expertbook-limine-deploy.hook` | Copies a new Limine bootloader to the boot partition when the `limine` package updates. |
 | `etc/plymouth/plymouthd.conf`, `usr/share/plymouth/themes/expertbook/` | The boot screen: black, with a dark box and one dot per character while the disk password is being typed. No logo, spinner or text. Rebuild the boot image after changing it (`limine-mkinitcpio`). |
-| `etc/systemd/logind.conf.d/expertbook.conf` | The power key suspends, which locks first, the same as closing the lid; the firmware ignores taps shorter than about a second; 15 s for the lock to draw before sleep. |
+| `etc/systemd/logind.conf.d/expertbook.conf` | The power key and the lid suspend, locking first, and hibernate from sleep if the battery falls to about 5% (`suspend-then-hibernate`; the idle timer and the menu's Sleep do the same; the image goes to `/swap/swapfile`); the firmware ignores taps shorter than about a second; 15 s for the lock to draw before sleep. |
 | `etc/systemd/system.conf.d/`, `user.conf.d/`, `system/user@.service.d/` | 5 s stop timeouts; high open-file limits (games). |
 | `etc/systemd/oomd.conf.d/`, `etc/systemd/user/app.slice.d/` | Apps under sustained memory pressure are killed. |
 | `etc/systemd/user/wayland-wm@hyprland.desktop.service.d/` | Logging out stops the compositor first and the rest after. |
