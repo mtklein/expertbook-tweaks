@@ -28,6 +28,7 @@ o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu"))
 
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
 o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+o.bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
 o.bind("SUPER + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 
 for workspace = 1, 3 do

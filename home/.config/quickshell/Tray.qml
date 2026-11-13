@@ -54,7 +54,10 @@ Item {
         }
       }
       BluetoothIcon {}
-      StayAwake {}
+    }
+
+    StayAwake {
+      visible: root.revealed || on
     }
   }
 }
