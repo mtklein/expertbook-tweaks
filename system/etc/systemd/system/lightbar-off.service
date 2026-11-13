@@ -1,0 +1,11 @@
+[Unit]
+Description=Turn off the light bar's firmware effects
+After=sys-kernel-debug.mount systemd-modules-load.service
+Requires=sys-kernel-debug.mount
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/local/share/expertbook-tweaks/lightbar-off
+
+[Install]
+WantedBy=basic.target
