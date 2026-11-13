@@ -1,5 +1,5 @@
 [Unit]
-Description=Keep panel self-refresh off until the desktop has settled
+Description=Turn panel self-refresh on once the desktop has set its colour mode
 After=sys-kernel-debug.mount
 Requires=sys-kernel-debug.mount
 
