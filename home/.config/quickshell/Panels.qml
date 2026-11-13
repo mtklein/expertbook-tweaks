@@ -5,19 +5,13 @@ import Quickshell
 Singleton {
   property string open: ""
   property var owner: null
-  property string closed: ""
-  property double closedAt: 0
 
-  function close() {
-    closed = open
-    closedAt = Date.now()
-    open = ""
-  }
+  function close() { open = "" }
 
   function toggle(name, item) {
     if (open === name && owner === item) {
-      close()
-    } else if (!(closed === name && owner === item && Date.now() - closedAt < 250)) {
+      open = ""
+    } else {
       owner = item
       open = name
     }

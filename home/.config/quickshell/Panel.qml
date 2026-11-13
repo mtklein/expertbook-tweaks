@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 
 PanelWindow {
@@ -11,42 +10,44 @@ PanelWindow {
   property int panelWidth: 280
   readonly property int gap: 8
   readonly property bool open: Panels.open === name && Panels.owner === anchorItem
-  property real offset: 0
+  property real centre: 0
 
-  function place() {
-    var bar = anchorItem.QsWindow.window
-    if (!bar) return
-    var centre = anchorItem.mapToItem(null, anchorItem.width / 2, 0).x
-    offset = Math.max(0, bar.width - centre - implicitWidth / 2)
-  }
-
-  onOpenChanged: if (open) place()
+  onOpenChanged: if (open) centre = anchorItem.mapToItem(null, anchorItem.width / 2, 0).x
 
   screen: anchorItem.QsWindow.window ? anchorItem.QsWindow.window.screen : null
   visible: open
   color: "transparent"
-  anchors.bottom: true
-  anchors.right: true
-  margins.right: offset
-  implicitWidth: panelWidth + 2 * gap
-  implicitHeight: body.implicitHeight + 2 * Theme.pad + 2 * gap
+  anchors {
+    left: true
+    right: true
+    top: true
+    bottom: true
+  }
+  exclusionMode: ExclusionMode.Ignore
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.namespace: "shell-panel"
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-  HyprlandFocusGrab {
-    active: root.open
-    windows: [root]
-    onCleared: if (root.open) Panels.close()
+  MouseArea {
+    anchors.fill: parent
+    acceptedButtons: Qt.AllButtons
+    onClicked: Panels.close()
   }
 
   Rectangle {
-    anchors.fill: parent
-    anchors.margins: root.gap
+    x: Math.max(root.gap, Math.min(root.width - width - root.gap, root.centre - width / 2))
+    y: root.height - Theme.barHeight - root.gap - height
+    width: root.panelWidth
+    height: body.implicitHeight + 2 * Theme.pad
     color: Theme.panelBackground
     border.color: Theme.panelBorder
     border.width: 1
     radius: Theme.radius
+
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.AllButtons
+    }
 
     FocusScope {
       anchors.fill: parent

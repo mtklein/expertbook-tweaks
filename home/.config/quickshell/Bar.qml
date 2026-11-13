@@ -16,6 +16,7 @@ Variants {
     }
     implicitHeight: Theme.barHeight
     WlrLayershell.namespace: "shell-bar"
+    WlrLayershell.layer: WlrLayer.Bottom
     color: Theme.barBackground
 
     Workspaces {
