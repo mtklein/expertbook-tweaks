@@ -15,11 +15,6 @@ link() {
   echo "linked $dst"
 }
 
-load_from_monitors_lua() {
-  local line="dofile(os.getenv(\"HOME\") .. \"/.config/hypr/$1\")${2:-}"
-  grep -qF "$line" ~/.config/hypr/monitors.lua || printf '\n%s\n' "$line" >>~/.config/hypr/monitors.lua
-}
-
 make -s -C "$R/ctm"
 
 find ~/.local/bin ~/.local/share ~/.config -maxdepth 5 -xtype l -lname "$R/*" -delete
@@ -29,9 +24,6 @@ for d in "${WHOLE_DIRS[@]}"; do
   skip+=(-path "./$d" -prune -o)
 done
 (cd "$R/home" && find . "${skip[@]}" -type f -print) | while read -r f; do link "${f#./}"; done
-
-load_from_monitors_lua hdr.lua "(omarchy_monitor_scale)"
-load_from_monitors_lua tv-mode.lua
 
 tiger="$R/home/.config/omarchy/themes/tiger"
 if [[ ! -f $tiger/backgrounds/1-tiger.jpg ]]; then

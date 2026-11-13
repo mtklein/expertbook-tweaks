@@ -11,7 +11,7 @@ end
 
 require("hypr.helpers")
 require("hypr.env")
-require("hypr.monitors")
+require("hypr.display")
 require("hypr.inputs")
 require("hypr.look")
 require("hypr.windows")

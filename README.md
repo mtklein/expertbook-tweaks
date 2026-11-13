@@ -15,15 +15,13 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-`~/.config/hypr/monitors.lua` stays Omarchy's file (it rewrites it with `sed -i`); `install.sh` appends two `dofile` lines to it.
-
 Omarchy commands the Hyprland config still calls: `omarchy-launch-shell`, `omarchy-agent`, `omarchy-launch-terminal`, `omarchy-launch-browser`, `omarchy-audio-input-mute`, `omarchy-brightness-keyboard`, `omarchy-system-lid-close`, `omarchy-hyprland-monitor-clamshell`, `omarchy-hyprland-monitor-watch`, `omarchy-powerprofiles-init`, and the shell's `omarchy:menu.*` and `omarchy:audio.*` shortcuts.
 
 ## Display
 
 | File | What |
 |---|---|
-| `.config/hypr/hdr.lua` | eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). |
+| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.6, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). |
 | `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. |
 | `.local/bin/hdr-brightness` | Brightness keys and the Display panel. Asks `ambient-display`; sets the level itself if the daemon is down; hands other monitors to `omarchy-brightness-display`. |
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
@@ -67,7 +65,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.bashrc` | A plain shell: mise's tools on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
-| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
+| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
 | `.config/hypr/inputs.lua` | US layout, Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling, key repeat. |
 | `.config/hypr/look.lua` | Gaps, rounding, shadows, animations; no window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen. |
