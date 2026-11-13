@@ -64,6 +64,8 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 | File | What |
 |---|---|
+| `.bashrc` | A plain shell: mise's tools on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
+| `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
 | `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
@@ -141,7 +143,7 @@ Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Oma
 
 `libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
 
-Removed from Omarchy: `herdr` (its server woke 19 times a second; `SUPER + CTRL + RETURN` no longer does anything).
+Removed from Omarchy: `herdr`, the titlebar plugin, the input-method framework (`fcitx5`), the video wallpaper engine (`owe`), Omarchy's Neovim setup and Neovim, Docker, printing, Moonlight, the capture tools (screen recorder, colour picker, OCR, QR), the virtual-webcam module, and the command-line extras its shell setup used (`eza`, `bat`, `zoxide`, `fzf`, `starship`, `tmux`, `lazygit`, `tldr`, `yt-dlp`, `fastfetch`). `SUPER + CTRL + RETURN` no longer does anything.
 
 ## License
 
