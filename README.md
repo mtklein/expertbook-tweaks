@@ -62,6 +62,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 | File | What |
 |---|---|
+| `.config/quickshell/` | Our own shell, in progress and not yet started at login: so far the bar with the workspace indicator, dictation icon, weather, battery and clock. Run it with `qs`. Omarchy's shell still draws the desktop. |
 | `.bashrc` | A plain shell: mise's tools on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
