@@ -62,4 +62,4 @@ o.bind_hold("ALT + Alt_R", "Start dictation", "voxtype record start", "Stop dict
 o.bind("switch:on:Lid Switch", nil, "omarchy-system-lid-close", { locked = true })
 o.bind("switch:off:Lid Switch", nil, "omarchy-hyprland-monitor-clamshell", { locked = true })
 
-o.bind("XF86Display", "Cycle display scale", function() edp_cycle_scale() end)
+o.bind("SUPER + P", "Cycle display scale", function() edp_cycle_scale() end)
