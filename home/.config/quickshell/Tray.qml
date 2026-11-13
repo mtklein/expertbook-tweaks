@@ -27,35 +27,34 @@ Item {
     Row {
       height: Theme.barHeight
       visible: root.revealed
-      BluetoothIcon {}
-      StayAwake {}
-    }
-
-    Repeater {
-      model: SystemTray.items
-      Item {
-        id: entry
-        required property var modelData
-        width: Theme.slot
-        height: Theme.barHeight
-        IconImage {
-          anchors.centerIn: parent
-          implicitSize: 14
-          source: entry.modelData.icon
-        }
-        MouseArea {
-          anchors.fill: parent
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton && entry.modelData.hasMenu) {
-              var point = entry.mapToItem(null, 0, 0)
-              entry.modelData.display(entry.QsWindow.window, point.x, point.y)
-            } else {
-              entry.modelData.activate()
+      Repeater {
+        model: SystemTray.items
+        Item {
+          id: entry
+          required property var modelData
+          width: Theme.slot
+          height: Theme.barHeight
+          IconImage {
+            anchors.centerIn: parent
+            implicitSize: 14
+            source: entry.modelData.icon
+          }
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: function(mouse) {
+              if (mouse.button === Qt.RightButton && entry.modelData.hasMenu) {
+                var point = entry.mapToItem(null, 0, 0)
+                entry.modelData.display(entry.QsWindow.window, point.x, point.y)
+              } else {
+                entry.modelData.activate()
+              }
             }
           }
         }
       }
+      BluetoothIcon {}
+      StayAwake {}
     }
   }
 }
