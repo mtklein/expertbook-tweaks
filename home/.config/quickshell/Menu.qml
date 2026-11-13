@@ -62,7 +62,7 @@ PanelWindow {
   anchors.top: true
   margins.top: 140
   implicitWidth: 360
-  implicitHeight: card.height
+  implicitHeight: 2 * Theme.pad + (powerOnly ? power.length : 10) * Theme.rowHeight + (powerOnly ? 0 : Theme.rowHeight + 6)
 
   onOpenChanged: if (open) filter.forceActiveFocus()
 
@@ -92,14 +92,23 @@ PanelWindow {
     function power(): void { root.show(true) }
   }
 
+  MouseArea {
+    anchors.fill: parent
+    onClicked: root.open = false
+  }
+
   Rectangle {
     id: card
     width: parent.width
     height: column.height + 2 * Theme.pad
     color: Theme.panelBackground
-    border.color: Theme.panelBorder
-    border.width: 1
     radius: Theme.radius
+    clip: true
+    Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+
+    MouseArea {
+      anchors.fill: parent
+    }
 
     Column {
       id: column
