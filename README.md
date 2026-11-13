@@ -110,6 +110,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | File | What |
 |---|---|
 | `.local/bin/sdw-clash-recover` + service | Suspends and resumes the speaker sink after a SoundWire bus clash on link 2, which otherwise leaves the woofers silent. |
+| `system/etc/modprobe.d/expertbook-fnlock.conf` | Starts each boot with Fn-lock in the other state from the driver's default (`asus_wmi fnlock_default=N`), so Fn+Esc is not needed after every boot. Rebuild the boot image after changing it (`limine-mkinitcpio`). |
 | `system/usr/local/share/expertbook-tweaks/lightbar-off`, `system/etc/systemd/system/lightbar-off.service` | Early in boot, switches off the firmware lighting effects of the light bar under the screen (ASUS WMI device 0x00050028, argument 0x80, through `asus-nb-wmi`'s debugfs). The firmware turns them back on at every power-on, so the bar still pulses until this runs. |
 | `system/usr/local/bin/rapl-sync` + service | Copies the firmware's MMIO PL1/PL2 onto the MSR limits; without it every profile sustains 15 W. |
 | `system/etc/modules-load.d/uinput.conf` | Steam Input needs `uinput` loaded to make virtual controllers. |
