@@ -27,6 +27,10 @@ o.bind("SUPER + SHIFT + RETURN", "Browser", "omarchy-launch-browser")
 o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu.root"))
 o.bind("XF86PowerOff", "Power menu", shell("menu.system"), { locked = true })
 
+o.bind("SUPER + W", "Close window", hl.dsp.window.close())
+o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
+o.bind("SUPER + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+
 for workspace = 1, 3 do
   local key = "code:" .. (workspace + 9)
   o.bind("SUPER + " .. key, "Workspace " .. workspace, hl.dsp.focus({ workspace = tostring(workspace) }))

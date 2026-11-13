@@ -65,7 +65,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | File | What |
 |---|---|
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
-| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
+| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
 | `.config/hypr/inputs.lua` | US layout, Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling, key repeat. |
 | `.config/hypr/look.lua` | Gaps, rounding, shadows, animations; no window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen. |
