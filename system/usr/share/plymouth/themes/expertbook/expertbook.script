@@ -1,0 +1,48 @@
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+box.image = Image("box.png");
+box.sprite = Sprite(box.image);
+box.x = Window.GetX() + Window.GetWidth() / 2 - box.image.GetWidth() / 2;
+box.y = Window.GetY() + Window.GetHeight() / 2 - box.image.GetHeight() / 2;
+box.sprite.SetPosition(box.x, box.y, 10);
+box.sprite.SetOpacity(0);
+
+bullet.image = Image("bullet.png");
+bullet.count = 0;
+bullet.step = bullet.image.GetWidth() + 14;
+bullet.most = Math.Int((box.image.GetWidth() - 60) / bullet.step);
+
+fun show_bullets(wanted)
+{
+  if (wanted > bullet.most) wanted = bullet.most;
+  left = box.x + box.image.GetWidth() / 2 - (wanted * bullet.step - 14) / 2;
+  top = box.y + box.image.GetHeight() / 2 - bullet.image.GetHeight() / 2;
+  for (index = 0; index < wanted; index++)
+    {
+      if (index >= bullet.count)
+        {
+          bullet.sprite[index] = Sprite(bullet.image);
+          bullet.count = index + 1;
+        }
+      bullet.sprite[index].SetPosition(left + index * bullet.step, top, 11);
+      bullet.sprite[index].SetOpacity(1);
+    }
+  for (index = wanted; index < bullet.count; index++)
+    bullet.sprite[index].SetOpacity(0);
+}
+
+fun display_password_callback(prompt, bullets)
+{
+  box.sprite.SetOpacity(1);
+  show_bullets(bullets);
+}
+
+fun display_normal_callback()
+{
+  box.sprite.SetOpacity(0);
+  show_bullets(0);
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);

@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=Password box
+Description=A black screen; a password box when the disk needs unlocking.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/expertbook
+ScriptFile=/usr/share/plymouth/themes/expertbook/expertbook.script
+ConsoleLogBackgroundColor=0x00000000

@@ -84,7 +84,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | `home/.local/bin/update` | The way to update: lists what is pending, takes a snapshot, runs `pacman -Syu`, rebuilds and reinstalls Hyprland or SDDM with our patches if the update replaced them, checks the Hyprland config against a new Hyprland, restarts the shell on a new Quickshell, and ends with a summary of anything needing attention (failed rebuild, config files to merge, reboot or re-login). `update --check` only reports. |
 | `etc/pacman.d/hooks/expertbook-patched.hook`, `usr/local/share/expertbook-tweaks/patched-check` | After any update that installs Hyprland or SDDM, says in pacman's output if either is now the stock build (ours end in `.1`) and which build script to run. |
 | `etc/pacman.d/hooks/expertbook-limine-deploy.hook` | Copies a new Limine bootloader to the boot partition when the `limine` package updates. |
-| `etc/plymouth/plymouthd.conf` | The stock `spinner` boot splash, which also asks for the disk password. |
+| `etc/plymouth/plymouthd.conf`, `usr/share/plymouth/themes/expertbook/` | The boot screen: black, with a dark box and one dot per character while the disk password is being typed. No logo, spinner or text. Rebuild the boot image after changing it (`limine-mkinitcpio`). |
 | `etc/sddm.conf.d/zz-expertbook.conf` | The login screen running on Wayland. The session is Hyprland's own `hyprland-uwsm.desktop`. |
 | `etc/systemd/logind.conf.d/expertbook.conf` | The power key is left to the shell's power menu; 15 s for the lock to draw before sleep. |
 | `etc/systemd/system.conf.d/`, `user.conf.d/`, `system/user@.service.d/` | 5 s stop timeouts; high open-file limits (games). |
