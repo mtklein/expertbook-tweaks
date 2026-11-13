@@ -4,7 +4,7 @@ end
 
 local function terminal()
   local window = hl.get_active_window()
-  hl.exec_cmd("omarchy-launch-terminal" .. (window and window.pid and " --pid=" .. window.pid or ""))
+  hl.exec_cmd(o.launch("terminal-here" .. (window and window.pid and " " .. window.pid or "")))
 end
 
 local function tap(mods, key)
@@ -23,7 +23,7 @@ local function in_terminal()
 end
 
 o.bind("SUPER + RETURN", "Terminal", terminal)
-o.bind("SUPER + SHIFT + RETURN", "Browser", "omarchy-launch-browser")
+o.bind("SUPER + SHIFT + RETURN", "Browser", o.launch("chromium"))
 o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu"))
 o.bind("XF86PowerOff", "Power menu", shell("power-menu"), { locked = true })
 
@@ -53,13 +53,13 @@ o.bind("ALT + XF86MonBrightnessDown", "Brightness down precise", "hdr-brightness
 o.bind("SHIFT + XF86MonBrightnessUp", "White point cooler", "white-point cooler", held)
 o.bind("SHIFT + XF86MonBrightnessDown", "White point warmer", "white-point warmer", held)
 
-o.bind("XF86KbdLightOnOff", "Keyboard backlight", "omarchy-brightness-keyboard cycle", { locked = true })
-o.bind("XF86KbdBrightnessUp", "Keyboard backlight up", "omarchy-brightness-keyboard up", held)
-o.bind("XF86KbdBrightnessDown", "Keyboard backlight down", "omarchy-brightness-keyboard down", held)
+o.bind("XF86KbdLightOnOff", "Keyboard backlight", "keyboard-backlight cycle", { locked = true })
+o.bind("XF86KbdBrightnessUp", "Keyboard backlight up", "keyboard-backlight up", held)
+o.bind("XF86KbdBrightnessDown", "Keyboard backlight down", "keyboard-backlight down", held)
 
 o.bind_hold("ALT + Alt_R", "Start dictation", "voxtype record start", "Stop dictation", "voxtype record stop")
 
-o.bind("switch:on:Lid Switch", nil, "omarchy-system-lid-close", { locked = true })
-o.bind("switch:off:Lid Switch", nil, "omarchy-hyprland-monitor-clamshell", { locked = true })
+o.bind("switch:on:Lid Switch", nil, function() edp_lid(true) end, { locked = true })
+o.bind("switch:off:Lid Switch", nil, function() edp_lid(false) end, { locked = true })
 
 o.bind("SUPER + P", "Cycle display scale", function() edp_cycle_scale() end)

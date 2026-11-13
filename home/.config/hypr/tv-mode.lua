@@ -14,6 +14,11 @@ if name then
   hl.monitor({ output = name, mode = mode, position = "auto", scale = 1, cm = "srgb", bitdepth = 8 })
 end
 
+tv_panel_off = read("panel-off") ~= nil
+if tv_panel_off then
+  hl.monitor({ output = "eDP-1", disabled = true })
+end
+
 local active = read("active")
 if active and not active:find('"dry": true', 1, true) then
   hl.config({ cursor = { inactive_timeout = 3 } })

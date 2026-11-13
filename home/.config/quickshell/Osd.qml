@@ -13,6 +13,7 @@ PanelWindow {
     var glyphs = {
       "brightness": "󰃠",
       "white-point": "󰔏",
+      "keyboard": "󰌌",
       "volume": amount > 66 ? "󰕾" : (amount > 33 ? "󰖀" : "󰕿"),
       "muted": "󰝟",
       "microphone": "󰍬",

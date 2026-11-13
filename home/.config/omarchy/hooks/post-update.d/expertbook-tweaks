@@ -13,4 +13,3 @@ if [[ $("$HOME/.local/bin/voxtype-patched" --version 2>/dev/null) != *" ${packag
   echo "expertbook-tweaks: voxtype-patched is not version ${packaged%-*}; rebuild with $repo/voxtype-patched/build.sh" >&2
 fi
 
-"$repo/plugins/sync" apply

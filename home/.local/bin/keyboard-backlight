@@ -1,0 +1,12 @@
+#!/bin/bash
+device=asus::kbd_backlight
+max=$(brightnessctl -d "$device" max)
+level=$(brightnessctl -d "$device" get)
+case "${1:-cycle}" in
+  up) (( level < max )) && (( level++ )) ;;
+  down) (( level > 0 )) && (( level-- )) ;;
+  cycle) level=$(( (level + 1) % (max + 1) )) ;;
+  *) echo "usage: keyboard-backlight up|down|cycle" >&2; exit 1 ;;
+esac
+brightnessctl -d "$device" set "$level" >/dev/null
+qs ipc call osd pop keyboard $(( level * 100 / max )) "" >/dev/null

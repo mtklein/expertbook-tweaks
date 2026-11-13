@@ -14,10 +14,10 @@ level_file="${XDG_STATE_HOME:-$HOME/.local/state}/hdr-brightness"
 
 saved_percent() { awk 'NR == 1 { printf "%d", $1 * 100 + 0.5 }' "$level_file" 2>/dev/null || printf 100; }
 on_internal_panel() {
-  [[ $monitor != - ]] || monitor=$(omarchy-hyprland-monitor-focused 2>/dev/null)
+  [[ $monitor != - ]] || monitor=$(hyprctl monitors -j | jq -r '.[] | select(.focused).name')
   [[ $monitor == eDP-1 ]]
 }
-elsewhere() { exec omarchy-brightness-display "${args[@]}"; }
+elsewhere() { exit 0; }
 
 if [[ -z $step ]]; then
   on_internal_panel || elsewhere

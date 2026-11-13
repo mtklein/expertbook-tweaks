@@ -1,7 +1,0 @@
-#!/bin/bash
-state="$(omarchy-monitor-state)"
-focused="$(sed -n 6p <<<"$state")"
-brightness="$(hdr-brightness --monitor "$focused" 2>/dev/null)"
-[[ -n $brightness ]] || brightness="$(sed -n 1p <<<"$state")"
-printf '%s\n' "$brightness"
-tail -n +2 <<<"$state"

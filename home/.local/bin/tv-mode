@@ -23,7 +23,7 @@ ACTIVE = RUN / "active"         # JSON: what TV mode changed, to put back
 SUPPRESS = RUN / "suppressed"   # `tv-mode off` while docked; cleared on undock
 SIM = RUN / "sim.json"          # simulation: {"ac": bool|None, "dry": bool}
 LUA = Path.home() / ".config/hypr/tv-mode.lua"
-PANEL_OFF_FLAG = Path.home() / ".local/state/omarchy/toggles/hypr/internal-monitor-disable.lua"
+PANEL_OFF_FLAG = RUN / "panel-off"
 INTERNAL = "eDP-1"
 SIM_OUTPUT = "TVSIM"
 TV_SIZE = (1920, 1080)
@@ -169,12 +169,10 @@ def panel(on, saved):
         hypr_eval(f'hl.monitor({{ output = "{INTERNAL}", disabled = false }}) edp_hdr_level({level})')
         hypr_dispatch(f'hl.dsp.dpms({{ action = "on", monitor = "{INTERNAL}" }})')
     else:
-        # Omarchy's own "laptop display off" toggle: its clamshell poll and
-        # config reloads respect it, and its unplug recovery clears it.
         saved["made_flag"] = not PANEL_OFF_FLAG.exists()
         if saved["made_flag"]:
             PANEL_OFF_FLAG.parent.mkdir(parents=True, exist_ok=True)
-            PANEL_OFF_FLAG.write_text(f'hl.monitor({{ output = "{INTERNAL}", disabled = true }})\n')
+            PANEL_OFF_FLAG.write_text("")
         hypr_eval(f'hl.monitor({{ output = "{INTERNAL}", disabled = true }})')
 
 

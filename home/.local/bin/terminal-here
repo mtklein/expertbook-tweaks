@@ -1,0 +1,17 @@
+#!/bin/bash
+cwd=$HOME
+shell_pid=
+for children in /proc/"${1:-0}"/task/*/children; do
+  read -ra kids <"$children" 2>/dev/null || continue
+  for kid in "${kids[@]}"; do
+    (( kid > ${shell_pid:-0} )) && shell_pid=$kid
+  done
+done
+if [[ -n $shell_pid ]] && read -r stat 2>/dev/null <"/proc/$shell_pid/stat"; then
+  read -r _ _ _ session tty _ <<<"${stat##*) }"
+  if (( session == shell_pid && tty != 0 )); then
+    dir=$(readlink -f "/proc/$shell_pid/cwd")
+    [[ -d $dir ]] && cwd=$dir
+  fi
+fi
+exec foot --working-directory="$cwd"

@@ -1,4 +1,0 @@
-#!/bin/bash
-omarchy-notification-send() { :; }
-export -f omarchy-notification-send
-exec omarchy-hyprland-workspace-layout-toggle "$@"

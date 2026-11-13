@@ -19,5 +19,5 @@ hl.config({
   },
 })
 
-o.window("foot", { scroll_touchpad = 2.0 })
+o.window("(foot|console)", { scroll_touchpad = 2.0 })
 o.window({ class = "(org\\.omarchy\\..*|TUI\\..*)", initial_title = "foot" }, { scroll_touchpad = 2.0 })

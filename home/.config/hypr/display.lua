@@ -63,3 +63,33 @@ write_number("/var/lib/expertbook-tweaks/greeter-scale", edp_scale)
 edp_hdr_level(saved_level())
 
 dofile(home .. "/.config/hypr/tv-mode.lua")
+
+local function external()
+  local ok, monitors = pcall(hl.get_monitors)
+  for _, monitor in ipairs(ok and monitors or {}) do
+    if monitor.name ~= "eDP-1" then return true end
+  end
+  return false
+end
+
+local function lid_closed()
+  local pipe = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
+  local text = pipe and pipe:read("a") or ""
+  if pipe then pipe:close() end
+  return text:find("closed", 1, true) ~= nil
+end
+
+function edp_lid(closed)
+  if closed and external() then
+    hl.monitor({ output = "eDP-1", disabled = true })
+  elseif not tv_panel_off then
+    hl.monitor({ output = "eDP-1", disabled = false })
+    edp_hdr_level(saved_level())
+  end
+end
+
+if lid_closed() and external() then edp_lid(true) end
+
+hl.on("monitor.removed", function()
+  if not external() then edp_lid(false) end
+end)

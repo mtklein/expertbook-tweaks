@@ -1,6 +1,6 @@
 local CONSOLE = "qconsole"
 local SPECIAL = "special:" .. CONSOLE
-local CONSOLE_APPS = { ["org.omarchy.agent"] = true }
+local CONSOLE_APPS = { ["org.omarchy.agent"] = true, ["console"] = true }
 local CAPS_LOCK = 66
 local TAP_MS = 300
 local AFTER_RELEASE_MS = 20
@@ -9,7 +9,7 @@ local box = 2
 
 hl.on("workspace.created", function(ws)
   if ws and ws.name == SPECIAL and ws.is_empty then
-    hl.exec_cmd("omarchy-agent", { workspace = SPECIAL .. " silent" })
+    hl.exec_cmd(o.launch("foot --app-id=console claude --permission-mode auto"), { workspace = SPECIAL .. " silent" })
   end
 end)
 

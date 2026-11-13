@@ -9,26 +9,24 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 |---|---|
 | `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the Tiger theme as one directory). |
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
-| `plugins/` | One patch per Omarchy plugin clone. `plugins/sync apply` rebuilds `~/.config/omarchy/plugins/mtklein.*` from the installed Omarchy plus its patch. |
 | `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
 | `voxtype-patched/` | Patch and `build.sh` for the Voxtype dictation service. |
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-Omarchy commands the Hyprland config still calls: `omarchy-launch-shell`, `omarchy-agent`, `omarchy-launch-terminal`, `omarchy-launch-browser`, `omarchy-audio-input-mute`, `omarchy-brightness-keyboard`, `omarchy-system-lid-close`, `omarchy-hyprland-monitor-clamshell`, `omarchy-hyprland-monitor-watch`, `omarchy-powerprofiles-init`, and the shell's `omarchy:menu.*` and `omarchy:audio.*` shortcuts.
+Nothing in the Hyprland config or the shell calls an Omarchy command. Omarchy's packages are still installed; `env.lua` keeps its commands on `PATH`.
 
 ## Display
 
 | File | What |
 |---|---|
-| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). |
+| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). With the lid closed and another monitor attached the panel is off (`edp_lid`), and it comes back when the lid opens or the last other monitor goes. |
 | `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. |
-| `.local/bin/hdr-brightness` | Brightness keys and the Display panel. Asks `ambient-display`; sets the level itself if the daemon is down; hands other monitors to `omarchy-brightness-display`. |
+| `.local/bin/hdr-brightness` | Brightness keys. Asks `ambient-display`; sets the level itself if the daemon is down; does nothing for other monitors. |
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
 | `.local/bin/white-point-ctm` | Holds Hyprland's colour matrix; run by `ambient-display`. |
 | `.local/bin/brightness-why` | Explains the current brightness and the evidence behind it. |
-| `.local/bin/hdr-monitor-state` | `omarchy-monitor-state` with the HDR brightness level, for the Display panel. |
-| `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. |
+| `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. Locks before every suspend and holds the suspend until the lock is drawn. |
 | `.config/fontconfig/conf.d/60-grayscale-antialias.conf` | Greyscale text antialiasing. |
 
 State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level, plus `user <epoch>` while a manual choice holds it), `hdr-sdr-white` and `hdr-brightness-gamma` (written by `display.lua`). Status: `$XDG_RUNTIME_DIR/ambient-display-status.json`.
@@ -62,11 +60,14 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 | File | What |
 |---|---|
-| `.config/quickshell/` | Our own shell, in progress and not yet started at login: so far the bar with the workspace indicator, dictation icon, tray with its hover drawer (Bluetooth, stay-awake), weather, battery and clock. Run it with `qs`. Omarchy's shell still draws the desktop. |
+| `.config/quickshell/` | Our own shell (Quickshell), run by `shell.service`; edits reload it. `shell.qml` lists the parts and `Bar.qml` is the bar's fixed layout. Bar: workspaces that have windows, shown only when there is more than one (`Workspaces.qml`); a microphone while Voxtype records (red) or transcribes (`Dictation.qml`; Voxtype's own indicators are off: `voxtype config set osd.enabled false`, `tray.enabled false`); tray icons with Bluetooth and stay-awake appearing under the pointer (`Tray.qml`); weather; Wi-Fi; battery; clock. Panels open from their icon (`Panel.qml`, one at a time): battery level, watts and time left; Wi-Fi on/off, networks, password to join; Bluetooth on/off, devices, connect, pair. `Osd.qml` is the volume, brightness, white point and keyboard backlight pop-up; `Audio.qml` the volume and mute keys; `Menu.qml` the app launcher and the power menu (log out, restart, shut down); `Polkit.qml` the permission prompt; `Lock.qml` the lock screen (password or fingerprint, PAM files in `pam/`), which locks again if the shell restarts while locked; `Wallpaper.qml` the wallpaper, the login screen's image. `Theme.qml` holds colours, fonts and sizes. From scripts: `qs ipc call osd pop <icon> <percent> <text>`, `qs ipc call lock lock`, `qs ipc call menu open\|power`. |
+| `.config/systemd/user/shell.service` | Runs the shell in the graphical session and restarts it if it fails. |
+| `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
+| `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
 | `.bashrc` | A plain shell: mise's tools on `PATH`, `vi` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
 | `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
-| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
+| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
 | `.config/hypr/inputs.lua` | US layout, Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling, key repeat. |
 | `.config/hypr/look.lua` | Gaps, rounding, shadows, animations; no window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen. |
@@ -74,28 +75,10 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/env.lua`, `helpers.lua`, `start.lua` | Session environment; the `o.bind` / `o.window` helpers; what starts at login. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
-| `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
-| `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
-| `.config/omarchy/plugins/mtklein.dictation/` | Bar widget: a microphone icon while Voxtype records (red) or transcribes (white), nothing otherwise. Needs `omarchy bar put mtklein.dictation --section center`, `voxtype config set osd.enabled false` and `voxtype config set tray.enabled false`, and a shell restart the first time. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
-| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build, reapplies the plugin patches. |
-
-### Plugin patches
-
-| Patch | What |
-|---|---|
-| `active-window` | App name in bold Luxi Sans; a spinner while an app is launching. |
-| `workspaces` | Occupied desktops only; hidden when there is one; click cycles the layout. |
-| `tray` | Icons on the bar unless listed in `drawer`; those fade in under the pointer. Shift + right-click for the pin list. |
-| `clock` | Luxi Sans. |
-| `weather` | Temperature beside the icon. |
-| `osd` | No "Launching…" box; raises `$XDG_RUNTIME_DIR/omarchy-launching` instead. |
-| `monitor` | Brightness through `hdr-brightness`; shows nits. |
-| `audio`, `power`, `network`, `bluetooth`, `dropbox`, `tailscale`, `agents` | Plain status in place of the decorative phrases. |
-
-To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart shell`, then `plugins/sync record <name>`. `sync apply` refuses to overwrite a clone with unrecorded edits.
+| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build. |
 
 ## Hardware
 
@@ -128,7 +111,6 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 - An official Hyprland update replaces the patched build.
 - HDR is relative here: a game's white is its declared reference white (203 nits when it declares none), drawn at the desktop's white. Set a game's paper white to 203. Chromium declares the advertised white as its reference, so it is scaled by 1.
 - `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
-- Turning a clone off makes Omarchy put the stock widget back; `bar-item` disables both.
 - Each read of the light sensor blocks about a second.
 - Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
@@ -146,4 +128,4 @@ Removed from Omarchy: `herdr`, the titlebar plugin, the input-method framework (
 
 ## License
 
-MIT; see `LICENSE`. The plugin patches carry context lines from Omarchy's plugins, Copyright (c) David Heinemeier Hansson, MIT; see `plugins/LICENSE.omarchy`.
+MIT; see `LICENSE`.
