@@ -76,7 +76,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
 | `.config/omarchy/themes/tiger/` | The Omarchy theme the terminal and app colours were generated from (the generated copies live in `~/.local/state/omarchy/current/theme`); `install.sh` fetches the wallpaper into it for the login screen. Nothing reads it now. |
-| `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
+| `.config/fontconfig/conf.d/61-default-sans.conf` | DejaVu Sans as the default sans-serif; it is also the shell's and the GTK interface font. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 
 ## System settings
@@ -147,7 +147,7 @@ Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Oma
 
 ## Packages added to Omarchy
 
-`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
+`libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
 
 Removed from Omarchy: `herdr`, the titlebar plugin, the input-method framework (`fcitx5`), the video wallpaper engine (`owe`), Omarchy's Neovim setup and Neovim, Docker, printing, Moonlight, the capture tools (screen recorder, colour picker, OCR, QR), the virtual-webcam module, and the command-line extras its shell setup used (`eza`, `bat`, `zoxide`, `fzf`, `starship`, `tmux`, `lazygit`, `tldr`, `yt-dlp`, `fastfetch`). `SUPER + CTRL + RETURN` no longer does anything.
 

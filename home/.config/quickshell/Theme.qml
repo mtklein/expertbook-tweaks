@@ -12,7 +12,7 @@ Singleton {
   readonly property color selected: "#6aa8ff"
   readonly property color hover: "#2a2a2e"
   readonly property int barHeight: 26
-  readonly property string textFont: "Luxi Sans"
+  readonly property string textFont: "DejaVu Sans"
   readonly property string iconFont: "DejaVuSansM Nerd Font"
   readonly property int textSize: 12
   readonly property int iconSize: 13
