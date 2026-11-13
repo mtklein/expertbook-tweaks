@@ -8,6 +8,13 @@ PanelWindow {
   readonly property var flow: agent.flow
   readonly property bool fingerWaiting: flow !== null && !flow.supplementaryIsError && !flow.failed && /finger/i.test(flow.supplementaryMessage)
 
+  function summary(message) {
+    var quoted = message.match(/[`'‘"]([^`'‘’"]+)['’"]/)
+    if (quoted) return quoted[1]
+    var rest = message.replace(/^Authentication is (needed|required) to /, "").replace(/\.$/, "")
+    return rest.charAt(0).toUpperCase() + rest.slice(1)
+  }
+
   visible: agent.isActive
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
@@ -46,7 +53,7 @@ PanelWindow {
         width: parent.width
         font.pixelSize: 13
         wrapMode: Text.WordWrap
-        text: root.flow ? root.flow.message : ""
+        text: root.flow ? root.summary(root.flow.message) : ""
       }
 
       BarText {
