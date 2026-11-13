@@ -26,5 +26,23 @@ Variants {
       sourceSize.width: parent.width * 2
       sourceSize.height: parent.height * 2
     }
+
+    Rectangle {
+      id: nudge
+      width: 1
+      height: 1
+      color: "#000000"
+    }
+
+    Timer {
+      property int left: 3
+      interval: 2500
+      running: left > 0
+      repeat: true
+      onTriggered: {
+        left -= 1
+        nudge.color = left % 2 ? "#000001" : "#000000"
+      }
+    }
   }
 }
