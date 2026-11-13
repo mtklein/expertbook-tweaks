@@ -40,7 +40,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | Patch | What |
 |---|---|
 | `01-sdr-white-is-reference` | The SDR white level (`sdr_max_luminance`) is advertised to colour-managed clients as the reference luminance, and they are told when it changes: subsurfaces and surfaces not yet on screen included. |
-| `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is rendered in the output's encoding. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
+| `02-hdr-conversion` | Everything decided in the conversion to the panel's PQ signal. `sdrbrightness` applies to every surface. The colour matrix (white point) is applied in linear light. The hardware cursor is redrawn when the brightness or white point changes. A client's HDR (PQ, HLG) content is scaled so its declared reference white lands on the SDR white level, with a knee tone map above the panel's peak. |
 | `03-leds-only-on-change` | Keyboard LEDs are written only when their state changes, so the Caps Lock light can be set from sysfs. |
 | `04-touchpad-scroll-as-wheel` | A window tagged `wheel_scroll` gets touchpad scrolling as wheel detents (15 units each), decided by which window holds pointer focus. GeForce NOW's stream ignores smooth scrolling and is tagged in `looknfeel.lua`. |
 | `05-touch-as-mouse` | On a window tagged `touch_mouse`, the first finger is the mouse: the pointer goes to the touch and the left button follows the finger. Stock Hyprland drops touches on a window that has captured the pointer. GeForce NOW is tagged while fullscreen. |
@@ -135,7 +135,7 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 
 ## Omarchy is frozen
 
-`install.sh --system` sets `IgnorePkg = omarchy omarchy-settings quickshell` in `/etc/pacman.conf`, and `omarchy update` is not run: it would rewrite `pacman.conf` and run Omarchy's migrations. Update the rest with `sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu`.
+Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = omarchy omarchy-settings quickshell` in `/etc/pacman.conf`, and `omarchy update` is not run: it would rewrite `pacman.conf` and run Omarchy's migrations. Update the rest with `sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu`.
 
 ## Packages added to Omarchy
 

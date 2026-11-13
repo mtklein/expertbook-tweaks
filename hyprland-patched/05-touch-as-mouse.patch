@@ -1,13 +1,17 @@
+diff --git a/src/managers/input/InputManager.hpp b/src/managers/input/InputManager.hpp
+index 225e286..b803210 100644
 --- a/src/managers/input/InputManager.hpp
 +++ b/src/managers/input/InputManager.hpp
-@@ -61,6 +61,7 @@
-     WP<CWLSurfaceResource>  touchFocusSurface;
-     Vector2D                touchSurfaceOrigin;
-     Vector2D                lastTouchPos;
-+    int32_t                 asMouseID = -1;
+@@ -79,6 +79,7 @@ struct STouchData {
+     WP<CWLSurfaceResource>         touchFocusSurface;
+     Vector2D                       touchSurfaceOrigin;
+     Vector2D                       lastTouchPos;
++    int32_t                        asMouseID = -1;
  };
  
  // The third row is always 0 0 1 and is not expected by `libinput_device_config_calibration_set_matrix`
+diff --git a/src/managers/input/Touch.cpp b/src/managers/input/Touch.cpp
+index 92c1fe9..7dbd1db 100644
 --- a/src/managers/input/Touch.cpp
 +++ b/src/managers/input/Touch.cpp
 @@ -13,6 +13,10 @@
@@ -21,7 +25,7 @@
  
  void CInputManager::onTouchDown(ITouch::SDownEvent e) {
      m_lastInputTouch = true;
-@@ -41,6 +45,20 @@
+@@ -59,6 +63,20 @@ void CInputManager::onTouchDown(ITouch::SDownEvent e) {
  
      m_touchData.lastTouchPos = TOUCH_COORDS;
  
@@ -42,7 +46,7 @@
      refocus(TOUCH_COORDS);
  
      if (m_clickBehavior == CLICKMODE_KILL) {
-@@ -125,6 +143,15 @@
+@@ -175,6 +193,15 @@ void CInputManager::onTouchUp(ITouch::SUpEvent e, SP<ITouch> device) {
      if (info.cancelled)
          return;
  
@@ -55,10 +59,10 @@
 +        return;
 +    }
 +
-     if (g_pUnifiedWorkspaceSwipe->isGestureInProgress()) {
-         // If there was a swipe from this finger, end it.
-         if (e.touchID == g_pUnifiedWorkspaceSwipe->m_touchID)
-@@ -152,6 +179,16 @@
+     if (m_touchData.touchFocusSurface)
+         g_pSeatManager->sendTouchUp(e.timeMs, e.touchID);
+ }
+@@ -212,6 +239,16 @@ void CInputManager::onTouchMove(ITouch::SMotionEvent e, SP<ITouch> device) {
      if (info.cancelled)
          return;
  
@@ -72,6 +76,6 @@
 +        return;
 +    }
 +
-     if (g_pUnifiedWorkspaceSwipe->isGestureInProgress()) {
-         // Do nothing if this is using a different finger.
-         if (e.touchID != g_pUnifiedWorkspaceSwipe->m_touchID)
+     if (std::ranges::any_of(m_touchData.consumedTouches, [&e, &device](const auto& touch) { return touch.device == device && touch.id == e.touchID; })) {
+         if (!m_touchData.workspaceSwipe || m_touchData.workspaceSwipe->device != device || m_touchData.workspaceSwipe->id != e.touchID ||
+             m_touchData.workspaceSwipe->sessionID != g_pUnifiedWorkspaceSwipe->sessionID())

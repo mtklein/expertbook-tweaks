@@ -1,8 +1,10 @@
+diff --git a/src/Compositor.cpp b/src/Compositor.cpp
+index 63a5d77..5b37477 100644
 --- a/src/Compositor.cpp
 +++ b/src/Compositor.cpp
-@@ -957,8 +957,15 @@
+@@ -982,8 +982,15 @@ PImageDescription CCompositor::getPreferredImageDescription() {
      }
-     Log::logger->log(Log::WARN, "FIXME: color management protocol is enabled, determine correct preferred image description");
+     LOG(Log::WARN, "FIXME: color management protocol is enabled, determine correct preferred image description");
      // should determine some common settings to avoid unnecessary transformations while keeping maximum displayable precision
 -    return State::monitorState()->monitors().size() == 1 ? State::monitorState()->monitors()[0]->m_imageDescription :
 -                                                           CImageDescription::from(SImageDescription{.primaries = NColorPrimaries::BT709});
@@ -18,9 +20,11 @@
  }
  
  PImageDescription CCompositor::getHDRImageDescription() {
+diff --git a/src/output/Monitor.cpp b/src/output/Monitor.cpp
+index 7775fca..f70ec71 100644
 --- a/src/output/Monitor.cpp
 +++ b/src/output/Monitor.cpp
-@@ -670,8 +670,9 @@
+@@ -614,8 +614,9 @@ bool CMonitor::applyMonitorRuleSoft(Config::CMonitorRule&& pMonitorRule) {
  
          m_sdrEotf = m_activeMonitorRule.m_sdrEotf;
  
@@ -32,7 +36,7 @@
  
          m_minLuminance    = m_activeMonitorRule.m_minLuminance;
          m_maxLuminance    = m_activeMonitorRule.m_maxLuminance;
-@@ -679,6 +680,13 @@
+@@ -623,6 +624,13 @@ bool CMonitor::applyMonitorRuleSoft(Config::CMonitorRule&& pMonitorRule) {
  
          applyCMType(m_cmType, m_sdrEotf);
  
@@ -46,6 +50,8 @@
          m_sdrSaturation = m_activeMonitorRule.m_sdrSaturation;
          m_sdrBrightness = m_activeMonitorRule.m_sdrBrightness;
      } else {
+diff --git a/src/protocols/ColorManagement.cpp b/src/protocols/ColorManagement.cpp
+index 3d11d2b..91f4d7e 100644
 --- a/src/protocols/ColorManagement.cpp
 +++ b/src/protocols/ColorManagement.cpp
 @@ -3,6 +3,8 @@
@@ -57,7 +63,7 @@
  #include "../helpers/cm/ColorManagement.hpp"
  #include <cstdint>
  
-@@ -269,7 +271,13 @@
+@@ -269,7 +271,13 @@ CColorManagementOutput::CColorManagementOutput(SP<CWpColorManagementOutputV1> re
          if (!m_output || !m_output->m_monitor.valid())
              RESOURCE->m_resource->sendFailed(WP_IMAGE_DESCRIPTION_V1_CAUSE_NO_OUTPUT, "No output");
          else {
@@ -72,10 +78,10 @@
  
              RESOURCE->sendMaybeReady();
          }
-@@ -457,7 +465,25 @@
- }
+@@ -460,7 +468,25 @@ void CColorManagementFeedbackSurface::onPreferredChanged() {
+     if (m_surface.expired())
+         return;
  
- void CColorManagementFeedbackSurface::onPreferredChanged() {
 -    if (m_surface->m_enteredOutputs.size() == 1) {
 +    // Subsurfaces get no wl_surface.enter here, so check the outputs of the
 +    // toplevel they belong to (as getPreferredImageDescription() does).
@@ -99,8 +105,8 @@
          const auto newId = m_surface->getPreferredImageDescription()->id();
          if (m_currentPreferredId != newId) {
              const uint32_t lo = sc<uint32_t>(newId & 0xFFFFFFFF);
-@@ -892,6 +918,14 @@
-     }
+@@ -900,6 +926,14 @@ void CColorManagementProtocol::recheckFeedbacks() {
+         feedback->onPreferredChanged();
  }
  
 +void CColorManagementProtocol::onSurfaceRoleChanged(SP<CWLSurfaceResource> surface) {
@@ -114,23 +120,26 @@
  void CColorManagementProtocol::onMonitorImageDescriptionChanged(PHLMONITORREF monitor) {
      for (auto const& output : m_outputs) {
          if (output->m_output && output->m_output->m_monitor == monitor)
+diff --git a/src/protocols/ColorManagement.hpp b/src/protocols/ColorManagement.hpp
+index 394eadd..b987026 100644
 --- a/src/protocols/ColorManagement.hpp
 +++ b/src/protocols/ColorManagement.hpp
-@@ -195,6 +195,7 @@
- 
+@@ -196,6 +196,7 @@ class CColorManagementProtocol : public IWaylandProtocol {
      void         onImagePreferredChanged(uint32_t preferredId);
+     void         recheckFeedbacks();
      void         onMonitorImageDescriptionChanged(PHLMONITORREF monitor);
 +    void         onSurfaceRoleChanged(SP<CWLSurfaceResource> surface);
  
      bool         isClientCMAware(wl_client* client);
  
+diff --git a/src/protocols/core/Compositor.cpp b/src/protocols/core/Compositor.cpp
+index f3fa66e..5689e1e 100644
 --- a/src/protocols/core/Compositor.cpp
 +++ b/src/protocols/core/Compositor.cpp
-@@ -685,7 +685,31 @@
+@@ -725,11 +725,35 @@ PImageDescription CWLSurfaceResource::getPreferredImageDescription() {
      else if (m_hlSurface.valid() && WINDOW)
          monitor = WINDOW->m_monitor;
  
--    return monitor ? monitor->m_imageDescription : g_pCompositor->getPreferredImageDescription();
 +    if (!monitor) {
 +        // A surface that isn't on any output yet (clients keep some around
 +        // unmapped, e.g. Chromium's omnibox dropdown): with a single monitor
@@ -148,8 +157,13 @@
 +            monitor = only;
 +    }
 +
-+    if (!monitor)
-+        return g_pCompositor->getPreferredImageDescription();
+     if (!monitor)
+         return g_pCompositor->getPreferredImageDescription();
+ 
+     // auto HDR only switches once a fullscreen client submits HDR content, so offer it the description it would switch to
+-    return monitor->getAutoHDRImageDescription(parent.lock()).value_or(monitor->m_imageDescription);
++    if (const auto AUTO = monitor->getAutoHDRImageDescription(parent.lock()))
++        return *AUTO;
 +    if (monitor->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ && monitor->m_sdrMaxLuminance > 0) {
 +        auto lum      = monitor->m_imageDescription->value().luminances;
 +        lum.reference = monitor->m_sdrMaxLuminance;
@@ -159,6 +173,8 @@
  }
  
  void CWLSurfaceResource::sortSubsurfaces() {
+diff --git a/src/protocols/core/Subcompositor.cpp b/src/protocols/core/Subcompositor.cpp
+index 1eaa528..a1e97e9 100644
 --- a/src/protocols/core/Subcompositor.cpp
 +++ b/src/protocols/core/Subcompositor.cpp
 @@ -1,5 +1,6 @@
@@ -168,7 +184,7 @@
  #include <algorithm>
  
  CWLSubsurfaceResource::CWLSubsurfaceResource(SP<CWlSubsurface> resource_, SP<CWLSurfaceResource> surface_, SP<CWLSurfaceResource> parent_) :
-@@ -197,6 +198,10 @@
+@@ -226,6 +227,10 @@ CWLSubcompositorResource::CWLSubcompositorResource(SP<CWlSubcompositor> resource
          SURF->m_role     = makeShared<CSubsurfaceRole>(RESOURCE);
          PARENT->m_subsurfaces.emplace_back(RESOURCE);
  
@@ -176,6 +192,6 @@
 +        if (PROTO::colorManagement)
 +            PROTO::colorManagement->onSurfaceRoleChanged(SURF);
 +
-         LOGM(Log::DEBUG, "New wl_subsurface with id {} at {:x}", id, (uintptr_t)RESOURCE.get());
+         LOG(Log::DEBUG, "New wl_subsurface with id {} at {:x}", id, (uintptr_t)RESOURCE.get());
  
          PARENT->m_events.newSubsurface.emit(RESOURCE);
