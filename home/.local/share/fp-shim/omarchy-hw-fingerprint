@@ -1,3 +1,0 @@
-#!/bin/sh
-# FocalTech FT9349 (2808:a97a) is supported by libfprint but missed by omarchy-hw-fingerprint
-exit 0

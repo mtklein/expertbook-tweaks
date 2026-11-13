@@ -5,7 +5,7 @@ After=graphical-session.target
 
 [Service]
 ExecStart=/usr/bin/python3 %h/.local/bin/tv-mode watch
-Environment=PATH=%h/.local/bin:/usr/share/omarchy/bin:/usr/local/bin:/usr/bin
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin
 Restart=on-failure
 RestartSec=5
 

@@ -51,8 +51,11 @@ if [[ ${1:-} == --system ]]; then
     done
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
-    grep -q "^IgnorePkg = omarchy omarchy-settings quickshell$" /etc/pacman.conf ||
-      sed -i -e "/^IgnorePkg/d" -e "/^HoldPkg/a IgnorePkg = omarchy omarchy-settings quickshell" /etc/pacman.conf
+    grep -q "^IgnorePkg = omarchy-settings quickshell$" /etc/pacman.conf ||
+      sed -i -e "/^IgnorePkg/d" -e "/^HoldPkg/a IgnorePkg = omarchy-settings quickshell" /etc/pacman.conf
+    for f in sudo polkit-1; do
+      sed -i "s|pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed|pam_exec.so quiet /bin/sh /usr/local/share/expertbook-tweaks/lid-closed|" /etc/pam.d/$f
+    done
     udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
     systemctl enable rapl-sync.service

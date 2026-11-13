@@ -1,5 +1,3 @@
-local omarchy = os.getenv("OMARCHY_PATH") or "/usr/share/omarchy"
-
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("GDK_BACKEND", "wayland,x11,*")
@@ -12,14 +10,6 @@ hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
 hl.env("XCOMPOSEFILE", os.getenv("HOME") .. "/.XCompose")
-hl.env("OMARCHY_PATH", omarchy)
-
-local bin, kept = omarchy .. "/bin", {}
-for entry in (os.getenv("PATH") or "/usr/local/bin:/usr/bin"):gmatch("[^:]+") do
-  if entry ~= bin then table.insert(kept, entry) end
-end
-table.insert(kept, 1, bin)
-hl.env("PATH", table.concat(kept, ":"))
 
 hl.config({
   xwayland = { force_zero_scaling = true },

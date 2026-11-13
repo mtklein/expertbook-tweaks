@@ -14,7 +14,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `ctm/` | Source of `white-point-ctm`. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
 
-Nothing in the Hyprland config or the shell calls an Omarchy command. Omarchy's packages are still installed; `env.lua` keeps its commands on `PATH`.
+The `omarchy` package (its commands, shell and themes) is removed and nothing here calls it. Still Omarchy's: `omarchy-settings` (system configuration, including the boot image and boot menu setup and the login session entry), the `linux-omarchy` kernel, `omarchy-power-profiles-daemon`, and the packages its repository supplies (Quickshell among them).
 
 ## Display
 
@@ -75,10 +75,9 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/env.lua`, `helpers.lua`, `start.lua` | Session environment; the `o.bind` / `o.window` helpers; what starts at login. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
-| `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
+| `.config/omarchy/themes/tiger/` | The Omarchy theme the terminal and app colours were generated from (the generated copies live in `~/.local/state/omarchy/current/theme`); `install.sh` fetches the wallpaper into it for the login screen. Nothing reads it now. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
-| `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build. |
 
 ## Hardware
 
@@ -89,8 +88,8 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `system/etc/modules-load.d/uinput.conf` | Steam Input needs `uinput` loaded to make virtual controllers. |
 | `system/etc/udev/hwdb.d/70-pocketpad.hwdb` | Button names for the Retroid Pocket Nova as a Bluetooth gamepad (PocketPad). |
 | `system/etc/systemd/system/ollama.service.d/override.conf` | Ollama on the iGPU. |
-| `.local/share/fp-shim/` | Fingerprint setup for the FocalTech reader Omarchy doesn't detect: `PATH=~/.local/share/fp-shim:$PATH omarchy-setup-security-fingerprint`. `fp-storage.py` lists or clears templates on the chip. |
-| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given` | Fingerprint at the login screen and at console login; skipped while the lid is closed. At the login screen an empty login is a fingerprint wait (up to 5 minutes, failing without touching faillock) and a typed password skips the reader. The theme keeps one such wait running while the field is empty and cancels it on the first keystroke, which needs the patched SDDM; on stock SDDM it is password-only. The fingerprint icon shows while pam_fprintd is waiting. The stock files are kept beside them as `*.before-fingerprint`. |
+| `.local/share/fp-shim/fp-storage.py` | Lists or clears fingerprint templates on the FocalTech reader's chip. Enrol with `fprintd-enroll`. |
+| `system/etc/pam.d/sddm`, `system/etc/pam.d/login`, `system/usr/local/share/expertbook-tweaks/password-given`, `lid-closed` | Fingerprint at the login screen and at console login; skipped while the lid is closed (`lid-closed`, which `install.sh --system` also puts into the sudo and polkit files). At the login screen an empty login is a fingerprint wait (up to 5 minutes, failing without touching faillock) and a typed password skips the reader. The theme keeps one such wait running while the field is empty and cancels it on the first keystroke, which needs the patched SDDM; on stock SDDM it is password-only. The fingerprint icon shows while pam_fprintd is waiting. The stock files are kept beside them as `*.before-fingerprint`. |
 
 ## Games and TV
 
@@ -118,7 +117,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 ## Omarchy is frozen
 
-Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = omarchy omarchy-settings quickshell` in `/etc/pacman.conf`, and `omarchy update` is not run: it would rewrite `pacman.conf` and run Omarchy's migrations. Update the rest with `sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu`.
+Packages come from the Arch mirrors in `system/etc/pacman.d/mirrorlist`, not Omarchy's delayed mirror; Omarchy's own repo is still configured for its kernel and a few other packages. `install.sh --system` sets `IgnorePkg = omarchy-settings quickshell` in `/etc/pacman.conf`. Update with `sudo pacman -Syu`.
 
 ## Packages added to Omarchy
 
