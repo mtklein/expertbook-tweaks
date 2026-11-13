@@ -21,6 +21,7 @@ Variants {
 
     Image {
       anchors.fill: parent
+      visible: settled.left === 0
       source: Theme.wallpaper
       fillMode: Image.PreserveAspectCrop
       sourceSize.width: parent.width * 2
@@ -32,6 +33,15 @@ Variants {
       width: 1
       height: 1
       color: "#000000"
+    }
+
+    Timer {
+      id: settled
+      property int left: 3
+      interval: 400
+      running: left > 0
+      repeat: true
+      onTriggered: left -= 1
     }
 
     Timer {
