@@ -10,6 +10,7 @@ PanelWindow {
   property bool open: false
   readonly property var power: [
     { name: "Sleep", words: "sleep suspend", glyph: "󰒲", command: ["systemctl", "suspend-then-hibernate"] },
+    { name: "Hibernate", words: "hibernate", glyph: "󰤄", command: ["systemctl", "hibernate"] },
     { name: "Log Out", words: "log out logout", glyph: "󰍃", command: ["uwsm", "stop"] },
     { name: "Restart", words: "restart reboot", glyph: "󰜉", command: ["systemctl", "reboot"] },
     { name: "Shut Down", words: "shut down shutdown power off poweroff", glyph: "󰐥", command: ["systemctl", "poweroff"] }
