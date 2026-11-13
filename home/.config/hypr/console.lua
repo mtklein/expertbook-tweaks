@@ -150,9 +150,6 @@ function console_dictate()
   if not target then return end
   hl.timer(function()
     hl.dispatch(hl.dsp.focus({ window = target }))
-    hl.dispatch(hl.dsp.send_shortcut({ mods = "CTRL", key = "X", window = target }))
-    hl.timer(function()
-      hl.dispatch(hl.dsp.send_shortcut({ mods = "", key = "V", window = target }))
-    end, { timeout = 60, type = "oneshot" })
+    hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target }))
   end, { timeout = 60, type = "oneshot" })
 end
