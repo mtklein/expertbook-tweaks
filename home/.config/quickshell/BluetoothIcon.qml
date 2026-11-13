@@ -52,35 +52,38 @@ BarIcon {
       onClicked: Quickshell.execDetached(["rfkill", root.on ? "block" : "unblock", "bluetooth"])
     }
 
-    Repeater {
-      model: root.on ? root.devices.slice(0, 10) : []
-      PanelRow {
-        id: row
-        required property var modelData
-        icon: modelData.connected ? "󰂱" : (modelData.paired ? "󰂯" : "󰐕")
-        label: root.title(modelData) || modelData.address
-        strong: modelData.connected
-        note: {
-          if (root.forgetting === modelData.address) return "forget?"
-          if (modelData.pairing) return "pairing…"
-          if (modelData.state === BluetoothDeviceState.Connecting) return "connecting…"
-          if (modelData.state === BluetoothDeviceState.Disconnecting) return "disconnecting…"
-          if (modelData.connected) return modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "%" : "connected"
-          return modelData.paired ? "" : "new"
-        }
-        onRightClicked: root.forgetting = modelData.paired && root.forgetting !== modelData.address ? modelData.address : ""
-        onClicked: {
-          if (root.forgetting === modelData.address) {
-            root.forgetting = ""
-            modelData.forget()
-            return
+    PanelList {
+      visible: root.on && root.devices.length > 0
+      Repeater {
+        model: root.on ? root.devices : []
+        PanelRow {
+          id: row
+          required property var modelData
+          icon: modelData.connected ? "󰂱" : (modelData.paired ? "󰂯" : "󰐕")
+          label: root.title(modelData) || modelData.address
+          strong: modelData.connected
+          note: {
+            if (root.forgetting === modelData.address) return "forget?"
+            if (modelData.pairing) return "pairing…"
+            if (modelData.state === BluetoothDeviceState.Connecting) return "connecting…"
+            if (modelData.state === BluetoothDeviceState.Disconnecting) return "disconnecting…"
+            if (modelData.connected) return modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "%" : "connected"
+            return modelData.paired ? "" : "new"
           }
-          root.forgetting = ""
-          if (modelData.connected) modelData.disconnect()
-          else if (modelData.paired) modelData.connect()
-          else {
-            modelData.trusted = true
-            modelData.pair()
+          onRightClicked: root.forgetting = modelData.paired && root.forgetting !== modelData.address ? modelData.address : ""
+          onClicked: {
+            if (root.forgetting === modelData.address) {
+              root.forgetting = ""
+              modelData.forget()
+              return
+            }
+            root.forgetting = ""
+            if (modelData.connected) modelData.disconnect()
+            else if (modelData.paired) modelData.connect()
+            else {
+              modelData.trusted = true
+              modelData.pair()
+            }
           }
         }
       }

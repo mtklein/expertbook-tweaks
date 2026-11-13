@@ -81,90 +81,100 @@ BarIcon {
       onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
     }
 
-    Repeater {
-      model: root.on ? root.networks.slice(0, 12) : []
-      Column {
-        id: entry
-        required property var modelData
-        width: parent.width
-
-        Connections {
-          target: entry.modelData
-          function onConnectionFailed(reason) {
-            root.failed = entry.modelData.name
-            if (!root.open(entry.modelData)) root.asking = entry.modelData.name
-          }
-          function onConnectedChanged() {
-            if (entry.modelData.connected && root.failed === entry.modelData.name) root.failed = ""
-          }
-        }
-
-        PanelRow {
-          icon: root.bars(entry.modelData.signalStrength)
-          label: entry.modelData.name
-          strong: entry.modelData.connected
-          note: {
-            if (root.forgetting === entry.modelData.name) return "forget?"
-            if (entry.modelData.stateChanging) return entry.modelData.connected ? "leaving…" : "joining…"
-            if (entry.modelData.connected) return "connected"
-            if (root.failed === entry.modelData.name) return "could not join"
-            return root.open(entry.modelData) ? "open" : (entry.modelData.known ? "" : "󰌾")
-          }
-          onRightClicked: {
-            root.asking = ""
-            root.forgetting = entry.modelData.known && root.forgetting !== entry.modelData.name ? entry.modelData.name : ""
-          }
-          onClicked: {
-            if (root.forgetting === entry.modelData.name) {
-              root.forgetting = ""
-              entry.modelData.forget()
-              return
-            }
-            root.forgetting = ""
-            if (entry.modelData.connected) return
-            root.failed = ""
-            if (entry.modelData.known || root.open(entry.modelData)) {
-              root.asking = ""
-              entry.modelData.connect()
-            } else {
-              root.asking = root.asking === entry.modelData.name ? "" : entry.modelData.name
-            }
-          }
-        }
-
-        Rectangle {
-          visible: root.asking === entry.modelData.name
+    PanelList {
+      id: list
+      rows: 12
+      visible: root.on && root.networks.length > 0
+      Repeater {
+        model: root.on ? root.networks : []
+        Column {
+          id: entry
+          required property var modelData
           width: parent.width
-          height: Theme.rowHeight
-          radius: 4
-          color: Theme.hover
-          onVisibleChanged: if (visible) password.forceActiveFocus()
 
-          TextInput {
-            id: password
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            verticalAlignment: TextInput.AlignVCenter
-            clip: true
-            echoMode: TextInput.Password
-            color: Theme.barText
-            font.family: Theme.textFont
-            font.pixelSize: Theme.textSize
-            onAccepted: {
-              if (text.length === 0) return
-              root.failed = ""
-              root.asking = ""
-              entry.modelData.connectWithPsk(text)
-              text = ""
+          Connections {
+            target: entry.modelData
+            function onConnectionFailed(reason) {
+              root.failed = entry.modelData.name
+              if (!root.open(entry.modelData)) root.asking = entry.modelData.name
+            }
+            function onConnectedChanged() {
+              if (entry.modelData.connected && root.failed === entry.modelData.name) root.failed = ""
             }
           }
 
-          BarText {
-            anchors.fill: password
-            visible: password.text.length === 0
-            text: "Password"
-            color: Theme.dimText
+          PanelRow {
+            icon: root.bars(entry.modelData.signalStrength)
+            label: entry.modelData.name
+            strong: entry.modelData.connected
+            note: {
+              if (root.forgetting === entry.modelData.name) return "forget?"
+              if (entry.modelData.stateChanging) return entry.modelData.connected ? "leaving…" : "joining…"
+              if (entry.modelData.connected) return "connected"
+              if (root.failed === entry.modelData.name) return "could not join"
+              return root.open(entry.modelData) ? "open" : (entry.modelData.known ? "" : "󰌾")
+            }
+            onRightClicked: {
+              root.asking = ""
+              root.forgetting = entry.modelData.known && root.forgetting !== entry.modelData.name ? entry.modelData.name : ""
+            }
+            onClicked: {
+              if (root.forgetting === entry.modelData.name) {
+                root.forgetting = ""
+                entry.modelData.forget()
+                return
+              }
+              root.forgetting = ""
+              if (entry.modelData.connected) return
+              root.failed = ""
+              if (entry.modelData.known || root.open(entry.modelData)) {
+                root.asking = ""
+                entry.modelData.connect()
+              } else {
+                root.asking = root.asking === entry.modelData.name ? "" : entry.modelData.name
+              }
+            }
+          }
+
+          Rectangle {
+            visible: root.asking === entry.modelData.name
+            width: parent.width
+            height: Theme.rowHeight
+            radius: 4
+            color: Theme.hover
+            id: prompt
+            onVisibleChanged: {
+              if (!visible) return
+              password.forceActiveFocus()
+              Qt.callLater(function() { list.reveal(prompt) })
+            }
+
+            TextInput {
+              id: password
+              anchors.fill: parent
+              anchors.leftMargin: 8
+              anchors.rightMargin: 8
+              verticalAlignment: TextInput.AlignVCenter
+              clip: true
+              echoMode: TextInput.Password
+              color: Theme.barText
+              font.family: Theme.textFont
+              font.pixelSize: Theme.textSize
+              onAccepted: {
+                if (text.length === 0) return
+                root.failed = ""
+                root.asking = ""
+                entry.modelData.connectWithPsk(text)
+                text = ""
+              }
+            }
+
+            BarText {
+              anchors.fill: password
+              visible: password.text.length === 0
+              text: "Password"
+              color: Theme.dimText
+            }
           }
         }
       }
