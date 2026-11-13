@@ -1,10 +1,10 @@
 o.window(".*", { suppress_event = "maximize" })
 o.window({ class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false }, { no_focus = true })
 
-o.window("(foot|console|org\\.codeberg\\.dnkl\\.foot|org\\.omarchy\\..*|TUI\\..*)", { tag = "+terminal" })
+o.window("(foot|console|org\\.codeberg\\.dnkl\\.foot|TUI\\..*)", { tag = "+terminal" })
 
 o.window({ tag = "floating-window" }, { float = true, center = true, size = { 875, 600 } })
-o.window("(org.omarchy.btop|org.omarchy.terminal|org.omarchy.bash|org.gnome.NautilusPreviewer|org.gnome.Evince|Omarchy|About|TUI.float|imv|mpv)", { tag = "+floating-window" })
+o.window("(org.gnome.NautilusPreviewer|org.gnome.Evince|About|TUI.float|imv|mpv)", { tag = "+floating-window" })
 o.window("xdg-desktop-portal-gtk", { tag = "+floating-window" })
 o.window({
   class = "org.gnome.Nautilus",

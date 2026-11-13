@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WHOLE_DIRS=(.config/omarchy/themes/tiger .config/quickshell)
+WHOLE_DIRS=(.config/quickshell)
 
 link() {
   local src="$R/home/$1" dst="$HOME/$1"
@@ -25,23 +25,16 @@ for d in "${WHOLE_DIRS[@]}"; do
 done
 (cd "$R/home" && find . "${skip[@]}" -type f -print) | while read -r f; do link "${f#./}"; done
 
-tiger="$R/home/.config/omarchy/themes/tiger"
-if [[ ! -f $tiger/backgrounds/1-tiger.jpg ]]; then
-  mkdir -p "$tiger/backgrounds"
-  curl -fsSL -o "$tiger/backgrounds/1-tiger.jpg" https://media.512pixels.net/downloads/macos-wallpapers-6k/10-4-6k.jpg ||
-    echo "couldn't fetch the Tiger wallpaper; the theme works without it"
-fi
-if [[ -f $tiger/backgrounds/1-tiger.jpg && ! -f $tiger/preview.png ]] && command -v magick >/dev/null; then
-  magick "$tiger/backgrounds/1-tiger.jpg" -resize 2560x1440^ -gravity center -extent 2560x1440 "$tiger/preview.png"
-fi
-
 systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
   login_background="$R/system/usr/share/sddm/themes/tiger/background.jpg"
-  if [[ ! -f $login_background && -f $tiger/backgrounds/1-tiger.jpg ]]; then
-    magick "$tiger/backgrounds/1-tiger.jpg" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$login_background"
+  if [[ ! -f $login_background ]]; then
+    original=$(mktemp --suffix=.jpg)
+    curl -fsSL -o "$original" https://media.512pixels.net/downloads/macos-wallpapers-6k/10-4-6k.jpg &&
+      magick "$original" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$login_background"
+    rm -f "$original"
   fi
   pkexec bash -c '
     set -e

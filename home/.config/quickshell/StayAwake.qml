@@ -4,7 +4,7 @@ import Quickshell.Io
 
 BarIcon {
   id: root
-  readonly property string flag: Quickshell.env("HOME") + "/.local/state/omarchy/indicators/stay-awake"
+  readonly property string flag: Quickshell.env("HOME") + "/.local/state/stay-awake"
   property bool on: false
   height: Theme.barHeight
   text: "󰅶"

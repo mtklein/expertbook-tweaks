@@ -1,6 +1,6 @@
 local CONSOLE = "qconsole"
 local SPECIAL = "special:" .. CONSOLE
-local CONSOLE_APPS = { ["org.omarchy.agent"] = true, ["console"] = true }
+local CONSOLE_APPS = { ["console"] = true }
 local CAPS_LOCK = 66
 local TAP_MS = 300
 local AFTER_RELEASE_MS = 20

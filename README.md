@@ -7,7 +7,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 
 | Path | What |
 |---|---|
-| `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the Tiger theme as one directory). |
+| `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the shell as one directory). |
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `hyprland-patched/`, `sddm-patched/` | Patches and `build.sh` for the Hyprland and SDDM packages. |
 | `ctm/` | Source of `white-point-ctm`. |
@@ -60,7 +60,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
 | `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
 | `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vim` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
-| `.config/environment.d/10-omarchy-fcitx.conf` | Empty; masks the Omarchy file of the same name that points every app at the removed input-method framework. |
+| `.config/foot/foot.ini` | The terminal: DejaVu Sans Mono Nerd Font, the Tiger light colours, no bell. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
 | `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, the power key, Fn+F8 to cycle the display scale, close window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, lid switch. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
@@ -70,7 +70,6 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/env.lua`, `helpers.lua`, `start.lua` | Session environment; the `o.bind` / `o.window` helpers; what starts at login. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
-| `.config/omarchy/themes/tiger/` | The Omarchy theme the terminal and app colours were generated from (the generated copies live in `~/.local/state/omarchy/current/theme`); `install.sh` fetches the wallpaper into it for the login screen. Nothing reads it now. |
 | `.config/fontconfig/conf.d/61-default-sans.conf` | DejaVu Sans as the default sans-serif; it is also the shell's and the GTK interface font. |
 | `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 
@@ -80,8 +79,10 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 | File under `system/` | What |
 |---|---|
-| `etc/mkinitcpio.conf.d/expertbook.conf` | Boot image hooks: splash, disk unlock, snapshot boot; Thunderbolt early. |
+| `etc/mkinitcpio.conf.d/expertbook.conf` | Boot image hooks: splash, disk unlock, snapshot boot, resume from hibernation; Thunderbolt early. |
 | `etc/limine-entry-tool.d/expertbook.conf` | Boot menu: one unified kernel image, quiet boot, six snapshot entries. Rebuild with `limine-mkinitcpio`. |
+| `etc/pacman.d/hooks/expertbook-patched.hook`, `usr/local/share/expertbook-tweaks/patched-check` | After any update that installs Hyprland or SDDM, says in pacman's output if either is now the stock build (ours end in `.1`) and which build script to run. |
+| `etc/pacman.d/hooks/expertbook-limine-deploy.hook` | Copies a new Limine bootloader to the boot partition when the `limine` package updates. |
 | `etc/plymouth/plymouthd.conf` | The stock `spinner` boot splash, which also asks for the disk password. |
 | `etc/sddm.conf.d/zz-expertbook.conf` | The login screen running on Wayland. The session is Hyprland's own `hyprland-uwsm.desktop`. |
 | `etc/systemd/logind.conf.d/expertbook.conf` | The power key is left to the shell's power menu; 15 s for the lock to draw before sleep. |
@@ -132,7 +133,6 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 - Subpixel antialiasing on transparent layers overshoots white in HDR, hence greyscale (fontconfig, and `QSG_DISTANCEFIELD_ANTIALIASING` for Qt Quick).
 - An official Hyprland update replaces the patched build.
 - HDR is relative here: a game's white is its declared reference white (203 nits when it declares none), drawn at the desktop's white. Set a game's paper white to 203. Chromium declares the advertised white as its reference, so it is scaled by 1.
-- `omarchy theme set` rewrites `/etc/chromium/policies/managed/color.json`; delete it again for stock Chromium colours.
 - Each read of the light sensor blocks about a second.
 - Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).

@@ -1,0 +1,13 @@
+#!/bin/sh
+for package in hyprland sddm; do
+  version=$(pacman -Q "$package" | cut -d" " -f2)
+  case $version in
+    *.1) ;;
+    *)
+      echo
+      echo "  ATTENTION: $package $version is the stock build; our patches are gone."
+      echo "  Rebuild with ~/expertbook-tweaks/$package-patched/build.sh"
+      echo
+      ;;
+  esac
+done
