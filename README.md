@@ -102,7 +102,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 
 | File under `home/` | What |
 |---|---|
-| `.inputrc`, `system/etc/modprobe.d/expertbook-no-beep.conf` | No bell from the shell and no PC speaker. With desktop event sounds off (`gsettings set org.gnome.desktop.sound event-sounds false`, `org.gnome.desktop.wm.preferences audible-bell false`), `[bell] system=no` in `foot.ini` and `voxtype config set audio.feedback.enabled false`, nothing on the machine makes an alert sound. |
+| `.inputrc`, `system/etc/modprobe.d/expertbook-no-beep.conf` | No bell from the shell and no PC speaker. With desktop event sounds off (`gsettings set org.gnome.desktop.sound event-sounds false`, `org.gnome.desktop.wm.preferences audible-bell false`), `[bell] system=no` in `foot.ini` and `voxtype config set audio.feedback.enabled false`, the system itself makes no alert sounds; apps keep their own settings. |
 | `.config/uwsm/env` | Session environment: `~/.local/bin` on `PATH` (Claude Code lives there, from Anthropic's installer, and updates itself), `vim`, `foot`. |
 
 ## Hardware
