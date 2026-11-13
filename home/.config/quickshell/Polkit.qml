@@ -6,6 +6,7 @@ import Quickshell.Wayland
 PanelWindow {
   id: root
   readonly property var flow: agent.flow
+  readonly property bool fingerWaiting: flow !== null && !flow.supplementaryIsError && !flow.failed && /finger/i.test(flow.supplementaryMessage)
 
   visible: agent.isActive
   color: "transparent"
@@ -54,7 +55,7 @@ PanelWindow {
         wrapMode: Text.WordWrap
         color: root.flow && (root.flow.supplementaryIsError || root.flow.failed) ? Theme.active : Theme.dimText
         text: {
-          if (!root.flow) return ""
+          if (!root.flow || root.fingerWaiting) return ""
           if (root.flow.supplementaryMessage !== "") return root.flow.supplementaryMessage
           return root.flow.failed ? "That did not work. Try again." : ""
         }
@@ -65,7 +66,7 @@ PanelWindow {
         height: 32
         radius: 4
         color: Theme.hover
-        opacity: root.flow && root.flow.isResponseRequired ? 1 : 0.4
+        opacity: root.flow && (root.flow.isResponseRequired || root.fingerWaiting) ? 1 : 0.4
 
         TextInput {
           id: answer
@@ -86,6 +87,17 @@ PanelWindow {
             root.flow.submit(typed)
           }
           Keys.onEscapePressed: if (root.flow) root.flow.cancelAuthenticationRequest()
+        }
+
+        BarIcon {
+          anchors.right: parent.right
+          anchors.rightMargin: 4
+          anchors.verticalCenter: parent.verticalCenter
+          text: "󰈷"
+          color: Theme.dimText
+          font.pixelSize: 16
+          opacity: root.fingerWaiting && answer.text.length === 0 ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 120 } }
         }
 
         BarText {
