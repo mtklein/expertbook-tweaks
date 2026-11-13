@@ -17,6 +17,8 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 
 `~/.config/hypr/monitors.lua` stays Omarchy's file (it rewrites it with `sed -i`); `install.sh` appends two `dofile` lines to it.
 
+Omarchy commands the Hyprland config still calls: `omarchy-launch-shell`, `omarchy-agent`, `omarchy-launch-terminal`, `omarchy-launch-browser`, `omarchy-audio-input-mute`, `omarchy-brightness-keyboard`, `omarchy-system-lid-close`, `omarchy-hyprland-monitor-clamshell`, `omarchy-hyprland-monitor-watch`, `omarchy-powerprofiles-init`, and the shell's `omarchy:menu.*` and `omarchy:audio.*` shortcuts.
+
 ## Display
 
 | File | What |
@@ -62,11 +64,14 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 
 | File | What |
 |---|---|
-| `.config/hypr/bindings.lua` | Brightness and white point keys, layout cycle, dictation. |
-| `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). The toggle happens 20 ms after the release, so the window that gains focus never sees the key as held. Windows opened from the console move to the desktop. |
+| `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
+| `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, hold Right Alt to dictate, lid switch. |
+| `.config/hypr/console.lua` | The Quake console: a tap of Caps Lock toggles it (held, or with another key, Caps Lock is Ctrl); sized to half the screen; stray windows opened into it move to the workspace. |
+| `.config/hypr/inputs.lua` | US layout, Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling, key repeat. |
+| `.config/hypr/look.lua` | Gaps, rounding, shadows, animations; no window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen. |
+| `.config/hypr/windows.lua` | Window and layer rules: dialogs float, Steam's main window tiles and closing Steam's windows runs `steam-quit-when-closed`, GeForce NOW's tags for wheel scrolling and touch. |
+| `.config/hypr/env.lua`, `helpers.lua`, `start.lua` | Session environment; the `o.bind` / `o.window` helpers; what starts at login. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
-| `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
-| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen; Steam's main window tiles, and closing Steam's windows runs `steam-quit-when-closed`; GeForce NOW's tags for wheel scrolling and touch. |
 | `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
