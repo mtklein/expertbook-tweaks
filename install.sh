@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WHOLE_DIRS=(.config/omarchy/themes/tiger)
+WHOLE_DIRS=(.config/omarchy/themes/tiger .config/quickshell)
 
 link() {
   local src="$R/home/$1" dst="$HOME/$1"
@@ -38,7 +38,7 @@ fi
 "$R/plugins/sync" apply
 
 systemctl --user daemon-reload
-systemctl --user enable --now ambient-display.service hypridle.service sdw-clash-recover.service tv-mode.service
+systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service
 
 if [[ ${1:-} == --system ]]; then
   login_background="$R/system/usr/share/sddm/themes/tiger/background.jpg"

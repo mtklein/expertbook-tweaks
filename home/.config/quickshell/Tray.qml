@@ -5,7 +5,7 @@ import Quickshell.Widgets
 
 Item {
   id: root
-  property bool revealed: hover.hovered || linger.running
+  property bool revealed: hover.hovered || linger.running || Panels.open === "bluetooth"
   height: Theme.barHeight
   width: Math.max(row.width, Theme.slot)
 

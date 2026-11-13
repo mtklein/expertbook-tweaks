@@ -34,6 +34,4 @@ end)
 o.window("GeForceNOW", { idle_inhibit = "fullscreen", tag = "+wheel_scroll" })
 o.window({ class = "GeForceNOW", fullscreen = true }, { tag = "+touch_mouse" })
 
-hl.layer_rule({ match = { namespace = "omarchy-bar" }, no_anim = true, animation = "none" })
-hl.layer_rule({ match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-osd|omarchy-reminders|omarchy-network-qr|omarchy-dock|omarchy-dock-apps)$" }, no_anim = true, animation = "none" })
-hl.layer_rule({ match = { namespace = "^(omarchy-background|owe-background)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^shell-.*$" }, no_anim = true, animation = "none" })

@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Wayland
 
 Variants {
   model: Quickshell.screens
@@ -14,6 +15,7 @@ Variants {
       bottom: true
     }
     implicitHeight: Theme.barHeight
+    WlrLayershell.namespace: "shell-bar"
     color: Theme.barBackground
 
     Workspaces {
@@ -33,6 +35,7 @@ Variants {
       spacing: 4
       Tray {}
       Weather {}
+      Wifi {}
       Battery {}
       Item { width: 6; height: 1 }
       Clock {}

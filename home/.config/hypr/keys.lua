@@ -1,5 +1,5 @@
 local function shell(name)
-  return hl.dsp.global("omarchy:" .. name)
+  return hl.dsp.global("shell:" .. name)
 end
 
 local function terminal()
@@ -24,8 +24,8 @@ end
 
 o.bind("SUPER + RETURN", "Terminal", terminal)
 o.bind("SUPER + SHIFT + RETURN", "Browser", "omarchy-launch-browser")
-o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu.root"))
-o.bind("XF86PowerOff", "Power menu", shell("menu.system"), { locked = true })
+o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu"))
+o.bind("XF86PowerOff", "Power menu", shell("power-menu"), { locked = true })
 
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
 o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
@@ -41,10 +41,10 @@ o.bind("SUPER + C", "Copy", function() tap(in_terminal() and "CTRL SHIFT" or "CT
 o.bind("SUPER + V", "Paste", function() tap(in_terminal() and "CTRL SHIFT" or "CTRL", "V") end)
 
 local held = { locked = true, repeating = true }
-o.bind("XF86AudioRaiseVolume", "Volume up", shell("audio.raise"), held)
-o.bind("XF86AudioLowerVolume", "Volume down", shell("audio.lower"), held)
-o.bind("XF86AudioMute", "Mute", shell("audio.mute-toggle"), { locked = true })
-o.bind("XF86AudioMicMute", "Mute microphone", "omarchy-audio-input-mute", { locked = true })
+o.bind("XF86AudioRaiseVolume", "Volume up", shell("volume-up"), held)
+o.bind("XF86AudioLowerVolume", "Volume down", shell("volume-down"), held)
+o.bind("XF86AudioMute", "Mute", shell("mute"), { locked = true })
+o.bind("XF86AudioMicMute", "Mute microphone", shell("microphone-mute"), { locked = true })
 
 o.bind("XF86MonBrightnessUp", "Brightness up", "hdr-brightness +10%", held)
 o.bind("XF86MonBrightnessDown", "Brightness down", "hdr-brightness 10%-", held)

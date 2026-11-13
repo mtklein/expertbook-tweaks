@@ -9,6 +9,4 @@ read -r status kelvin meter <<<"$reply"
 [[ -n ${1:-} ]] || { echo "$kelvin"; exit; }
 (( no_osd )) && exit
 
-payload=$(jq -cn --arg icon $'\U000F050F' --arg value "$meter" --arg text "${kelvin}K" \
-  '{icon:$icon,message:"",value:$value,progressText:$text,max:"100",duration:""}')
-omarchy-shell -q osd show "$payload"
+qs ipc call osd pop white-point "$meter" "${kelvin}K" >/dev/null

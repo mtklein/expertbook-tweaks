@@ -47,4 +47,4 @@ case $reply in
     ;;
 esac
 
-(( no_osd )) || omarchy-osd -i brightness -p "$percent"
+(( no_osd )) || qs ipc call osd pop brightness "$percent" "$percent%" >/dev/null
