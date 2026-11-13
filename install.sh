@@ -61,6 +61,8 @@ if [[ ${1:-} == --system ]]; then
     done
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
+    grep -q "^IgnorePkg = omarchy omarchy-settings quickshell$" /etc/pacman.conf ||
+      sed -i -e "/^IgnorePkg/d" -e "/^HoldPkg/a IgnorePkg = omarchy omarchy-settings quickshell" /etc/pacman.conf
     udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
     systemctl enable rapl-sync.service

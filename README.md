@@ -128,6 +128,10 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
 - The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
 
+## Omarchy is frozen
+
+`install.sh --system` sets `IgnorePkg = omarchy omarchy-settings quickshell` in `/etc/pacman.conf`, and `omarchy update` is not run: it would rewrite `pacman.conf` and run Omarchy's migrations. Update the rest with `sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu`.
+
 ## Packages added to Omarchy
 
 `libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
