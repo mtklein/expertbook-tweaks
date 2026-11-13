@@ -216,6 +216,11 @@ def set_sink(name):
     return run("pactl", "set-default-sink", name, quiet=False) is not None
 
 
+def full_volume(name):
+    run("pactl", "set-sink-mute", name, "0", quiet=False)
+    return run("pactl", "set-sink-volume", name, "100%", quiet=False) is not None
+
+
 def profile():
     out = run("powerprofilesctl", "get")
     return out.strip() if out else None
@@ -344,7 +349,8 @@ class TVMode:
                 elif set_sink(sink):
                     s["tv_sink"] = sink
                     write_json(ACTIVE, s)
-                    log(f"  sound -> {sink}")
+                    full_volume(sink)
+                    log(f"  sound -> {sink} at full volume")
         if self.bp_deadline is not None:
             w = big_picture_window()
             if w or now > self.bp_deadline:

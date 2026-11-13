@@ -113,7 +113,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 |---|---|
 | `.local/bin/game`, `.config/MangoHud/MangoHud.conf` | Steam launch option `game %command%`: native Wayland window, MangoHud hidden until Right Shift + F12. |
 | `.local/share/flatpak/overrides/com.nvidia.geforcenow` | GeForce NOW uses the Flatpak runtime's SDL (`SDL_DYNAMIC_API`) in place of its bundled one, which was built without Xcursor and turns the game's cursors into two-colour blobs. |
-| `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Run only against its simulator so far (`tv-mode sim …`). |
+| `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Sound goes to the TV unmuted at 100%, so the TV's remote is the volume control; the speakers keep their own level for afterwards. `tv-mode sim …` runs it against a simulator. |
 
 ## Not obvious
 
