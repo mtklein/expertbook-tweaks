@@ -88,7 +88,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | `etc/mkinitcpio.conf.d/expertbook.conf` | Boot image hooks: splash, disk unlock, snapshot boot; Thunderbolt early. |
 | `etc/limine-entry-tool.d/expertbook.conf` | Boot menu: one unified kernel image, quiet boot, six snapshot entries. Rebuild with `limine-mkinitcpio`. |
 | `etc/plymouth/plymouthd.conf` | The stock `spinner` boot splash, which also asks for the disk password. |
-| `usr/local/share/wayland-sessions/hyprland.desktop`, `etc/sddm.conf.d/zz-expertbook.conf` | The login session (Hyprland under uwsm) and the login screen running on Wayland. |
+| `etc/sddm.conf.d/zz-expertbook.conf` | The login screen running on Wayland. The session is Hyprland's own `hyprland-uwsm.desktop`. |
 | `etc/systemd/logind.conf.d/expertbook.conf` | The power key is left to the shell's power menu; 15 s for the lock to draw before sleep. |
 | `etc/systemd/system.conf.d/`, `user.conf.d/`, `system/user@.service.d/` | 5 s stop timeouts; high open-file limits (games). |
 | `etc/systemd/oomd.conf.d/`, `etc/systemd/user/app.slice.d/` | Apps under sustained memory pressure are killed. |

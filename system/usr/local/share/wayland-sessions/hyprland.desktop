@@ -1,5 +1,0 @@
-[Desktop Entry]
-Name=Hyprland (uwsm)
-Exec=uwsm start -g -1 -e -D Hyprland hyprland.desktop
-TryExec=uwsm
-Type=Application
