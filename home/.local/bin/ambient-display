@@ -25,6 +25,7 @@ TICK_MOVING = 0.05       # ... and while a level is on its way somewhere
 SETTLE = 4.0             # seconds a manual white point change must be left alone to be learned
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
 SAMPLE = 1.0             # seconds between sensor cycles; every reading wakes the sensor hub
+SCREEN_RECHECK = 60.0    # seconds between looks at the panel when Hyprland has announced no change
 
 # Brightness
 STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
@@ -263,6 +264,28 @@ def hypr_json(command):
         return json.loads(data)
     except (OSError, ValueError):
         return None
+
+
+screen_changed = threading.Event()
+screen_changed.set()
+
+
+def watch_screens():
+    while True:
+        path = hypr_socket()
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                s.connect(path.replace(".socket.sock", ".socket2.sock"))
+                screen_changed.set()
+                pending = b""
+                while chunk := s.recv(65536):
+                    *lines, pending = (pending + chunk).split(b"\n")
+                    if any(line.startswith((b"monitoradded", b"monitorremoved", b"configreloaded")) for line in lines):
+                        screen_changed.set()
+        except (OSError, AttributeError):
+            pass
+        screen_changed.set()
+        time.sleep(5)
 
 
 def run(*cmd):
@@ -682,7 +705,8 @@ class Brightness:
         if self.smooth is None:
             return
 
-        if now - self.last_check >= 1.0:
+        if screen_changed.is_set() or now - self.last_check >= SCREEN_RECHECK:
+            screen_changed.clear()
             self.last_check = now
             nits = self.edp_state()
             current = self.get_pct() if nits else None
@@ -1099,6 +1123,9 @@ def serve(listener, brightness, white, now):
             words = conn.makefile().readline().split()
             if len(words) == 3 and words[0] == "brightness":
                 reply = brightness.request(words[1], words[2], now)
+            elif words == ["screen"]:
+                screen_changed.set()
+                reply = "ok"
             elif words and words[0] == "white" and len(words) <= 2:
                 reply = white.request(words[1] if len(words) == 2 else "", now)
             else:
@@ -1128,6 +1155,7 @@ def main():
 
     sensor = Sensor(path)
     sensor.start()
+    threading.Thread(target=watch_screens, daemon=True).start()
     prev = time.monotonic()
     slept = suspended_seconds()
     while True:
@@ -1135,6 +1163,7 @@ def main():
         dt, prev = now - prev, now
         if suspended_seconds() - slept > 5:
             slept, brightness.woke = suspended_seconds(), True
+            screen_changed.set()
         for t, lux, raw in sensor.take():
             brightness.feed(t, lux)
             white.feed(t, lux, raw)
