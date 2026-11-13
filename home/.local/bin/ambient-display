@@ -20,10 +20,11 @@ GREETER_NITS = Path("/var/lib/expertbook-tweaks/greeter-nits")   # the login scr
 SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display.sock"
 MONITOR = "eDP-1"
 
-TICK = 0.1               # control loop period while nothing is moving (s)
+TICK = 1.0               # control loop period while nothing is moving (s)
 TICK_MOVING = 0.05       # ... and while a level is on its way somewhere
 SETTLE = 4.0             # seconds a manual white point change must be left alone to be learned
 COLOR_EVERY = 3          # sensor cycles per colour read (the rest read lux)
+SAMPLE = 1.0             # seconds between sensor cycles; every reading wakes the sensor hub
 
 # Brightness
 STATUS = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display-status.json"
@@ -199,7 +200,7 @@ def sensor_attr(sensor, name, default):
 
 
 class Sensor(threading.Thread):
-    """Samples (time, lux, colortemp raw or None), as fast as the hub answers."""
+    """Samples (time, lux, colortemp raw or None) every SAMPLE seconds."""
 
     def __init__(self, path):
         super().__init__(daemon=True)
@@ -227,6 +228,7 @@ class Sensor(threading.Thread):
                 continue
             with self.lock:
                 self.samples.append((time.monotonic(), lux, raw))
+            time.sleep(SAMPLE)
 
     def take(self):
         with self.lock:
