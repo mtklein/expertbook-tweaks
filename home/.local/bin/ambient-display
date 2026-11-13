@@ -13,8 +13,8 @@ from pathlib import Path
 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE = STATE_DIR / "ambient-display.json"
-WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from hdr.lua
-GAMMA = STATE_DIR / "hdr-brightness-gamma"     # the level curve's exponent, from hdr.lua
+WHITE = STATE_DIR / "hdr-sdr-white"            # nits at 100%, from display.lua
+GAMMA = STATE_DIR / "hdr-brightness-gamma"     # the level curve's exponent, from display.lua
 LEVEL = STATE_DIR / "hdr-brightness"           # "<level 0..1>\n" plus "user <epoch>\n" while a person's choice holds it
 GREETER_NITS = Path("/var/lib/expertbook-tweaks/greeter-nits")   # the login screen shows white at this
 SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "ambient-display.sock"
@@ -449,7 +449,7 @@ class Brightness:
         self.smooth = None       # smoothed log lux
         self.last_t = None
         self.white = None        # nits at 100%
-        self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (hdr.lua)
+        self.gamma = 1.0         # level -> nits is white * (level / 100) ** gamma (display.lua)
         self.last_set = None     # the level as last seen or written (%, fractional under automatic control)
         self.calm = None         # steadied log lux: what automatic brightness follows
         self.follow = Follower(SETTLE_BRIGHT)   # in ln(nits)

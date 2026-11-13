@@ -31,7 +31,7 @@ Omarchy commands the Hyprland config still calls: `omarchy-launch-shell`, `omarc
 | `.config/hypr/hypridle.conf` | Display off at 8 min, suspend at 10; both skipped in stay-awake. |
 | `.config/fontconfig/conf.d/60-grayscale-antialias.conf` | Greyscale text antialiasing. |
 
-State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level, plus `user <epoch>` while a manual choice holds it), `hdr-sdr-white` and `hdr-brightness-gamma` (written by `hdr.lua`). Status: `$XDG_RUNTIME_DIR/ambient-display-status.json`.
+State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level, plus `user <epoch>` while a manual choice holds it), `hdr-sdr-white` and `hdr-brightness-gamma` (written by `display.lua`). Status: `$XDG_RUNTIME_DIR/ambient-display-status.json`.
 
 ### Hyprland patches
 
@@ -78,7 +78,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
 | `.config/omarchy/plugins/mtklein.dictation/` | Bar widget: a microphone icon while Voxtype records (red) or transcribes (white), nothing otherwise. Needs `omarchy bar put mtklein.dictation --section center`, `voxtype config set osd.enabled false` and `voxtype config set tray.enabled false`, and a shell restart the first time. |
 | `.config/fontconfig/conf.d/61-tiger-sans.conf` | Luxi Sans as the default sans-serif. |
-| `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `hdr.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
+| `system/usr/share/sddm/themes/tiger/`, `system/etc/sddm.conf.d/zz-expertbook.conf`, `system/usr/local/share/expertbook-tweaks/sddm-hyprland.lua` | Login window that copies the Omarchy lock screen: the blurred wallpaper and one password field (sizes, colours and font are the lock's values for the Tiger theme, written out by hand). The greeter's Hyprland runs the panel in HDR at the desktop's scale and last white level (`/var/lib/expertbook-tweaks/greeter-scale` from `display.lua`, `greeter-nits` from `ambient-display`; 200 nits if missing, never below 8). |
 | `.config/omarchy/hooks/post-update.d/expertbook-tweaks` | After `omarchy update`: says in the update terminal if Hyprland or SDDM is no longer the patched build, reapplies the plugin patches. |
 
 ### Plugin patches
