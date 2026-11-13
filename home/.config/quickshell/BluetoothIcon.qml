@@ -22,13 +22,18 @@ BarIcon {
     return /^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(name) ? "" : name
   }
 
+  property string forgetting: ""
+
   readonly property bool connected: devices.some(function(d) { return d.connected })
 
   height: Theme.barHeight
   visible: adapter !== null
   text: !on ? "󰂲" : (connected ? "󰂱" : "󰂯")
 
-  onPanelOpenChanged: if (adapter && on) adapter.discovering = panelOpen
+  onPanelOpenChanged: {
+    forgetting = ""
+    if (adapter && on) adapter.discovering = panelOpen
+  }
   onOnChanged: if (adapter && on && panelOpen) adapter.discovering = true
 
   MouseArea {
@@ -56,13 +61,21 @@ BarIcon {
         label: root.title(modelData) || modelData.address
         strong: modelData.connected
         note: {
+          if (root.forgetting === modelData.address) return "forget?"
           if (modelData.pairing) return "pairing…"
           if (modelData.state === BluetoothDeviceState.Connecting) return "connecting…"
           if (modelData.state === BluetoothDeviceState.Disconnecting) return "disconnecting…"
           if (modelData.connected) return modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "%" : "connected"
           return modelData.paired ? "" : "new"
         }
+        onRightClicked: root.forgetting = modelData.paired && root.forgetting !== modelData.address ? modelData.address : ""
         onClicked: {
+          if (root.forgetting === modelData.address) {
+            root.forgetting = ""
+            modelData.forget()
+            return
+          }
+          root.forgetting = ""
           if (modelData.connected) modelData.disconnect()
           else if (modelData.paired) modelData.connect()
           else {

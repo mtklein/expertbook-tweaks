@@ -8,6 +8,7 @@ Rectangle {
   property bool strong: false
   property bool clickable: true
   signal clicked()
+  signal rightClicked()
 
   width: parent ? parent.width : 0
   height: Theme.rowHeight
@@ -46,6 +47,10 @@ Rectangle {
     anchors.fill: parent
     hoverEnabled: true
     enabled: root.clickable
-    onClicked: root.clicked()
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    onClicked: function(mouse) {
+      if (mouse.button === Qt.RightButton) root.rightClicked()
+      else root.clicked()
+    }
   }
 }

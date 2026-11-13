@@ -25,7 +25,6 @@ end
 o.bind("SUPER + RETURN", "Terminal", terminal)
 o.bind("SUPER + SHIFT + RETURN", "Browser", o.launch("chromium"))
 o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu"))
-o.bind("XF86PowerOff", "Power menu", shell("power-menu"), { locked = true })
 
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
 o.bind("SUPER + Q", "Close window", hl.dsp.window.close())

@@ -38,6 +38,7 @@ BarIcon {
   }
   property string asking: ""
   property string failed: ""
+  property string forgetting: ""
 
   function bars(strength) {
     var glyphs = ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"]
@@ -57,6 +58,7 @@ BarIcon {
 
   onPanelOpenChanged: {
     asking = ""
+    forgetting = ""
     failed = ""
     syncScanner()
   }
@@ -102,12 +104,23 @@ BarIcon {
           label: entry.modelData.name
           strong: entry.modelData.connected
           note: {
+            if (root.forgetting === entry.modelData.name) return "forget?"
             if (entry.modelData.stateChanging) return entry.modelData.connected ? "leaving…" : "joining…"
             if (entry.modelData.connected) return "connected"
             if (root.failed === entry.modelData.name) return "could not join"
             return root.open(entry.modelData) ? "open" : (entry.modelData.known ? "" : "󰌾")
           }
+          onRightClicked: {
+            root.asking = ""
+            root.forgetting = entry.modelData.known && root.forgetting !== entry.modelData.name ? entry.modelData.name : ""
+          }
           onClicked: {
+            if (root.forgetting === entry.modelData.name) {
+              root.forgetting = ""
+              entry.modelData.forget()
+              return
+            }
+            root.forgetting = ""
             if (entry.modelData.connected) return
             root.failed = ""
             if (entry.modelData.known || root.open(entry.modelData)) {

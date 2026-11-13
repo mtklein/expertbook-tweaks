@@ -8,7 +8,6 @@ import Quickshell.Widgets
 PanelWindow {
   id: root
   property bool open: false
-  property bool powerOnly: false
   readonly property var power: [
     { name: "Log Out", glyph: "󰍃", command: ["uwsm", "stop"] },
     { name: "Restart", glyph: "󰜉", command: ["systemctl", "reboot"] },
@@ -17,30 +16,27 @@ PanelWindow {
   readonly property var entries: {
     var needle = filter.text.trim().toLowerCase()
     var apps = []
-    if (!powerOnly) {
-      var all = DesktopEntries.applications.values
-      for (var i = 0; i < all.length; i++) {
-        var e = all[i]
-        if (e.noDisplay) continue
-        var name = e.name.toLowerCase()
-        var rank = needle === "" ? 1 : (name.indexOf(needle) === 0 ? 0 : (name.indexOf(needle) > 0 ? 1 : ((e.genericName || "").toLowerCase().indexOf(needle) >= 0 ? 2 : -1)))
-        if (rank < 0) continue
-        apps.push({ name: e.name, rank: rank, entry: e })
-      }
-      apps.sort(function(a, b) { return a.rank - b.rank || a.name.localeCompare(b.name) })
+    var all = DesktopEntries.applications.values
+    for (var i = 0; i < all.length; i++) {
+      var e = all[i]
+      if (e.noDisplay) continue
+      var name = e.name.toLowerCase()
+      var rank = needle === "" ? 1 : (name.indexOf(needle) === 0 ? 0 : (name.indexOf(needle) > 0 ? 1 : ((e.genericName || "").toLowerCase().indexOf(needle) >= 0 ? 2 : -1)))
+      if (rank < 0) continue
+      apps.push({ name: e.name, rank: rank, entry: e })
     }
+    apps.sort(function(a, b) { return a.rank - b.rank || a.name.localeCompare(b.name) })
     for (var j = 0; j < power.length; j++) {
       if (needle === "" || power[j].name.toLowerCase().indexOf(needle) >= 0) apps.push(power[j])
     }
     return apps
   }
 
-  function show(onlyPower) {
-    if (open && powerOnly === onlyPower) {
+  function show() {
+    if (open) {
       open = false
       return
     }
-    powerOnly = onlyPower
     filter.text = ""
     list.currentIndex = 0
     open = true
@@ -62,7 +58,7 @@ PanelWindow {
   anchors.top: true
   margins.top: 140
   implicitWidth: 360
-  implicitHeight: 2 * Theme.pad + (powerOnly ? power.length : 10) * Theme.rowHeight + (powerOnly ? 0 : Theme.rowHeight + 6)
+  implicitHeight: 2 * Theme.pad + 11 * Theme.rowHeight + 6
 
   onOpenChanged: if (open) filter.forceActiveFocus()
 
@@ -76,20 +72,12 @@ PanelWindow {
     appid: "shell"
     name: "menu"
     description: "Menu"
-    onPressed: root.show(false)
-  }
-
-  GlobalShortcut {
-    appid: "shell"
-    name: "power-menu"
-    description: "Power menu"
-    onPressed: root.show(true)
+    onPressed: root.show()
   }
 
   IpcHandler {
     target: "menu"
-    function open(): void { root.show(false) }
-    function power(): void { root.show(true) }
+    function open(): void { root.show() }
   }
 
   MouseArea {
@@ -119,8 +107,7 @@ PanelWindow {
 
       Item {
         width: parent.width
-        height: root.powerOnly ? 0 : Theme.rowHeight
-        visible: !root.powerOnly
+        height: Theme.rowHeight
 
         TextInput {
           id: filter
