@@ -1,8 +1,9 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 
-PopupWindow {
+PanelWindow {
   id: root
   required property Item anchorItem
   required property string name
@@ -10,21 +11,33 @@ PopupWindow {
   property int panelWidth: 280
   readonly property int gap: 8
   readonly property bool open: Panels.open === name && Panels.owner === anchorItem
+  property real offset: 0
 
+  function place() {
+    var bar = anchorItem.QsWindow.window
+    if (!bar) return
+    var centre = anchorItem.mapToItem(null, anchorItem.width / 2, 0).x
+    offset = Math.max(0, bar.width - centre - implicitWidth / 2)
+  }
+
+  onOpenChanged: if (open) place()
+
+  screen: anchorItem.QsWindow.window ? anchorItem.QsWindow.window.screen : null
   visible: open
   color: "transparent"
+  anchors.bottom: true
+  anchors.right: true
+  margins.right: offset
   implicitWidth: panelWidth + 2 * gap
   implicitHeight: body.implicitHeight + 2 * Theme.pad + 2 * gap
-
-  anchor.item: anchorItem
-  anchor.edges: Edges.Top
-  anchor.gravity: Edges.Top
-  anchor.adjustment: PopupAdjustment.SlideX
+  WlrLayershell.layer: WlrLayer.Overlay
+  WlrLayershell.namespace: "shell-panel"
+  WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
   HyprlandFocusGrab {
     active: root.open
-    windows: [root, root.anchorItem.QsWindow.window]
-    onCleared: if (root.open) Panels.open = ""
+    windows: [root]
+    onCleared: if (root.open) Panels.close()
   }
 
   Rectangle {
@@ -38,7 +51,7 @@ PopupWindow {
     FocusScope {
       anchors.fill: parent
       focus: true
-      Keys.onEscapePressed: Panels.open = ""
+      Keys.onEscapePressed: Panels.close()
 
       Column {
         id: body
