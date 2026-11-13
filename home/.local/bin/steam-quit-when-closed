@@ -1,0 +1,8 @@
+#!/bin/bash
+sleep 3
+[[ -e ${XDG_RUNTIME_DIR:-/run/user/$UID}/tv-mode/active ]] && exit
+pid=$(pgrep -o -x steam) || exit
+(( $(ps -o etimes= -p "$pid") >= 30 )) || exit
+hyprctl clients -j | jq -e 'any(.[]; .class == "steam" or (.class | startswith("steam_app_")))' >/dev/null && exit
+pgrep -f 'reaper SteamLaunch' >/dev/null && exit
+exec steam -shutdown

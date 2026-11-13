@@ -66,7 +66,8 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.config/hypr/console-tap.lua` | A tap of Super or Caps Lock toggles the Quake console (held, or with another key, they act as usual; Caps Lock is Ctrl). The toggle happens 20 ms after the release, so the window that gains focus never sees the key as held. Windows opened from the console move to the desktop. |
 | `.local/bin/attention`, `system/etc/udev/rules.d/70-capslock-led.rules` | The Caps Lock light, solid, means an agent needs input. `attention on\|off [reason]`, keyed by the calling Claude Code process; hooks in `~/.claude/settings.json` raise it for permission prompts and questions and clear it when answered. |
 | `.config/hypr/input.lua` | Caps Lock is Ctrl, both Shifts toggle Caps Lock, natural scrolling. |
-| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen; Steam's main window tiles; GeForce NOW's tags for wheel scrolling and touch. |
+| `.config/hypr/looknfeel.lua` | No window borders; VRR for fullscreen windows; no second SDR copy of each HDR frame unless something is capturing the screen; Steam's main window tiles, and closing Steam's windows runs `steam-quit-when-closed`; GeForce NOW's tags for wheel scrolling and touch. |
+| `.local/bin/steam-quit-when-closed` | Shuts Steam down a few seconds after its last window closes, unless a game is running, Steam has only just started, or TV mode is on. Steam never sits in the tray. |
 | `.local/bin/workspace-layout-toggle` | Omarchy's layout cycle without its notification. |
 | `.local/bin/bar-item`, `.config/omarchy/extensions/omarchy-menu.jsonc` | Appearance > Menu Bar > Bar Items; hides the Nightlight rows. |
 | `.config/omarchy/themes/tiger/` | Mac OS X 10.4 as a light theme with a dark shell. |
@@ -130,6 +131,8 @@ To change a clone: edit it in `~/.config/omarchy/plugins/`, `omarchy restart she
 ## Packages added to Omarchy
 
 `libfprint-git` `fprintd` · `ollama` `ollama-vulkan` · `hypridle` · `socat` · `mangohud` · `ttf-dejavu` `ttf-dejavu-nerd` · `ttf-luxi` (AUR; `makepkg --skippgpcheck`, tarball sha256 pinned) · `cmake` `glaze` `hyprland-protocols` `hyprwayland-scanner` (to build Hyprland) · `extra-cmake-modules` `qt6-tools` `python-docutils` (to build SDDM) · `rust` (to build Voxtype).
+
+Removed from Omarchy: `herdr` (its server woke 19 times a second; `SUPER + CTRL + RETURN` no longer does anything).
 
 ## License
 
