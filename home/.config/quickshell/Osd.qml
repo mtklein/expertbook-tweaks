@@ -8,6 +8,7 @@ PanelWindow {
   property string icon: ""
   property int value: -1
   property string label: ""
+  property bool shown: false
 
   function show(name, amount, text) {
     var glyphs = {
@@ -22,10 +23,11 @@ PanelWindow {
     icon = glyphs[name] || name
     value = amount
     label = text
+    shown = true
     hide.restart()
   }
 
-  visible: hide.running
+  visible: shown
   color: "transparent"
   anchors.bottom: true
   margins.bottom: 40
@@ -40,6 +42,7 @@ PanelWindow {
   Timer {
     id: hide
     interval: 1200
+    onTriggered: root.shown = false
   }
 
   IpcHandler {
@@ -52,8 +55,6 @@ PanelWindow {
     width: row.width + 32
     height: 44
     color: Theme.panelBackground
-    border.color: Theme.panelBorder
-    border.width: 1
     radius: Theme.radius
 
     Row {
@@ -76,6 +77,7 @@ PanelWindow {
         color: Theme.hover
         Rectangle {
           width: parent.width * Math.max(0, Math.min(100, root.value)) / 100
+          Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
           height: parent.height
           radius: 2
           color: Theme.barText
