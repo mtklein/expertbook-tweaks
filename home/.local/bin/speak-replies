@@ -1,0 +1,162 @@
+#!/usr/bin/python3
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "speak-replies"
+PID = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "speak-replies.pid"
+PIPER = HOME / "piper"
+PYTHON = PIPER / "venv/bin/python"
+VOICE = PIPER / "voices/en_GB-semaine-medium.onnx"
+MAIN, QUOTE = 0, 1
+RATE = 22050
+
+CONTEXT = (
+    "Spoken replies are on. When this turn ends, its final message is read aloud to the user by a "
+    "text-to-speech voice, and is also shown on screen as usual. How it is read: ordinary text is spoken "
+    "by the main voice; lines that begin with '>' are spoken by a second voice, meant for quoted material "
+    "such as an error message, a log line or the user's own words; code blocks and tables are not read, "
+    "the listener only hears that one is on screen; headings, bullets and emphasis marks are dropped; "
+    "file paths, commands, URLs and abbreviations are pronounced badly. Listening is slower than reading, "
+    "so short conversational replies suit this mode."
+)
+
+
+def hush():
+    try:
+        os.killpg(int(PID.read_text()), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+    PID.unlink(missing_ok=True)
+
+
+def osd(text):
+    subprocess.run(["qs", "ipc", "call", "osd", "pop", "speech", "-1", text],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def switch(want):
+    on = not STATE.exists() if want == "toggle" else want == "on"
+    if on:
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        STATE.touch()
+    else:
+        STATE.unlink(missing_ok=True)
+        hush()
+    osd("Spoken replies on" if on else "Spoken replies off")
+
+
+def inline(text):
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"https?://\S+", "a link", text)
+    text = re.sub(r"[*_`]+", "", text)
+    return text.strip()
+
+
+def segments(message):
+    lines = message.splitlines()
+    for i, line in enumerate(lines):
+        if re.fullmatch(r"\**Sources:?\**", line.strip()):
+            lines = lines[:i]
+            break
+    out = []
+
+    def say(speaker, text):
+        text = inline(text)
+        if not text:
+            return
+        if text[-1] not in ".!?:;,":
+            text += "."
+        if out and out[-1][0] == speaker:
+            out[-1][1] += " " + text
+        else:
+            out.append([speaker, text])
+
+    in_code = in_table = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code = not in_code
+            if in_code:
+                say(MAIN, "There is a code block on screen.")
+            continue
+        if in_code:
+            continue
+        if stripped.startswith("|"):
+            if not in_table:
+                say(MAIN, "There is a table on screen.")
+            in_table = True
+            continue
+        in_table = False
+        if stripped.startswith(">"):
+            say(QUOTE, stripped.lstrip("> "))
+            continue
+        stripped = re.sub(r"^(#+|[-*+]|\d+[.)])\s+", "", stripped)
+        say(MAIN, stripped)
+    return out
+
+
+def speak(message):
+    parts = segments(message)
+    if not parts:
+        return
+    if os.fork():
+        return
+    os.setsid()
+    hush()
+    PID.write_text(str(os.getpgrp()))
+    from piper import PiperVoice, SynthesisConfig
+    voice = PiperVoice.load(VOICE)
+    player = subprocess.Popen(
+        ["pw-cat", "-p", "--raw", "--format", "s16", "--rate", str(RATE), "--channels", "1", "-"],
+        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    pause = bytes(2 * (RATE // 4))
+    try:
+        for speaker, text in parts:
+            for chunk in voice.synthesize(text, SynthesisConfig(speaker_id=speaker)):
+                player.stdin.write(chunk.audio_int16_bytes)
+            player.stdin.write(pause)
+        player.stdin.close()
+        player.wait()
+    except BrokenPipeError:
+        pass
+    if PID.exists() and PID.read_text() == str(os.getpgrp()):
+        PID.unlink(missing_ok=True)
+    os._exit(0)
+
+
+def main():
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    if command in ("toggle", "on", "off"):
+        switch(command)
+    elif command == "hush":
+        hush()
+    elif command == "context":
+        if STATE.exists():
+            hush()
+            print(json.dumps({"hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit", "additionalContext": CONTEXT}}))
+    elif command == "say":
+        if not STATE.exists():
+            return
+        if sys.prefix != str(PIPER / "venv"):
+            os.execv(PYTHON, [str(PYTHON), __file__, *sys.argv[1:]])
+        if len(sys.argv) > 2:
+            message = " ".join(sys.argv[2:])
+        else:
+            try:
+                message = json.load(sys.stdin).get("last_assistant_message") or ""
+            except ValueError:
+                message = ""
+        speak(message)
+    else:
+        sys.exit("usage: speak-replies toggle | on | off | hush | context | say [text]")
+
+
+if __name__ == "__main__":
+    main()

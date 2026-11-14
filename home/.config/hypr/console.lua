@@ -119,6 +119,7 @@ local function voice_key(target)
 end
 
 function console_dictate()
+  hl.exec_cmd("speak-replies hush")
   local ws = hl.get_workspace(SPECIAL)
   if not (ws and ws.visible) then
     hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))

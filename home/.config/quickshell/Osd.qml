@@ -17,6 +17,7 @@ PanelWindow {
       "keyboard": "󰌌",
       "stay-awake": "󰅶",
       "scale": "󰍹",
+      "speech": "󰔊",
       "volume": amount > 66 ? "󰕾" : (amount > 33 ? "󰖀" : "󰕿"),
       "muted": "󰝟",
       "microphone": "󰍬",
