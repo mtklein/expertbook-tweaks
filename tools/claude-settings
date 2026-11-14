@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+import json
+from pathlib import Path
+
+claude = Path.home() / ".claude"
+claude.mkdir(exist_ok=True)
+
+settings_file = claude / "settings.json"
+settings = json.loads(settings_file.read_text()) if settings_file.exists() else {}
+settings.setdefault("voice", {"enabled": True, "mode": "tap"})
+hooks = settings.setdefault("hooks", {})
+
+
+def ensure(event, command, **extra):
+    groups = hooks.setdefault(event, [])
+    if any(h.get("command") == command for g in groups for h in g.get("hooks", [])):
+        return
+    groups.append({"hooks": [{"type": "command", "command": command, **extra}]})
+
+
+ensure("UserPromptSubmit", "$HOME/.local/bin/speak-replies context")
+ensure("Stop", "$HOME/.local/bin/speak-replies say", **{"async": True})
+settings_file.write_text(json.dumps(settings, indent=2) + "\n")
+
+keys_file = claude / "keybindings.json"
+keys = json.loads(keys_file.read_text()) if keys_file.exists() else {
+    "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
+    "$docs": "https://code.claude.com/docs/en/keybindings",
+    "bindings": [],
+}
+chat = next((b for b in keys["bindings"] if b.get("context") == "Chat"), None)
+if chat is None:
+    chat = {"context": "Chat", "bindings": {}}
+    keys["bindings"].append(chat)
+chat["bindings"].setdefault("space", None)
+chat["bindings"].setdefault("meta+k", "voice:pushToTalk")
+keys_file.write_text(json.dumps(keys, indent=2) + "\n")

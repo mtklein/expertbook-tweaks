@@ -26,6 +26,16 @@ for d in "${WHOLE_DIRS[@]}"; do
 done
 (cd "$R/home" && find . "${skip[@]}" -type f -print) | while read -r f; do link "${f#./}"; done
 
+if [[ ! -x ~/piper/venv/bin/piper ]]; then
+  python3 -m venv ~/piper/venv
+  ~/piper/venv/bin/pip install --quiet piper-tts
+fi
+for f in en_GB-semaine-medium.onnx en_GB-semaine-medium.onnx.json; do
+  [[ -s ~/piper/voices/$f ]] ||
+    curl -fsSL --create-dirs -o ~/piper/voices/"$f" "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/semaine/medium/$f"
+done
+"$R/tools/claude-settings"
+
 systemctl --user daemon-reload
 systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service fn-keys.service
 

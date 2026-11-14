@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+here=$(dirname "$(readlink -f "$0")")
+if [ ! -e /.flatpak-info ]; then
+  exec flatpak run --devel --command=bash com.nvidia.geforcenow "$here/build-sdl"
+fi
+out=$here/sdl
+src=$out/src
+mkdir -p "$src"
+cd "$src"
+[ -d SDL ] || git clone -q --depth 1 -b release-3.4.20 https://github.com/libsdl-org/SDL
+[ -d sdl2-compat ] || git clone -q --depth 1 -b release-2.32.74 https://github.com/libsdl-org/sdl2-compat
+cmake -S SDL -B SDL/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$out" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+ninja -C SDL/build install
+cmake -S sdl2-compat -B sdl2-compat/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$out" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_PREFIX_PATH="$out" -DSDL2COMPAT_TESTS=OFF -DSDL2COMPAT_STATIC=OFF -DCMAKE_INSTALL_RPATH='$ORIGIN'
+ninja -C sdl2-compat/build install
+ls -la "$out/lib"/libSDL*.so*

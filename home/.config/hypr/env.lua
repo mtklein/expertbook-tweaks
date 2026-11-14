@@ -9,7 +9,6 @@ hl.env("OZONE_PLATFORM", "wayland")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
-hl.env("XCOMPOSEFILE", os.getenv("HOME") .. "/.XCompose")
 
 hl.config({
   xwayland = { force_zero_scaling = true },
