@@ -54,6 +54,7 @@ function edp_cycle_scale()
   edp_scale = following
   write_number(state .. "edp-scale", edp_scale)
   edp_hdr_level(saved_level())
+  hl.exec_cmd(string.format("qs ipc call osd pop scale -1 '%gx'", edp_scale))
 end
 
 write_number(state .. "hdr-sdr-white", edp_sdr_white)

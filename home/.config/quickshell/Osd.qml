@@ -16,6 +16,7 @@ PanelWindow {
       "white-point": "󰔏",
       "keyboard": "󰌌",
       "stay-awake": "󰅶",
+      "scale": "󰍹",
       "volume": amount > 66 ? "󰕾" : (amount > 33 ? "󰖀" : "󰕿"),
       "muted": "󰝟",
       "microphone": "󰍬",

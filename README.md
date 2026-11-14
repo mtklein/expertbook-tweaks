@@ -19,7 +19,7 @@ No Omarchy package is left except `omarchy-keyring`, which goes with its reposit
 
 | File | What |
 |---|---|
-| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.8 and 2 on Fn+F8 and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). With the lid closed and another monitor attached the panel is off (`edp_lid`), and it comes back when the lid opens or the last other monitor goes. |
+| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1.5, 1.8 and 2 on Fn+F8, shows the new scale in the on-screen pop-up, and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). With the lid closed and another monitor attached the panel is off (`edp_lid`), and it comes back when the lid opens or the last other monitor goes. |
 | `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. Learns that the panel went on, off or away from Hyprland's monitor events and from `hypridle` (`echo screen` to the socket), and otherwise looks once a minute. |
 | `.local/bin/hdr-brightness` | Brightness keys. Asks `ambient-display`; sets the level itself if the daemon is down; does nothing for other monitors. |
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
