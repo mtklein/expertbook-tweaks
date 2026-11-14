@@ -23,7 +23,46 @@ local edp_scale = read_number(state .. "edp-scale", 1.8)
 local override_file = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/edp-scale-override"
 local edp_override = read_number(override_file, nil)
 
-edp_sdr_white = 600
+local function hdr_frame_average(blocks)
+  local i = 1
+  while i <= #blocks do
+    local header = blocks:byte(i)
+    local tag, length = math.floor(header / 32), header % 32
+    if tag == 7 and length >= 5 and blocks:byte(i + 1) == 6 and blocks:byte(i + 5) > 0 then
+      return 50 * 2 ^ (blocks:byte(i + 5) / 32)
+    end
+    i = i + 1 + length
+  end
+end
+
+local function edid_full_screen_nits()
+  local edid
+  for card = 0, 3 do
+    local f = io.open(string.format("/sys/class/drm/card%d-eDP-1/edid", card), "rb")
+    if f then
+      edid = f:read("a")
+      f:close()
+      if edid and #edid >= 256 then break end
+    end
+  end
+  for start = 129, #(edid or "") - 127, 128 do
+    local block = edid:sub(start, start + 127)
+    local nits
+    if block:byte(1) == 0x02 then
+      nits = hdr_frame_average(block:sub(5, block:byte(3)))
+    elseif block:byte(1) == 0x70 then
+      local i, last = 6, 5 + block:byte(3)
+      while i + 2 <= last and not nits do
+        local length = block:byte(i + 2)
+        if block:byte(i) == 0x81 then nits = hdr_frame_average(block:sub(i + 3, i + 2 + length)) end
+        i = i + 3 + length
+      end
+    end
+    if nits then return nits end
+  end
+end
+
+edp_sdr_white = edid_full_screen_nits() or 600
 edp_brightness_gamma = 2.2
 
 local function saved_level()
