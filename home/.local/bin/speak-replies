@@ -14,6 +14,7 @@ PIPER = HOME / "piper"
 PYTHON = PIPER / "venv/bin/python"
 VOICE = PIPER / "voices/en_GB-semaine-medium.onnx"
 MAIN, QUOTE = 0, 1
+PACE = {MAIN: 0.87, QUOTE: 1.0}
 RATE = 22050
 
 CONTEXT = (
@@ -118,7 +119,7 @@ def speak(message):
     pause = bytes(2 * (RATE // 4))
     try:
         for speaker, text in parts:
-            for chunk in voice.synthesize(text, SynthesisConfig(speaker_id=speaker)):
+            for chunk in voice.synthesize(text, SynthesisConfig(speaker_id=speaker, length_scale=PACE[speaker])):
                 player.stdin.write(chunk.audio_int16_bytes)
             player.stdin.write(pause)
         player.stdin.close()
