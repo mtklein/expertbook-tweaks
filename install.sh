@@ -16,6 +16,7 @@ link() {
 }
 
 make -s -C "$R/ctm"
+make -s -C "$R/geforcenow-hdr"
 
 find ~/.local/bin ~/.local/share ~/.config -maxdepth 5 -xtype l -lname "$R/*" -delete
 skip=()

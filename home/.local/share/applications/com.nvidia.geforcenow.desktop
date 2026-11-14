@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Name=GeForce NOW
+Exec=geforcenow
+Icon=com.nvidia.geforcenow
+Type=Application
+Categories=Network;Game;

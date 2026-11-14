@@ -11,7 +11,8 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `hyprland-patched/` | Patches and `build.sh` for the Hyprland package. |
 | `ctm/` | Source of `white-point-ctm`. |
-| `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. `geforcenow-hdr-edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block; meant for `GAMESCOPE_PATCHED_EDID_FILE`, not wired in. |
+| `geforcenow-hdr/` | What the `geforcenow` launcher needs to get HDR out of NVIDIA's Flatpak client. `edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block the client can read. `redirect.so` (from `redirect.c`) is preloaded into the client and shows it the files in `steamos/` in place of `os-release` and the DMI names, so it reports itself as a Lenovo SteamOS handheld: NVIDIA's service offers HDR only to SteamOS, and 120 FPS on SteamOS only to that device. |
+| `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. |
 
 No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: the fingerprint library, `tzupdate`, the boot-menu tools. The icon theme is Arch's Adwaita (`gsettings set org.gnome.desktop.interface icon-theme Adwaita`).
 
@@ -19,7 +20,7 @@ No Omarchy package is left except `omarchy-keyring`, which goes with its reposit
 
 | File | What |
 |---|---|
-| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1, 1.5, 1.8 and 2 on Fn+F8, shows the new scale in the on-screen pop-up, and is kept in `~/.local/state/edp-scale`. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). With the lid closed and another monitor attached the panel is off (`edp_lid`), and it comes back when the lid opens or the last other monitor goes. |
+| `.config/hypr/display.lua` | The display setup. The panel's scale cycles through 1, 1.5, 1.8 and 2 on Fn+F8, shows the new scale in the on-screen pop-up, and is kept in `~/.local/state/edp-scale`. `edp_override_scale(n)` sets a temporary scale that is not saved; called with nothing, or on the next Fn+F8, the saved scale returns. eDP-1 always in HDR, 10-bit. Brightness is the SDR white level: nits = `edp_sdr_white` × level ^ `edp_brightness_gamma` (600, 2.2). With the lid closed and another monitor attached the panel is off (`edp_lid`), and it comes back when the lid opens or the last other monitor goes. |
 | `.local/bin/ambient-display` + service | Owns brightness and white point. Follows the light sensor, learns from manual changes, takes requests on `$XDG_RUNTIME_DIR/ambient-display.sock`. Raises a screen left below 15% on wake from suspend. Learns that the panel went on, off or away from Hyprland's monitor events and from `hypridle` (`echo screen` to the socket), and otherwise looks once a minute. |
 | `.local/bin/hdr-brightness` | Brightness keys. Asks `ambient-display`; sets the level itself if the daemon is down; does nothing for other monitors. |
 | `.local/bin/white-point` | Shift + brightness keys: `warmer`, `cooler`, or a kelvin value. |
@@ -115,6 +116,7 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 |---|---|
 | `.local/bin/game`, `.config/MangoHud/MangoHud.conf` | Steam launch option `game %command%`: native Wayland window, MangoHud hidden until Right Shift + F12. |
 | `.local/share/flatpak/overrides/com.nvidia.geforcenow` | GeForce NOW uses the Flatpak runtime's SDL (`SDL_DYNAMIC_API`) in place of its bundled one, which was built without Xcursor and turns the game's cursors into two-colour blobs. |
+| `.local/bin/geforcenow`, `.local/share/applications/com.nvidia.geforcenow.desktop` | The one GeForce NOW menu entry: HDR, 120 FPS, real pixels. The launcher updates the Flatpak, switches the panel to scale 1 until the client exits (as a native Wayland window the client draws at the window's logical size, so only scale 1 is sharp), and starts the client binary directly with the corrected EDID (`GAMESCOPE_PATCHED_EDID_FILE`) and `geforcenow-hdr/redirect.so`. NVIDIA's own start script is skipped because it clears `LD_PRELOAD`. |
 | `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Sound goes to the TV unmuted at 100%, so the TV's remote is the volume control; the speakers keep their own level for afterwards. `tv-mode sim …` runs it against a simulator. |
 
 ## Not obvious

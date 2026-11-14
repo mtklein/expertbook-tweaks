@@ -1,0 +1,15 @@
+#!/bin/sh
+dir=$(readlink -f "$(dirname "$(readlink -f "$0")")/../../../geforcenow-hdr")
+edid=$HOME/.local/state/geforcenow-hdr-edid
+"$dir/edid" "$edid" || exit 1
+flatpak update --user --noninteractive -y com.nvidia.geforcenow >/dev/null 2>&1
+restore() { hyprctl eval 'edp_override_scale()' >/dev/null; }
+trap restore EXIT
+trap 'exit 129' HUP INT TERM
+hyprctl eval 'edp_override_scale(1)' >/dev/null
+flatpak run \
+  --env=SDL_VIDEODRIVER=wayland \
+  --env=GAMESCOPE_PATCHED_EDID_FILE="$edid" \
+  --env=GFN_FAKE_DIR="$dir/steamos" \
+  --env=LD_PRELOAD="$dir/redirect.so" \
+  --command=bash com.nvidia.geforcenow -c 'cd /app/cef && exec ./GeForceNOW'

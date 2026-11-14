@@ -1,0 +1,9 @@
+NAME="SteamOS"
+PRETTY_NAME="SteamOS"
+ID=steamos
+ID_LIKE=arch
+VARIANT_ID=steamdeck
+VERSION_CODENAME=holo
+VERSION_ID=3.7.13
+BUILD_ID=20250630.1
+LOGO=steamos
