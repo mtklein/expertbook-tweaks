@@ -11,6 +11,7 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
 | `hyprland-patched/` | Patches and `build.sh` for the Hyprland package. |
 | `ctm/` | Source of `white-point-ctm`. |
+| `fingerprint-prompts.po` | English "translation" of fprintd's prompts, installed as `/usr/share/locale/en/LC_MESSAGES/fprintd.mo`: the text prompts (`sudo` in a terminal) start with the same fingerprint glyph the lock screen and the password box show. |
 | `geforcenow-hdr/` | What the `geforcenow` launcher needs to get HDR out of NVIDIA's Flatpak client. `edid <file>` writes a copy of the panel's EDID with its HDR data, which the panel declares in DisplayID 2.0, restated in a CTA-861 block the client can read. `redirect.so` (from `redirect.c`) is preloaded into the client and shows it the files in `steamos/` in place of `os-release` and the DMI names, so it reports itself as a Lenovo SteamOS handheld: NVIDIA's service offers HDR only to SteamOS, and 120 FPS on SteamOS only to that device. |
 | `tools/` | Power load tests (run with pkexec). `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. |
 

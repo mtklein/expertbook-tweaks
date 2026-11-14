@@ -44,6 +44,7 @@ if [[ ${1:-} == --system ]]; then
       install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
     done
     chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse /usr/lib/systemd/system-sleep/firmware-state
+    msgfmt -o /usr/share/locale/en/LC_MESSAGES/fprintd.mo "$1/fingerprint-prompts.po"
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
     sed -i "/^IgnorePkg/d" /etc/pacman.conf
