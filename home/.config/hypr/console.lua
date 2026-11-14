@@ -1,8 +1,6 @@
 local CONSOLE = "qconsole"
 local SPECIAL = "special:" .. CONSOLE
 local CONSOLE_APPS = { ["console"] = true }
-local CAPS_LOCK = 66
-local TAP_MS = 300
 local AFTER_RELEASE_MS = 20
 local share = 0.5
 local box = 2
@@ -96,33 +94,6 @@ hl.on("window.update_rules", recount)
 
 hl.animation({ leaf = "specialWorkspaceIn", enabled = true, speed = 3, bezier = "easeOutQuint", style = "slide top" })
 hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 2, bezier = "easeInOutCubic", style = "slide bottom" })
-
-local held, chord, too_long, generation = false, false, false, 0
-
-hl.on("input.keyboard.key", function(code, _, state)
-  if code == CAPS_LOCK then
-    if state == 1 then
-      if held then return end
-      held, chord, too_long = true, false, false
-      generation = generation + 1
-      local mine = generation
-      hl.timer(function()
-        if mine == generation and held then too_long = true end
-      end, { timeout = TAP_MS, type = "oneshot" })
-    elseif state == 0 then
-      if not held then return end
-      held = false
-      generation = generation + 1
-      if not chord and not too_long then
-        hl.timer(function()
-          hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
-        end, { timeout = AFTER_RELEASE_MS, type = "oneshot" })
-      end
-    end
-  elseif state == 1 and held then
-    chord = true
-  end
-end)
 
 hl.on("window.open", function(window)
   recount()
