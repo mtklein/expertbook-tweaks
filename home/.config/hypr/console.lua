@@ -143,6 +143,12 @@ hl.on("input.keyboard.key", function(code, _, state)
     return
   end
   if state == 1 then
+    if alt_held and talking then
+      talking = false
+      local target = console_window()
+      if target then voice_key(target) end
+      return
+    end
     if alt_held then return end
     alt_held, alt_chord = true, false
     alt_press = alt_press + 1
