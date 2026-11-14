@@ -13,4 +13,5 @@ flatpak run \
   --env=GFN_FAKE_DIR="$dir/steamos" \
   --env=LD_PRELOAD="$dir/redirect.so" \
   ${GFN_VULKAN_DRIVER:+--env=VK_ICD_FILENAMES="$GFN_VULKAN_DRIVER"} \
+  ${GFN_ENV:+$(printf -- "--env=%s " $GFN_ENV)} \
   --command=bash com.nvidia.geforcenow -c 'cd /app/cef && exec ./GeForceNOW'
