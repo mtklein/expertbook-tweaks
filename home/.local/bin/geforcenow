@@ -7,7 +7,7 @@ restore() { hyprctl eval 'edp_override_scale()' >/dev/null; }
 trap restore EXIT
 trap 'exit 129' HUP INT TERM
 sdl=$dir/sdl/lib/libSDL2-2.0.so.0
-if [ -n "$GFN_PIXELS" ] && [ -e "$sdl" ]; then
+if [ "${GFN_PIXELS:-1}" != 0 ] && [ -e "$sdl" ]; then
   ln -f "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/gfn-wayland"
   set -- --filesystem=xdg-run/gfn-wayland --env=WAYLAND_DISPLAY=gfn-wayland --env=SDL_DYNAMIC_API="$sdl"
 else
