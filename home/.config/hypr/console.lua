@@ -162,16 +162,35 @@ function console_dictate()
 end
 
 local RIGHT_ALT = 108
-local talking = false
+local TALK_AFTER_MS = 200
+local alt_held, alt_chord, alt_press, talking = false, false, 0, false
 
 hl.on("input.keyboard.key", function(code, _, state)
-  if code ~= RIGHT_ALT then return end
-  if state == 1 and not talking then
-    talking = console_dictate()
-  elseif state == 0 and talking then
-    talking = false
-    local target = console_window()
-    if not target then return end
-    hl.timer(function() voice_key(target) end, { timeout = 150, type = "oneshot" })
+  if code ~= RIGHT_ALT then
+    if state == 1 and alt_held then alt_chord = true end
+    return
+  end
+  if state == 1 then
+    if alt_held then return end
+    alt_held, alt_chord = true, false
+    alt_press = alt_press + 1
+    local mine = alt_press
+    hl.timer(function()
+      if mine == alt_press and alt_held and not alt_chord then talking = console_dictate() end
+    end, { timeout = TALK_AFTER_MS, type = "oneshot" })
+  elseif state == 0 then
+    if not alt_held then return end
+    alt_held = false
+    alt_press = alt_press + 1
+    if talking then
+      talking = false
+      local target = console_window()
+      if not target then return end
+      hl.timer(function() voice_key(target) end, { timeout = 150, type = "oneshot" })
+    elseif not alt_chord then
+      hl.timer(function()
+        hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
+      end, { timeout = AFTER_RELEASE_MS, type = "oneshot" })
+    end
   end
 end)
