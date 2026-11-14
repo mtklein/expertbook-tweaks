@@ -9,4 +9,4 @@ read -r status kelvin meter <<<"$reply"
 [[ -n ${1:-} ]] || { echo "$kelvin"; exit; }
 (( no_osd )) && exit
 
-qs ipc call osd pop white-point "$meter" "${kelvin}K" >/dev/null
+qs ipc call osd pop white-point "$meter" "$meter%" >/dev/null
