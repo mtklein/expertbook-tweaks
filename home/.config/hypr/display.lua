@@ -1,6 +1,6 @@
 local home = os.getenv("HOME") or ""
 local state = home .. "/.local/state/"
-local SCALES = { 1.5, 1.8, 2 }
+local SCALES = { 1, 1.5, 1.8, 2 }
 
 local function read_number(path, fallback)
   local f = io.open(path)
