@@ -1,0 +1,13 @@
+[Unit]
+Description=Keyboard backlight key toggles between off and the lowest level
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/bin/keyboard-backlight-toggle
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

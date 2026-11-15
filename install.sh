@@ -41,7 +41,7 @@ done
 "$R/tools/claude-settings"
 
 systemctl --user daemon-reload
-systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service fn-keys.service
+systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service fn-keys.service keyboard-backlight-toggle.service
 
 if [[ ${1:-} == --system ]]; then
   wallpaper="$R/system/usr/local/share/expertbook-tweaks/wallpaper.jpg"

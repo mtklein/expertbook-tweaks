@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+import os
+import select
+import subprocess
+
+LED = "asus::kbd_backlight"
+fd = os.open(f"/sys/class/leds/{LED}/brightness_hw_changed", os.O_RDONLY)
+poll = select.poll()
+poll.register(fd, select.POLLPRI | select.POLLERR)
+
+
+def level():
+    os.lseek(fd, 0, os.SEEK_SET)
+    try:
+        return int(os.read(fd, 16))
+    except ValueError:
+        return None
+
+
+level()
+while True:
+    poll.poll()
+    now = level()
+    if now is None:
+        continue
+    if now > 1:
+        subprocess.run(["brightnessctl", "-q", "-d", LED, "set", "0"])
+        now = 0
+    text = "Keyboard light on" if now else "Keyboard light off"
+    subprocess.run(["qs", "ipc", "call", "osd", "pop", "keyboard", "-1", text],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
