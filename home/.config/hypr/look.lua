@@ -36,7 +36,7 @@ hl.config({
     initial_workspace_tracking = 0,
     allow_session_lock_restore = true,
   },
-  cursor = { hide_on_key_press = true, warp_on_change_workspace = 1 },
+  cursor = { hide_on_key_press = false, warp_on_change_workspace = 1 },
   render = { cm_auto_hdr = 0, keep_unmodified_copy = 0 },
   binds = { hide_special_on_workspace_change = true },
 })
