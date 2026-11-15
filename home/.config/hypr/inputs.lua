@@ -33,9 +33,25 @@ local function touchpad_curve()
   return string.format("custom %g %s", step, table.concat(points, " "))
 end
 
+local function touchpad_scroll_curve()
+  local units_per_mm = 31
+  local step = 0.2
+  local gain = 11.7
+  local pivot = 60
+  local exponent = 0.75
+  local points = {}
+  for i = 0, 63 do
+    local mm_per_s = i * step * 1000 / units_per_mm
+    local per_mm = i == 0 and 0 or gain * (mm_per_s / pivot) ^ (exponent - 1)
+    points[#points + 1] = string.format("%.4f", per_mm * i * step / units_per_mm)
+  end
+  return string.format("%g %s", step, table.concat(points, " "))
+end
+
 hl.device({
   name = "ascp1d80:00-093a:4f05-touchpad",
   accel_profile = touchpad_curve(),
+  scroll_points = touchpad_scroll_curve(),
 })
 
 o.window("(foot|console)", { scroll_touchpad = 2.0 })
