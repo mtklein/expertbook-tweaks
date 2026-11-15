@@ -1,0 +1,10 @@
+#!/bin/sh
+zone=$1
+case $zone in
+  ''|*[!A-Za-z0-9_+/-]*|/*|*..*) exit 1 ;;
+esac
+[ -f "/usr/share/zoneinfo/$zone" ] || exit 1
+[ "$(timedatectl show -p Timezone --value)" = "$zone" ] && exit 0
+timedatectl set-timezone "$zone" || exit 1
+systemctl --user try-restart ambient-display.service
+echo "$zone"

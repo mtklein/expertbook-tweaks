@@ -20,26 +20,50 @@ Row {
     return "󰖨"
   }
 
+  property int attempts: 0
+
+  function refresh() {
+    attempts = 0
+    retry.stop()
+    fetch.running = true
+  }
+
   Process {
     id: fetch
-    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/?format=%t|%C"]
+    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/?format=%t|%C|%Z"]
     running: true
     stdout: StdioCollector {
       onStreamFinished: {
         var parts = String(text).trim().split("|")
-        if (parts.length === 2 && /^[+-]?\d+°/.test(parts[0])) {
+        if (parts.length === 3 && /^[+-]?\d+°/.test(parts[0])) {
           root.temperature = parts[0].replace(/^\+/, "").replace(/°.*/, "°")
           root.condition = parts[1]
+          Quickshell.execDetached(["sync-timezone", parts[2]])
+          root.attempts = 0
+        } else if (root.attempts < 5) {
+          root.attempts += 1
+          retry.restart()
         }
       }
     }
   }
 
   Timer {
+    id: retry
+    interval: 15 * 1000
+    onTriggered: fetch.running = true
+  }
+
+  Timer {
     interval: 30 * 60 * 1000
     running: true
     repeat: true
-    onTriggered: fetch.running = true
+    onTriggered: root.refresh()
+  }
+
+  IpcHandler {
+    target: "weather"
+    function refresh(): void { root.refresh() }
   }
 
   BarIcon {
