@@ -9,7 +9,10 @@ from pathlib import Path
 
 HOME = Path.home()
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "speak-replies"
-PID = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "speak-replies.pid"
+RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+PID = RUNTIME / "speak-replies.pid"
+DICTATED = RUNTIME / "speak-replies.dictated"
+SPOKEN = RUNTIME / "speak-replies.spoken"
 PIPER = HOME / "piper"
 PYTHON = PIPER / "venv/bin/python"
 VOICE = PIPER / "voices/en_GB-semaine-medium.onnx"
@@ -18,7 +21,7 @@ PACE = {MAIN: 0.87, QUOTE: 1.0}
 RATE = 22050
 
 CONTEXT = (
-    "Spoken replies are on. When this turn ends, its final message is read aloud to the user by a "
+    "The user dictated this message, so the reply is spoken. When this turn ends, its final message is read aloud to the user by a "
     "text-to-speech voice, and is also shown on screen as usual. How it is read: ordinary text is spoken "
     "by the main voice; lines that begin with '>' are spoken by a second voice, meant for quoted material "
     "such as an error message, a log line or the user's own words; code blocks and tables are not read, "
@@ -34,6 +37,13 @@ def hush():
     except (OSError, ValueError):
         pass
     PID.unlink(missing_ok=True)
+
+
+def session():
+    try:
+        return str(json.load(sys.stdin).get("session_id") or "")
+    except ValueError:
+        return ""
 
 
 def osd(text):
@@ -137,26 +147,39 @@ def main():
         switch(command)
     elif command == "hush":
         hush()
+    elif command == "dictating":
+        hush()
+        DICTATED.touch()
     elif command == "context":
+        dictated = DICTATED.exists()
+        DICTATED.unlink(missing_ok=True)
+        SPOKEN.unlink(missing_ok=True)
         if STATE.exists():
             hush()
-            print(json.dumps({"hookSpecificOutput": {
-                "hookEventName": "UserPromptSubmit", "additionalContext": CONTEXT}}))
+            if dictated:
+                SPOKEN.write_text(session())
+                print(json.dumps({"hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit", "additionalContext": CONTEXT}}))
     elif command == "say":
         if not STATE.exists():
             return
+        if len(sys.argv) == 2 and "SPEAK_REPLIES_MESSAGE" not in os.environ:
+            try:
+                event = json.load(sys.stdin)
+            except ValueError:
+                event = {}
+            if not SPOKEN.exists() or SPOKEN.read_text() != str(event.get("session_id") or ""):
+                return
+            os.environ["SPEAK_REPLIES_MESSAGE"] = event.get("last_assistant_message") or ""
         if sys.prefix != str(PIPER / "venv"):
             os.execv(PYTHON, [str(PYTHON), __file__, *sys.argv[1:]])
         if len(sys.argv) > 2:
             message = " ".join(sys.argv[2:])
         else:
-            try:
-                message = json.load(sys.stdin).get("last_assistant_message") or ""
-            except ValueError:
-                message = ""
+            message = os.environ.get("SPEAK_REPLIES_MESSAGE", "")
         speak(message)
     else:
-        sys.exit("usage: speak-replies toggle | on | off | hush | context | say [text]")
+        sys.exit("usage: speak-replies toggle | on | off | hush | dictating | context | say [text]")
 
 
 if __name__ == "__main__":
