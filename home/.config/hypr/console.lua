@@ -118,10 +118,14 @@ local function voice_key(target)
   hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target }))
 end
 
+local opened_to_talk = false
+local HIDE_AFTER_TALK_MS = 400
+
 function console_dictate()
   hl.exec_cmd("speak-replies dictating")
   local ws = hl.get_workspace(SPECIAL)
-  if not (ws and ws.visible) then
+  opened_to_talk = not (ws and ws.visible)
+  if opened_to_talk then
     hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
   end
   local target = ws and console_window()
@@ -165,6 +169,13 @@ hl.on("input.keyboard.key", function(code, _, state)
       local target = console_window()
       if not target then return end
       hl.timer(function() voice_key(target) end, { timeout = 150, type = "oneshot" })
+      if opened_to_talk then
+        opened_to_talk = false
+        hl.timer(function()
+          local ws = hl.get_workspace(SPECIAL)
+          if ws and ws.visible then hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE)) end
+        end, { timeout = HIDE_AFTER_TALK_MS, type = "oneshot" })
+      end
     elseif not alt_chord then
       hl.timer(function()
         hl.dispatch(hl.dsp.workspace.toggle_special(CONSOLE))
