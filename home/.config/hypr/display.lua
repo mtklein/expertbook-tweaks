@@ -20,8 +20,6 @@ hl.env("QSG_DISTANCEFIELD_ANTIALIASING", "gray")
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 2 })
 
 local edp_scale = read_number(state .. "edp-scale", 1.8)
-local override_file = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/edp-scale-override"
-local edp_override = read_number(override_file, nil)
 
 local function hdr_frame_average(blocks)
   local i = 1
@@ -79,7 +77,7 @@ function edp_hdr_level(level)
     remainder = math.max(0.0001, math.min(1, nits / whole_nits))
   end
   hl.monitor({
-    output = "eDP-1", mode = "preferred", position = "auto", scale = edp_override or edp_scale,
+    output = "eDP-1", mode = "preferred", position = "auto", scale = edp_scale,
     bitdepth = 10, cm = "hdr",
     sdr_max_luminance = whole_nits,
     sdrbrightness = remainder,
@@ -93,17 +91,9 @@ function edp_cycle_scale()
     if math.abs(scale - edp_scale) < 0.01 then following = SCALES[i % #SCALES + 1] end
   end
   edp_scale = following
-  edp_override = nil
-  os.remove(override_file)
   write_number(state .. "edp-scale", edp_scale)
   edp_hdr_level(saved_level())
   hl.exec_cmd(string.format("qs ipc call osd pop scale -1 '%gx'", edp_scale))
-end
-
-function edp_override_scale(scale)
-  edp_override = scale
-  if scale then write_number(override_file, scale) else os.remove(override_file) end
-  edp_hdr_level(saved_level())
 end
 
 write_number(state .. "hdr-sdr-white", edp_sdr_white)
