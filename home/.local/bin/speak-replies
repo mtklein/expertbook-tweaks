@@ -39,11 +39,11 @@ def hush():
     PID.unlink(missing_ok=True)
 
 
-def session():
+def event():
     try:
-        return str(json.load(sys.stdin).get("session_id") or "")
+        return json.load(sys.stdin)
     except ValueError:
-        return ""
+        return {}
 
 
 def osd(text):
@@ -151,26 +151,30 @@ def main():
         hush()
         DICTATED.touch()
     elif command == "context":
+        told = event()
+        mine = str(told.get("session_id") or "")
+        if str(told.get("prompt") or "").lstrip().startswith("<task-notification>"):
+            if STATE.exists() and SPOKEN.exists() and SPOKEN.read_text() == mine:
+                print(json.dumps({"hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit", "additionalContext": CONTEXT}}))
+            return
         dictated = DICTATED.exists()
         DICTATED.unlink(missing_ok=True)
         SPOKEN.unlink(missing_ok=True)
         if STATE.exists():
             hush()
             if dictated:
-                SPOKEN.write_text(session())
+                SPOKEN.write_text(mine)
                 print(json.dumps({"hookSpecificOutput": {
                     "hookEventName": "UserPromptSubmit", "additionalContext": CONTEXT}}))
     elif command == "say":
         if not STATE.exists():
             return
         if len(sys.argv) == 2 and "SPEAK_REPLIES_MESSAGE" not in os.environ:
-            try:
-                event = json.load(sys.stdin)
-            except ValueError:
-                event = {}
-            if not SPOKEN.exists() or SPOKEN.read_text() != str(event.get("session_id") or ""):
+            told = event()
+            if not SPOKEN.exists() or SPOKEN.read_text() != str(told.get("session_id") or ""):
                 return
-            os.environ["SPEAK_REPLIES_MESSAGE"] = event.get("last_assistant_message") or ""
+            os.environ["SPEAK_REPLIES_MESSAGE"] = told.get("last_assistant_message") or ""
         if sys.prefix != str(PIPER / "venv"):
             os.execv(PYTHON, [str(PYTHON), __file__, *sys.argv[1:]])
         if len(sys.argv) > 2:
