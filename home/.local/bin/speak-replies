@@ -175,6 +175,8 @@ def main():
             if not SPOKEN.exists() or SPOKEN.read_text() != str(told.get("session_id") or ""):
                 return
             os.environ["SPEAK_REPLIES_MESSAGE"] = told.get("last_assistant_message") or ""
+        if subprocess.run(["dictation-key", "recording"]).returncode == 0:
+            return
         if sys.prefix != str(PIPER / "venv"):
             os.execv(PYTHON, [str(PYTHON), __file__, *sys.argv[1:]])
         if len(sys.argv) > 2:
