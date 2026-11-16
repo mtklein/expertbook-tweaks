@@ -114,8 +114,9 @@ local function console_window()
   end
 end
 
-local function voice_key(target)
-  hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target }))
+function console_voice_key()
+  local target = console_window()
+  if target then hl.dispatch(hl.dsp.send_shortcut({ mods = "ALT", key = "K", window = target })) end
 end
 
 local opened_to_talk = false
@@ -132,7 +133,7 @@ function console_dictate()
   if not target then return false end
   hl.timer(function()
     hl.dispatch(hl.dsp.focus({ window = target }))
-    voice_key(target)
+    hl.exec_cmd("dictation-key start")
   end, { timeout = 60, type = "oneshot" })
   return true
 end
@@ -149,8 +150,7 @@ hl.on("input.keyboard.key", function(code, _, state)
   if state == 1 then
     if alt_held and talking then
       talking = false
-      local target = console_window()
-      if target then voice_key(target) end
+      hl.exec_cmd("dictation-key stop")
       return
     end
     if alt_held then return end
@@ -166,9 +166,7 @@ hl.on("input.keyboard.key", function(code, _, state)
     alt_press = alt_press + 1
     if talking then
       talking = false
-      local target = console_window()
-      if not target then return end
-      hl.timer(function() voice_key(target) end, { timeout = 150, type = "oneshot" })
+      hl.timer(function() hl.exec_cmd("dictation-key stop") end, { timeout = 150, type = "oneshot" })
       if opened_to_talk then
         opened_to_talk = false
         hl.timer(function()

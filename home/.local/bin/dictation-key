@@ -1,0 +1,16 @@
+#!/bin/sh
+recording() {
+  pactl list source-outputs 2>/dev/null |
+    grep -Eq 'application\.name = "PipeWire ALSA \[[0-9]+\.[0-9]+\.[0-9]+\]"'
+}
+press() { hyprctl eval 'console_voice_key()' >/dev/null; }
+case "$1" in
+  recording) recording ;;
+  start) recording || press ;;
+  stop)
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      if recording; then press; exit 0; fi
+      sleep 0.05
+    done ;;
+  *) echo "usage: dictation-key recording | start | stop" >&2; exit 2 ;;
+esac
