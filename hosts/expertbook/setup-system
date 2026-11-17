@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+R=$1
+chmod 755 /usr/lib/systemd/system-sleep/firmware-state
+msgfmt -o /usr/share/locale/en/LC_MESSAGES/fprintd.mo "$R/fingerprint-prompts.po"
+sed -i "/^IgnorePkg/d" /etc/pacman.conf
+if [[ $(grep "^\[" /etc/pacman.conf | tail -1) != "[omarchy]" ]] && grep -q "^\[omarchy\]$" /etc/pacman.conf; then
+  server=$(sed -n "/^\[omarchy\]$/,/^\[/{/^Server/p}" /etc/pacman.conf)
+  sed -i "/^\[omarchy\]$/,/^\[/{/^\[omarchy\]$/d;/^Server/d}" /etc/pacman.conf
+  printf "\n[omarchy]\n%s\n" "$server" >>/etc/pacman.conf
+fi
+for f in sudo polkit-1; do
+  sed -i "s|pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed|pam_exec.so quiet /bin/sh /usr/local/share/expertbook-tweaks/lid-closed|" /etc/pam.d/$f
+done
+systemctl enable rapl-sync.service lightbar-off.service fn-keys-on.service psr-after-desktop.service
+systemctl restart rapl-sync.service

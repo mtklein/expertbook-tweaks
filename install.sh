@@ -3,32 +3,38 @@ set -euo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WHOLE_DIRS=(.config/quickshell)
 
+product=$(</sys/class/dmi/id/product_name)
+host=
+for d in "$R"/hosts/*/; do
+  [[ $product == $(<"$d/product") ]] && host=$(basename "$d")
+done
+[[ -n $host ]] || { echo "no hosts/*/product matches '$product'" >&2; exit 1; }
+H=$R/hosts/$host
+
 link() {
-  local src="$R/home/$1" dst="$HOME/$1"
+  local src="$1/$2" dst="$HOME/$2"
   [[ -L $dst && $(readlink "$dst") == "$src" ]] && return
   mkdir -p "$(dirname "$dst")"
   if [[ -e $dst && ! -L $dst ]]; then
     mv "$dst" "$dst.pre-expertbook-tweaks.$(date +%s)"
     echo "backed up existing $dst"
   fi
-  ln -sfn "$src" "$dst"
+  ln -s "$src" "$dst.new-link"
+  mv -T "$dst.new-link" "$dst"
   echo "linked $dst"
 }
 
-make -s -C "$R/ctm"
-make -s -C "$R/geforcenow-hdr"
-if [[ ! -e $R/geforcenow-hdr/sdl/lib/libSDL2-2.0.so.0 ]] && flatpak info com.nvidia.geforcenow &>/dev/null; then
-  flatpak install --user --noninteractive -y flathub org.freedesktop.Sdk//24.08
-  "$R/geforcenow-hdr/build-sdl" >/dev/null
-fi
-
+[[ -x $H/setup ]] && "$H/setup" "$R" build
 find ~/.local/bin ~/.local/share ~/.config -maxdepth 5 -xtype l -lname "$R/*" -delete
-skip=()
-for d in "${WHOLE_DIRS[@]}"; do
-  link "$d"
-  skip+=(-path "./$d" -prune -o)
+for root in "$R/common/home" "$H/home"; do
+  [[ -d $root ]] || continue
+  skip=()
+  for d in "${WHOLE_DIRS[@]}"; do
+    [[ -d $root/$d ]] && link "$root" "$d"
+    skip+=(-path "./$d" -prune -o)
+  done
+  (cd "$root" && find . "${skip[@]}" -type f -print) | while read -r f; do link "$root" "${f#./}"; done
 done
-(cd "$R/home" && find . "${skip[@]}" -type f -print) | while read -r f; do link "${f#./}"; done
 
 if [[ ! -x ~/piper/venv/bin/piper ]]; then
   python3 -m venv ~/piper/venv
@@ -41,10 +47,11 @@ done
 "$R/tools/claude-settings"
 
 systemctl --user daemon-reload
-systemctl --user enable --now ambient-display.service hypridle.service shell.service sdw-clash-recover.service tv-mode.service fn-keys.service keyboard-backlight-toggle.service
+systemctl --user enable --now hypridle.service shell.service
+[[ -x $H/setup ]] && "$H/setup" "$R" enable
 
 if [[ ${1:-} == --system ]]; then
-  wallpaper="$R/system/usr/local/share/expertbook-tweaks/wallpaper.jpg"
+  wallpaper="$R/common/system/usr/local/share/expertbook-tweaks/wallpaper.jpg"
   if [[ ! -f $wallpaper ]]; then
     original=$(mktemp --suffix=.jpg)
     curl -fsSL -o "$original" https://media.512pixels.net/downloads/macos-wallpapers-6k/10-4-6k.jpg &&
@@ -53,27 +60,19 @@ if [[ ${1:-} == --system ]]; then
   fi
   pkexec bash -c '
     set -e
-    cd "$1/system"
-    find . -type f | while read -r f; do
-      install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
+    for root in "$1/common/system" "$2/system"; do
+      [[ -d $root ]] || continue
+      cd "$root"
+      find . -type f | while read -r f; do
+        install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
+      done
     done
-    chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse /usr/lib/systemd/system-sleep/firmware-state
-    msgfmt -o /usr/share/locale/en/LC_MESSAGES/fprintd.mo "$1/fingerprint-prompts.po"
+    chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse
     pacman -S --needed --noconfirm deepfilternet-ladspa
     systemctl daemon-reload
     systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
-    sed -i "/^IgnorePkg/d" /etc/pacman.conf
-    if [[ $(grep "^\[" /etc/pacman.conf | tail -1) != "[omarchy]" ]] && grep -q "^\[omarchy\]$" /etc/pacman.conf; then
-      server=$(sed -n "/^\[omarchy\]$/,/^\[/{/^Server/p}" /etc/pacman.conf)
-      sed -i "/^\[omarchy\]$/,/^\[/{/^\[omarchy\]$/d;/^Server/d}" /etc/pacman.conf
-      printf "\n[omarchy]\n%s\n" "$server" >>/etc/pacman.conf
-    fi
-    for f in sudo polkit-1; do
-      sed -i "s|pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed|pam_exec.so quiet /bin/sh /usr/local/share/expertbook-tweaks/lid-closed|" /etc/pam.d/$f
-    done
     udevadm control --reload
     systemd-hwdb update && udevadm trigger -s input
-    systemctl enable rapl-sync.service lightbar-off.service fn-keys-on.service psr-after-desktop.service
-    systemctl restart rapl-sync.service
-  ' _ "$R"
+    if [[ -x $2/setup-system ]]; then "$2/setup-system" "$1"; fi
+  ' _ "$R" "$H"
 fi

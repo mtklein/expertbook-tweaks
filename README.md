@@ -7,8 +7,8 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 
 | Path | What |
 |---|---|
-| `home/` | Mirrors `~`. `./install.sh` links every file to the same path under `~` (the shell as one directory). |
-| `system/` | Mirrors `/`. `./install.sh --system` copies it via pkexec. |
+| `common/home/`, `common/system/` | What every machine gets. `home/` mirrors `~`: `./install.sh` links every file to the same path under `~` (the shell as one directory). `system/` mirrors `/`: `./install.sh --system` copies it via pkexec. |
+| `hosts/<machine>/` | What one machine adds, applied after `common/` and winning over it: its own `home/` and `system/`, `product` (a pattern matched against `/sys/class/dmi/id/product_name`, which is how `install.sh` picks the machine), `setup` (run as `setup <repo> build` before linking and `setup <repo> enable` after) and `setup-system` (run as root by `--system`). `hosts/expertbook/` holds the display, brightness and white point, GeForce NOW, the firmware workarounds, fingerprint login, the boot configuration, `tv-mode`, and `mic-mode` with its PipeWire files. |
 | `hyprland-patched/` | Patches and `build.sh` for the Hyprland package. |
 | `ctm/` | Source of `white-point-ctm`. |
 | `fingerprint-prompts.po` | English "translation" of fprintd's prompts, installed as `/usr/share/locale/en/LC_MESSAGES/fprintd.mo`: the text prompts (`sudo` in a terminal) start with the same fingerprint glyph the lock screen and the password box show. |
@@ -16,6 +16,8 @@ ASUS ExpertBook Ultra (B9406CAA) on Omarchy, on top of
 | `tools/` | Power load tests (run with pkexec). `claude-settings`, run by `install.sh`, adds what the voice features need to `~/.claude/` without touching anything else there: dictation on (`voice` in `settings.json`), Alt+K as the dictation key (`keybindings.json`), and the two `speak-replies` hooks. `click X,Y [sleepS] [mX,Y] …` clicks or moves a synthetic pointer at logical coordinates on a 1600×1000 layout, for testing the shell. |
 
 No Omarchy package is left except `omarchy-keyring`, which goes with its repository. That repository is still listed (last) in `pacman.conf` and supplies a few third-party packages Arch does not: the fingerprint library, `tzupdate`, the boot-menu tools. The icon theme is Arch's Adwaita (`gsettings set org.gnome.desktop.interface icon-theme Adwaita`).
+
+Below, a path starting with `home/` or `system/`, or with a dot, is under `common/` or `hosts/expertbook/`.
 
 ## Display
 
