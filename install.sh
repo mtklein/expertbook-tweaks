@@ -58,21 +58,5 @@ if [[ ${1:-} == --system ]]; then
       magick "$original" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$wallpaper"
     rm -f "$original"
   fi
-  pkexec bash -c '
-    set -e
-    for root in "$1/common/system" "$2/system"; do
-      [[ -d $root ]] || continue
-      cd "$root"
-      find . -type f | while read -r f; do
-        install -Dm644 "$f" "/${f#./}" && echo "installed /${f#./}"
-      done
-    done
-    chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse
-    pacman -S --needed --noconfirm deepfilternet-ladspa
-    systemctl daemon-reload
-    systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
-    udevadm control --reload
-    systemd-hwdb update && udevadm trigger -s input
-    if [[ -x $2/setup-system ]]; then "$2/setup-system" "$1"; fi
-  ' _ "$R" "$H"
+  pkexec "$R/install-system" "$R" "$H"
 fi

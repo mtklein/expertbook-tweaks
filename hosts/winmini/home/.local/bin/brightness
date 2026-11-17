@@ -1,0 +1,8 @@
+#!/bin/sh
+case ${1:-} in
+  "") brightnessctl -m | cut -d, -f4 | tr -d %; exit ;;
+  --no-osd) quiet=1; shift ;;
+esac
+brightnessctl -q -n1 set "$1"
+percent=$(brightnessctl -m | cut -d, -f4 | tr -d %)
+[ -n "${quiet:-}" ] || qs ipc call osd pop brightness "$percent" "$percent%" >/dev/null
