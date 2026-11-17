@@ -11,7 +11,7 @@ BarIcon {
   readonly property bool busy: change.running
 
   height: Theme.barHeight
-  text: echo || isolate ? "󰍬" : "󰍭"
+  text: "󰍬"
   opacity: echo || isolate ? 1 : 0.45
 
   function read(text) {
