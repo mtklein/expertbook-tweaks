@@ -128,6 +128,22 @@ Kept from Omarchy's settings package under our own file names (MIT, see `LICENSE
 | `.config/quickshell/Weather.qml`, `.local/bin/sync-timezone`, `system/etc/polkit-1/rules.d/50-expertbook-timezone.rules` | Weather and time zone follow where the laptop is. One request to wttr.in, which locates by IP address, returns temperature, conditions and the IANA time zone; it runs at shell start, every 30 minutes, and on every wake (`qs ipc call weather refresh` from hypridle's `after_sleep_cmd`), retrying for a minute while the network comes back. `sync-timezone <zone>` checks the name against `/usr/share/zoneinfo` and sets it with `timedatectl` if it differs; the polkit rule lets the active local session do that without a prompt. A VPN exit elsewhere moves the laptop there. |
 | `.local/bin/tv-mode` + service, `.config/hypr/tv-mode.lua` | A 1080p TV plus power turns the laptop into a Big Picture console. Sound goes to the TV unmuted at 100%, so the TV's remote is the volume control; the speakers keep their own level for afterwards. `tv-mode sim …` runs it against a simulator. |
 
+## GPD Win Mini (`hosts/winmini/`)
+
+The 2023 Win Mini (DMI product `G1617-01`): Ryzen 7 7840U, a portrait-native 1080×1920 panel at 120 Hz that declares itself sRGB with no HDR, plain HD Audio, no fingerprint reader. It gets everything in `common/` plus the files below. Installed from the Arch ISO by hand: 2 GB `/boot`, LUKS2, Btrfs with the subvolumes `@`, `@home`, `@log`, `@pkg` and a nested `/swap` holding a 24 GB swap file for hibernation; `/etc/default/limine` (not tracked, it names the disk) carries the kernel command line.
+
+| File | What |
+|---|---|
+| `home/.config/hypr/display.lua` | The panel at 1080x1920@120, rotated to landscape (`transform = 3`, also applied to the touchscreen), sRGB, 8-bit. Super+P cycles the scale through 1.25, 1.5 and 2 (kept in `~/.local/state/edp-scale`). The panel goes off only when the lid closes with another monitor attached. |
+| `home/.config/hypr/host.lua` | Loaded last by the shared `hyprland.lua` if a machine has one. The menu key opens the menu. The back buttons send F20 and F21 (key codes 198 and 199), repeating for as long as they are held, so each is taken once per hold: L4 switches spoken replies, R4 runs `power-mode next`. The shared microphone-mute key binding is removed here, because L4's F20 is that key. |
+| `home/.local/bin/brightness` | The brightness keys: `brightnessctl` and the pop-up. Never goes fully dark. |
+| `home/.local/bin/power-mode`, `home/.local/share/applications/power-mode-*.desktop` | `power-mode quiet`, `balanced`, `full` or `next` selects the power-saver, balanced or performance profile and shows the limit that goes with it; the three menu entries call it. Changing the profile is only allowed from the local session, not over SSH. |
+| `system/usr/local/bin/power-cap` + service | Holds the chip (processor and graphics together) to 8, 12 or 15 W for the power-saver, balanced and performance profiles, with `ryzenadj`; re-applied every 15 s, so it survives sleep. The service selects power-saver when it starts, so the machine boots at 8 W, and puts the limit back to 15 W if it stops. The firmware's own ceiling is 15 W in every profile, on battery and on mains. `ryzenadj` is built from the AUR in `~/ryzenadj` by `setup` and installed by `setup-system`. |
+| `system/usr/local/bin/fan-curve` + service | Drives the fan from the chip temperature through the `gpdfan` driver in place of the firmware's curve, which never drops below about 3,300 rpm: slowest (about 900 rpm) at 40 °C and below, about 3,000 rpm at 50 °C, about 4,000 at 55 °C, full speed from 65 °C, which holds about 60 °C at 15 W. Speeds up at once, slows down gradually. Hands the fan back to the firmware if it stops. PWM 32 is about 900 rpm, 128 about 3,860, 255 about 6,140. |
+| `setup-system` | Firewall: incoming denied except SSH and mDNS. Enables the two services above. |
+
+Measured here: about 4.8 W for the whole machine idle, about 10.4 W streaming GeForce NOW at 65% brightness (5.4 W of it the chip); 120 Hz costs about 0.2 W over 60 Hz. Not on this machine: `mic-mode` (so the tray's microphone panel does nothing), `tv-mode`, the white point keys.
+
 ## Not obvious
 
 - Changing focus from a Lua key handler while that key is still being processed leaves XWayland believing the key is held (it arrives in the new window's list of pressed keys and is never released there). X11 apps then see every key with that modifier: this is what broke typing in GeForce NOW.
