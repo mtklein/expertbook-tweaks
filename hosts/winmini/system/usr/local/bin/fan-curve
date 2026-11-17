@@ -4,7 +4,7 @@ import signal
 import sys
 import time
 
-CURVE = [(50, 0), (55, 32), (65, 64), (75, 110), (82, 160), (90, 255)]
+CURVE = [(50, 0), (55, 32), (60, 64), (65, 105), (70, 145), (80, 255)]
 OFF_BELOW = 45
 SLOWEST = 32
 PERIOD = 2
