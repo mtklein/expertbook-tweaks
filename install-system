@@ -10,6 +10,8 @@ done
 chmod 755 /usr/lib/systemd/system-sleep/unmount-fuse
 pacman -S --needed --noconfirm deepfilternet-ladspa
 systemctl daemon-reload
+systemctl enable --now sshd.service
+systemctl reload sshd.service
 systemd-tmpfiles --create /etc/tmpfiles.d/expertbook-tweaks.conf
 udevadm control --reload
 systemd-hwdb update && udevadm trigger -s input

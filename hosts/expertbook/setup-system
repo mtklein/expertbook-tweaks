@@ -14,3 +14,4 @@ for f in sudo polkit-1; do
 done
 systemctl enable rapl-sync.service lightbar-off.service fn-keys-on.service psr-after-desktop.service
 systemctl restart rapl-sync.service
+ufw allow in on tailscale0 to any port 22 proto tcp >/dev/null

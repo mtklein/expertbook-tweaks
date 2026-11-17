@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euo pipefail
+ufw default deny incoming >/dev/null
+ufw default allow outgoing >/dev/null
+ufw allow 22/tcp >/dev/null
+ufw allow 5353/udp >/dev/null
+ufw --force enable >/dev/null
+systemctl enable ufw.service
