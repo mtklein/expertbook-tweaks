@@ -1,1 +1,1 @@
-o.bind("SUPER + SPACE", "Menu", hl.dsp.global("shell:menu"))
+o.bind("SUPER + M", "Menu", hl.dsp.global("shell:menu"))

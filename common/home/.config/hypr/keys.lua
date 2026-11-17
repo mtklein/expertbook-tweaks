@@ -22,8 +22,8 @@ local function in_terminal()
   return false
 end
 
-o.bind("SUPER + RETURN", "Terminal", terminal)
-o.bind("SUPER + SHIFT + RETURN", "Browser", o.launch("chromium"))
+o.bind("SUPER + SPACE", "Terminal", terminal)
+o.bind("SUPER + RETURN", "Browser", o.launch("chromium"))
 o.bind("SUPER + SHIFT + code:201", "Menu", shell("menu"))
 
 o.bind("SUPER + W", "Close window", hl.dsp.window.close())
