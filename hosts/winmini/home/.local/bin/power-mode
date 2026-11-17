@@ -1,8 +1,16 @@
 #!/bin/sh
-case ${1:-} in
+mode=${1:-}
+if [ "$mode" = next ]; then
+  case $(powerprofilesctl get) in
+    power-saver) mode=balanced ;;
+    balanced) mode=full ;;
+    *) mode=quiet ;;
+  esac
+fi
+case $mode in
   quiet) profile=power-saver; text="8 W" ;;
   balanced) profile=balanced; text="12 W" ;;
   full) profile=performance; text="15 W" ;;
-  *) echo "usage: power-mode quiet | balanced | full" >&2; exit 2 ;;
+  *) echo "usage: power-mode quiet | balanced | full | next" >&2; exit 2 ;;
 esac
 powerprofilesctl set "$profile" && qs ipc call osd pop "󱐋" -1 "$text" >/dev/null
