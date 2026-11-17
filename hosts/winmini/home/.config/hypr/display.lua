@@ -50,10 +50,14 @@ local function external()
   return false
 end
 
+local panel_off = false
+
 function edp_lid(closed)
   if closed and external() then
+    panel_off = true
     hl.monitor({ output = PANEL, disabled = true })
-  else
+  elseif panel_off then
+    panel_off = false
     hl.monitor({ output = PANEL, disabled = false })
     panel()
   end
