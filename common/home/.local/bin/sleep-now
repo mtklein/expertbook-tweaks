@@ -1,0 +1,6 @@
+#!/bin/sh
+can=$(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSuspendThenHibernate 2>/dev/null)
+case $can in
+  *yes*) exec systemctl suspend-then-hibernate ;;
+  *) exec systemctl suspend ;;
+esac
