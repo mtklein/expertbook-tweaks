@@ -3,11 +3,6 @@ set -euo pipefail
 R=$1
 if [[ $2 == build ]]; then
   make -s -C "$R/ctm"
-  make -s -C "$R/geforcenow-hdr"
-  if [[ ! -e $R/geforcenow-hdr/sdl/lib/libSDL2-2.0.so.0 ]] && flatpak info com.nvidia.geforcenow &>/dev/null; then
-    flatpak install --user --noninteractive -y flathub org.freedesktop.Sdk//24.08
-    "$R/geforcenow-hdr/build-sdl" >/dev/null
-  fi
   exit
 fi
 systemctl --user daemon-reload

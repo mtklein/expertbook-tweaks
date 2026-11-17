@@ -1,8 +1,8 @@
 #!/bin/sh
-self=$(readlink -f "$0")
-dir=${self%%/hosts/*}/geforcenow-hdr
+dir=$HOME/expertbook-tweaks/geforcenow-hdr
 edid=$HOME/.local/state/geforcenow-hdr-edid
-"$dir/edid" "$edid" || exit 1
+mkdir -p "$HOME/.local/state"
+"$dir/edid" "$edid" 2>/dev/null || edid=
 flatpak update --user --noninteractive -y com.nvidia.geforcenow >/dev/null 2>&1
 sdl=$dir/sdl/lib/libSDL2-2.0.so.0
 if [ "${GFN_PIXELS:-1}" != 0 ] && [ -e "$sdl" ]; then
@@ -13,7 +13,7 @@ else
 fi
 exec flatpak run "$@" \
   --env=SDL_VIDEODRIVER=wayland \
-  --env=GAMESCOPE_PATCHED_EDID_FILE="$edid" \
+  ${edid:+--env=GAMESCOPE_PATCHED_EDID_FILE="$edid"} \
   --env=GFN_FAKE_DIR="$dir/steamos" \
   --env=LD_PRELOAD="$dir/redirect.so" \
   ${GFN_VULKAN_DRIVER:+--env=VK_ICD_FILENAMES="$GFN_VULKAN_DRIVER"} \

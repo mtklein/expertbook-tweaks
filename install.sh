@@ -24,6 +24,11 @@ link() {
   echo "linked $dst"
 }
 
+make -s -C "$R/geforcenow-hdr"
+if [[ ! -e $R/geforcenow-hdr/sdl/lib/libSDL2-2.0.so.0 ]] && flatpak info com.nvidia.geforcenow &>/dev/null; then
+  flatpak install --user --noninteractive -y flathub org.freedesktop.Sdk//24.08
+  "$R/geforcenow-hdr/build-sdl" >/dev/null
+fi
 [[ -x $H/setup ]] && "$H/setup" "$R" build
 mkdir -p ~/.local/bin ~/.local/share ~/.config
 find ~/.local/bin ~/.local/share ~/.config -maxdepth 5 -xtype l -lname "$R/*" -delete
