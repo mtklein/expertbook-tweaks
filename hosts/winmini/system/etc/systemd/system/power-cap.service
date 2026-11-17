@@ -1,7 +1,10 @@
 [Unit]
 Description=Chip power limit by power profile (8, 12 or 15 W)
+After=power-profiles-daemon.service
+Wants=power-profiles-daemon.service
 
 [Service]
+ExecStartPre=-/usr/bin/powerprofilesctl set power-saver
 ExecStart=/bin/sh /usr/local/bin/power-cap
 ExecStopPost=/usr/bin/ryzenadj --stapm-limit=15000 --fast-limit=15000 --slow-limit=15000
 Restart=always
