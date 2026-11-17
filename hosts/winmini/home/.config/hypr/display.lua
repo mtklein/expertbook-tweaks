@@ -1,6 +1,6 @@
 local home = os.getenv("HOME") or ""
 local state = home .. "/.local/state/"
-local SCALES = { 1.25, 1.5 }
+local SCALES = { 1.25, 1.5, 2 }
 local PANEL = "eDP-1"
 local RIGHT_SIDE_UP = 3
 
