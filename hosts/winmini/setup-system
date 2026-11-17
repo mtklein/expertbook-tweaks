@@ -6,3 +6,4 @@ ufw allow 22/tcp >/dev/null
 ufw allow 5353/udp >/dev/null
 ufw --force enable >/dev/null
 systemctl enable ufw.service
+systemctl enable --now fan-curve.service
