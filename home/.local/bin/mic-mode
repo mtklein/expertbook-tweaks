@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+import os
+import subprocess
+import sys
+import time
+
+INSTANCES = {(True, False): "echo", (False, True): "isolate", (True, True): "echo-isolate"}
+SWITCHES = ("echo", "isolate")
+CARD = "sofsoundwire"
+COMPRESSOR = "name='Microphone Capture DRC switch'"
+
+
+def unit(instance):
+    return f"mic-processing@{instance}.service"
+
+
+def systemctl(*args):
+    return subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True)
+
+
+def state():
+    for switches, instance in INSTANCES.items():
+        if systemctl("is-enabled", unit(instance)).stdout.strip() == "enabled":
+            return switches
+    return (False, False)
+
+
+def compressor(on):
+    controls = subprocess.run(["amixer", "-c", CARD, "controls"], capture_output=True, text=True).stdout
+    for line in controls.splitlines():
+        if line.endswith(COMPRESSOR):
+            subprocess.run(["amixer", "-c", CARD, "-q", "cset", line.split(",")[0], "on" if on else "off"])
+
+
+def apply(switches):
+    wanted = INSTANCES.get(switches)
+    for instance in INSTANCES.values():
+        if instance != wanted:
+            systemctl("disable", "--now", unit(instance))
+    if wanted is None:
+        return
+    systemctl("enable", "--now", unit(wanted))
+    for _ in range(40):
+        sources = subprocess.run(["pactl", "list", "short", "sources"], capture_output=True, text=True).stdout
+        if "\tmic.processed\t" in sources:
+            subprocess.run(["pactl", "set-default-source", "mic.processed"])
+            return
+        time.sleep(0.1)
+    sys.exit(f"{unit(wanted)} did not produce a microphone")
+
+
+def report(switches):
+    for name, on in zip(SWITCHES, switches):
+        print(name, "on" if on else "off")
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args == ["status"]:
+        report(state())
+    elif len(args) == 2 and args[0] in SWITCHES and args[1] in ("on", "off", "toggle"):
+        switches = list(state())
+        i = SWITCHES.index(args[0])
+        switches[i] = not switches[i] if args[1] == "toggle" else args[1] == "on"
+        apply(tuple(switches))
+        report(switches)
+        subprocess.run(["qs", "ipc", "call", "mic", "refresh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    elif len(args) == 2 and args[0] == "run" and args[1] in INSTANCES.values():
+        compressor(not args[1].startswith("echo"))
+        os.execv("/usr/bin/pipewire", ["pipewire", "-c", f"mic-{args[1]}.conf"])
+    elif args == ["stopped"]:
+        compressor(True)
+    else:
+        sys.exit("usage: mic-mode [status] | echo on|off|toggle | isolate on|off|toggle")
+
+
+if __name__ == "__main__":
+    main()

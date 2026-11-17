@@ -1,0 +1,105 @@
+#!/usr/bin/python3
+import array
+import math
+import signal
+import subprocess
+import sys
+import time
+import wave
+from pathlib import Path
+
+HOME = Path.home()
+DIR = HOME / "mic-test"
+REFERENCE = DIR / "reference.wav"
+RAW = DIR / "raw.wav"
+PROCESSED = DIR / "processed.wav"
+PIPER = HOME / "piper/venv/bin/piper"
+VOICE = HOME / "piper/voices/en_GB-semaine-medium.onnx"
+LEAD = 1.5
+TAIL = 0.5
+TEXT = (
+    "This is the microphone test. While I am talking, the speakers are playing straight into the "
+    "microphone, which is the echo a caller would hear. Stay quiet to hear how much of me is removed, "
+    "or talk over me to hear how well your own voice survives. Enemy spotted on the ridge. Reloading. "
+    "Fall back to the shuttle and hold the door. That is the end of the test."
+)
+
+
+def sources():
+    out = subprocess.run(["pactl", "list", "short", "sources"], capture_output=True, text=True).stdout
+    return [line.split("\t")[1] for line in out.splitlines() if "\t" in line]
+
+
+def reference():
+    if REFERENCE.exists():
+        return
+    DIR.mkdir(exist_ok=True)
+    subprocess.run([PIPER, "-m", VOICE, "-f", REFERENCE], input=TEXT, text=True, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def seconds(path):
+    with wave.open(str(path)) as w:
+        return w.getnframes() / w.getframerate()
+
+
+def level(path, start, end):
+    with wave.open(str(path)) as w:
+        rate, channels = w.getframerate(), w.getnchannels()
+        w.setpos(min(w.getnframes(), int(start * rate)))
+        samples = array.array("h", w.readframes(int((end - start) * rate)))
+    if not samples:
+        return float("-inf")
+    mean = sum(s * s for s in samples) / len(samples)
+    return 10 * math.log10(mean / 32768 ** 2) if mean else float("-inf")
+
+
+def record():
+    reference()
+    names = sources()
+    raw = next((n for n in names if n.startswith("alsa_input")), None)
+    if raw is None:
+        sys.exit("no microphone found")
+    targets = [(raw, RAW)]
+    if "mic.processed" in names:
+        targets.append(("mic.processed", PROCESSED))
+    else:
+        PROCESSED.unlink(missing_ok=True)
+        print("microphone processing is off: recording the raw microphone only")
+    length = seconds(REFERENCE)
+    recorders = [subprocess.Popen(["pw-record", "--target", name, "--rate", "48000", "--channels", "1",
+                                   "--format", "s16", str(path)]) for name, path in targets]
+    time.sleep(LEAD)
+    subprocess.run(["pw-play", str(REFERENCE)])
+    time.sleep(TAIL)
+    for recorder in recorders:
+        recorder.send_signal(signal.SIGINT)
+        recorder.wait()
+    print(f"{'':12}{'quiet':>10}{'playing':>10}")
+    for label, path in (("raw", RAW), ("processed", PROCESSED)):
+        if path.exists():
+            quiet = level(path, 0.3, LEAD - 0.3)
+            playing = level(path, LEAD + 0.5, LEAD + length - 0.5)
+            print(f"{label:12}{quiet:>8.1f}dB{playing:>8.1f}dB")
+    print(f"recordings are in {DIR}; hear them with: mic-test listen")
+
+
+def listen():
+    for label, path in (("raw", RAW), ("processed", PROCESSED)):
+        if path.exists():
+            print(label)
+            subprocess.run(["pw-play", str(path)])
+
+
+def main():
+    command = sys.argv[1] if len(sys.argv) > 1 else "record"
+    if command == "record":
+        record()
+    elif command == "listen":
+        listen()
+    else:
+        sys.exit("usage: mic-test [record | listen]")
+
+
+if __name__ == "__main__":
+    main()

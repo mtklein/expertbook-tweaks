@@ -1,0 +1,12 @@
+[Unit]
+Description=Microphone processing (%i)
+After=pipewire.service wireplumber.service
+BindsTo=pipewire.service
+
+[Service]
+ExecStart=%h/.local/bin/mic-mode run %i
+ExecStopPost=%h/.local/bin/mic-mode stopped
+Restart=on-failure
+
+[Install]
+WantedBy=pipewire.service

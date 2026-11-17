@@ -5,7 +5,7 @@ import Quickshell.Widgets
 
 Item {
   id: root
-  property bool revealed: hover.hovered || linger.running || Panels.open === "bluetooth"
+  property bool revealed: hover.hovered || linger.running || Panels.open === "bluetooth" || Panels.open === "microphone"
   height: Theme.barHeight
   width: Math.max(row.width, Theme.slot)
 
@@ -57,6 +57,10 @@ Item {
 
     StayAwake {
       visible: root.revealed || on
+    }
+
+    MicIcon {
+      visible: root.revealed
     }
 
     BluetoothIcon {
