@@ -45,6 +45,7 @@ o.bind("XF86AudioRaiseVolume", "Volume up", shell("volume-up"), held)
 o.bind("XF86AudioLowerVolume", "Volume down", shell("volume-down"), held)
 o.bind("XF86AudioMute", "Mute", shell("mute"), { locked = true })
 o.bind("XF86AudioMicMute", "Mute microphone", shell("microphone-mute"), { locked = true })
+o.bind("SUPER + M", "Mute microphone", shell("microphone-mute"), { locked = true })
 o.bind("code:192", "Spoken replies on or off", "speak-replies toggle")
 
 o.bind("XF86MonBrightnessUp", "Brightness up", "brightness +5%", held)

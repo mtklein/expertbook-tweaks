@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 
 Scope {
@@ -55,10 +56,17 @@ Scope {
     appid: "shell"
     name: "microphone-mute"
     description: "Mute microphone"
-    onPressed: {
-      if (!root.source || !root.source.audio) return
-      root.source.audio.muted = !root.source.audio.muted
-      root.osd.show(root.source.audio.muted ? "microphone-muted" : "microphone", -1, root.source.audio.muted ? "Microphone off" : "Microphone on")
-    }
+    onPressed: root.toggleMicrophone()
+  }
+
+  function toggleMicrophone() {
+    if (!root.source || !root.source.audio) return
+    root.source.audio.muted = !root.source.audio.muted
+    root.osd.show(root.source.audio.muted ? "microphone-muted" : "microphone", -1, root.source.audio.muted ? "Microphone off" : "Microphone on")
+  }
+
+  IpcHandler {
+    target: "audio"
+    function microphoneMute(): void { root.toggleMicrophone() }
   }
 }
