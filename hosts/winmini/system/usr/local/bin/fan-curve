@@ -4,9 +4,7 @@ import signal
 import sys
 import time
 
-CURVE = [(50, 0), (55, 40), (60, 115), (63, 170), (70, 255)]
-OFF_BELOW = 45
-SLOWEST = 32
+CURVE = [(40, 32), (50, 90), (55, 135), (58, 175), (60, 208), (65, 255)]
 PERIOD = 2
 COOLING_RATE = 0.15
 
@@ -46,7 +44,6 @@ def main():
     signal.signal(signal.SIGINT, automatic)
     write("pwm1_enable", 1)
     felt = None
-    spinning = True
     last = None
     try:
         while True:
@@ -56,11 +53,6 @@ def main():
             else:
                 felt += (temp - felt) * COOLING_RATE
             pwm = wanted(felt)
-            if pwm == 0 and spinning and felt > OFF_BELOW:
-                pwm = SLOWEST
-            if 0 < pwm < SLOWEST:
-                pwm = SLOWEST
-            spinning = pwm > 0
             if pwm != last:
                 write("pwm1", pwm)
                 last = pwm
