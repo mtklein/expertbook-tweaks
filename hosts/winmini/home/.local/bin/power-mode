@@ -1,0 +1,8 @@
+#!/bin/sh
+case ${1:-} in
+  quiet) profile=power-saver; text="8 W" ;;
+  balanced) profile=balanced; text="12 W" ;;
+  full) profile=performance; text="15 W" ;;
+  *) echo "usage: power-mode quiet | balanced | full" >&2; exit 2 ;;
+esac
+powerprofilesctl set "$profile" && qs ipc call osd pop "󱐋" -1 "$text" >/dev/null

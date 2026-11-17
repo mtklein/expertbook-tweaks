@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+if [[ $2 == build ]] && ! compgen -G "$HOME/ryzenadj/ryzenadj-[0-9]*.pkg.tar.zst" >/dev/null; then
+  [[ -d ~/ryzenadj ]] || git clone -q https://aur.archlinux.org/ryzenadj.git ~/ryzenadj
+  (cd ~/ryzenadj && makepkg -f >/dev/null)
+fi

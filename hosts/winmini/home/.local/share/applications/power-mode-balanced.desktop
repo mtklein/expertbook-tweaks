@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Name=Power: balanced, 12 watts
+Exec=power-mode balanced
+Icon=preferences-system-power
+Type=Application
+Categories=Settings;

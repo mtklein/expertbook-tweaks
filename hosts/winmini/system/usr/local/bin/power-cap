@@ -1,0 +1,18 @@
+#!/bin/sh
+last=
+applied=0
+while :; do
+  profile=$(cat /sys/firmware/acpi/platform_profile)
+  case $profile in
+    low-power) watts=8 ;;
+    balanced) watts=12 ;;
+    *) watts=15 ;;
+  esac
+  now=$(date +%s)
+  if [ "$profile" != "$last" ] || [ $((now - applied)) -ge 15 ]; then
+    ryzenadj --stapm-limit=${watts}000 --fast-limit=${watts}000 --slow-limit=${watts}000 >/dev/null 2>&1
+    last=$profile
+    applied=$now
+  fi
+  sleep 2
+done

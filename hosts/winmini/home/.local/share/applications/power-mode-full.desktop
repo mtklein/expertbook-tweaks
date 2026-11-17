@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Name=Power: full, 15 watts
+Exec=power-mode full
+Icon=preferences-system-power
+Type=Application
+Categories=Settings;
