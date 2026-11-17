@@ -30,6 +30,9 @@ hl.on("window.close", function(window)
     hl.exec_cmd("steam-quit-when-closed")
   end
 end)
+hl.on("window.open", function()
+  hl.exec_cmd("x-focus-heal")
+end)
 
 o.window("GeForceNOW", { idle_inhibit = "fullscreen", tag = "+wheel_scroll" })
 o.window({ class = "GeForceNOW", fullscreen = true }, { tag = "+touch_mouse" })
