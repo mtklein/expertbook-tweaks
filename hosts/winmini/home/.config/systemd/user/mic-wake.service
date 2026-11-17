@@ -1,0 +1,10 @@
+[Unit]
+Description=Open the microphone once so it is awake before the first dictation
+After=wireplumber.service pipewire-pulse.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/mic-wake
+
+[Install]
+WantedBy=wireplumber.service

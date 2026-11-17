@@ -4,3 +4,5 @@ if [[ $2 == build ]] && ! compgen -G "$HOME/ryzenadj/ryzenadj-[0-9]*.pkg.tar.zst
   [[ -d ~/ryzenadj ]] || git clone -q https://aur.archlinux.org/ryzenadj.git ~/ryzenadj
   (cd ~/ryzenadj && makepkg -f >/dev/null)
 fi
+[[ $2 == enable ]] && systemctl --user enable mic-wake.service
+exit 0

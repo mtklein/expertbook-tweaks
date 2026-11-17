@@ -1,0 +1,9 @@
+#!/bin/sh
+for _ in $(seq 100); do
+  case $(pactl get-default-source 2>/dev/null) in
+    alsa_input.*) break ;;
+  esac
+  sleep 0.1
+done
+timeout 1 pw-record --raw - >/dev/null
+exit 0
