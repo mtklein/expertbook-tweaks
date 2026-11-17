@@ -25,6 +25,7 @@ link() {
 }
 
 [[ -x $H/setup ]] && "$H/setup" "$R" build
+mkdir -p ~/.local/bin ~/.local/share ~/.config
 find ~/.local/bin ~/.local/share ~/.config -maxdepth 5 -xtype l -lname "$R/*" -delete
 for root in "$R/common/home" "$H/home"; do
   [[ -d $root ]] || continue
