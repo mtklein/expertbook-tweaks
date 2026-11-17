@@ -10,6 +10,7 @@ Scope {
   property bool checking: false
   property int failures: 0
   property string failure: ""
+  property bool hasReader: false
   property bool readerLive: false
   property int quickFailures: 0
   property double fingerStarted: 0
@@ -47,7 +48,7 @@ Scope {
   }
 
   function startFinger() {
-    if (!session.locked || finger.active) return
+    if (!hasReader || !session.locked || finger.active) return
     fingerStarted = Date.now()
     readerLive = false
     finger.start()
@@ -71,6 +72,15 @@ Scope {
     command: ["test", "-e", root.flag]
     running: true
     onExited: function(code) { if (code === 0) root.lock() }
+  }
+
+  Process {
+    command: ["test", "-e", "/usr/lib/security/pam_fprintd.so"]
+    running: true
+    onExited: function(code) {
+      root.hasReader = code === 0
+      root.startFinger()
+    }
   }
 
   Timer {
