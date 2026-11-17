@@ -1,8 +1,14 @@
 #!/bin/sh
+off=$HOME/.local/state/screen-off
 case ${1:-} in
   "") brightnessctl -m | cut -d, -f4 | tr -d %; exit ;;
   --no-osd) quiet=1; shift ;;
 esac
 brightnessctl -q -n1 set "$1"
 percent=$(brightnessctl -m | cut -d, -f4 | tr -d %)
+if [ "$percent" = 0 ]; then
+  [ -e "$off" ] || hyprctl eval 'edp_screen(false)' >/dev/null
+  exit
+fi
+[ ! -e "$off" ] || hyprctl eval 'edp_screen(true)' >/dev/null
 [ -n "${quiet:-}" ] || qs ipc call osd pop brightness "$percent" "$percent%" >/dev/null

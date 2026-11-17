@@ -63,6 +63,20 @@ function edp_lid(closed)
   end
 end
 
+local SCREEN_OFF = state .. "screen-off"
+os.remove(SCREEN_OFF)
+
+function edp_screen(on)
+  hl.config({ misc = { key_press_enables_dpms = on, mouse_move_enables_dpms = on } })
+  hl.dispatch(hl.dsp.dpms({ action = on and "on" or "off" }))
+  if on then
+    os.remove(SCREEN_OFF)
+  else
+    local f = io.open(SCREEN_OFF, "w")
+    if f then f:close() end
+  end
+end
+
 panel()
 
 hl.on("monitor.removed", function()
