@@ -42,15 +42,19 @@ for flag in "$flags"/*; do
   if [[ $owner == shell || -d /proc/$owner ]]; then wanted=1; else rm -f "$flag"; fi
 done
 
-lit=0
-[[ -e $flags/.lit ]] && lit=1
-if (( wanted && ! lit )); then
-  echo none >"$led/trigger" && touch "$flags/.lit" && setsid -f "$0" hold </dev/null >/dev/null 2>&1
-elif (( ! wanted && lit )); then
-  rm -f "$flags/.lit"
-  sleep 0.05
-  echo 0 >"$led/brightness"
-  echo kbd-capslock >"$led/trigger"
+if [[ -e $HOME/.config/attention-bar ]]; then
+  [[ $1 == status ]] || qs ipc call attention refresh >/dev/null 2>&1
+else
+  lit=0
+  [[ -e $flags/.lit ]] && lit=1
+  if (( wanted && ! lit )); then
+    echo none >"$led/trigger" && touch "$flags/.lit" && setsid -f "$0" hold </dev/null >/dev/null 2>&1
+  elif (( ! wanted && lit )); then
+    rm -f "$flags/.lit"
+    sleep 0.05
+    echo 0 >"$led/brightness"
+    echo kbd-capslock >"$led/trigger"
+  fi
 fi
 
 [[ $1 == status ]] && { (( wanted )) && echo on || echo off; ls "$flags"; }

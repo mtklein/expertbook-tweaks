@@ -6,6 +6,7 @@ Singleton {
   readonly property color barBackground: "#000000"
   readonly property color barText: "#d8d8d8"
   readonly property color active: "#ff5f57"
+  readonly property color attention: "#ff9f0a"
   readonly property color panelBackground: "#161618"
   readonly property color dimText: "#8e8e93"
   readonly property color selected: "#6aa8ff"
