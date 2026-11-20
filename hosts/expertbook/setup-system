@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 R=$1
-chmod 755 /usr/lib/systemd/system-sleep/firmware-state
+chmod 755 /usr/lib/systemd/system-sleep/firmware-state /usr/lib/systemd/system-sleep/keyboard-wake
 msgfmt -o /usr/share/locale/en/LC_MESSAGES/fprintd.mo "$R/fingerprint-prompts.po"
 sed -i "/^IgnorePkg/d" /etc/pacman.conf
 if [[ $(grep "^\[" /etc/pacman.conf | tail -1) != "[omarchy]" ]] && grep -q "^\[omarchy\]$" /etc/pacman.conf; then

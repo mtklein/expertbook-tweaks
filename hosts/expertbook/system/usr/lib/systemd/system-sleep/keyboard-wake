@@ -1,0 +1,20 @@
+#!/bin/sh
+wake=/sys/devices/platform/i8042/serio0/power/wakeup
+lid=/proc/acpi/button/lid
+[ -e "$wake" ] || exit 0
+case "$1" in
+pre)
+  if grep -qs closed "$lid"/*/state; then
+    echo disabled >"$wake"
+  else
+    echo enabled >"$wake"
+  fi
+  ;;
+post)
+  irq=$(cat /sys/power/pm_wakeup_irq 2>/dev/null)
+  name=$(awk -v irq="$irq:" '$1 == irq { print $NF }' /proc/interrupts)
+  state=$(awk '{ print $2 }' "$lid"/*/state 2>/dev/null)
+  logger -t keyboard-wake "woke by interrupt ${irq:-unknown} ${name:-}, lid ${state:-unknown}, keyboard wake was $(cat "$wake")"
+  echo enabled >"$wake"
+  ;;
+esac
