@@ -64,5 +64,9 @@ if [[ ${1:-} == --system ]]; then
       magick "$original" -resize 2880x1800^ -gravity center -extent 2880x1800 -quality 92 "$wallpaper"
     rm -f "$original"
   fi
+  dark="${wallpaper%.jpg}-dark.png"
+  if [[ -f $wallpaper && ! -f $dark ]]; then
+    magick "$wallpaper" -depth 16 -colorspace RGB -evaluate multiply 0.28 -colorspace sRGB -attenuate 0.004 +noise Uniform -depth 8 "$dark"
+  fi
   pkexec "$R/install-system" "$R" "$H"
 fi

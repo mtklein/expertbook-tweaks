@@ -164,7 +164,7 @@ Measured here: about 4.8 W for the whole machine idle, about 10.4 W streaming Ge
 - Each read of the light sensor blocks about a second.
 - Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
-- The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed.
+- The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed. The desktop and lock screen show `wallpaper-dark.png`, which `install.sh` makes from it: the same picture at 28% of its light.
 
 ## Omarchy is frozen
 

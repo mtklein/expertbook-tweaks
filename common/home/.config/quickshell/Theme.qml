@@ -20,5 +20,5 @@ Singleton {
   readonly property int pad: 10
   readonly property int radius: 6
   readonly property int rowHeight: 28
-  readonly property string wallpaper: "/usr/local/share/expertbook-tweaks/wallpaper.jpg"
+  readonly property string wallpaper: "/usr/local/share/expertbook-tweaks/wallpaper-dark.png"
 }
