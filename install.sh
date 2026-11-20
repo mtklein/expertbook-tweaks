@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WHOLE_DIRS=(.config/quickshell)
+WHOLE_DIRS=(.config/quickshell .config/chromium-theme)
 
 product=$(</sys/class/dmi/id/product_name)
 host=

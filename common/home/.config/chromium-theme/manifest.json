@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Panels",
+  "version": "1",
+  "description": "Chromium in the colours of the shell's panels and the terminal.",
+  "theme": {
+    "colors": {
+      "frame": [22, 22, 24],
+      "frame_inactive": [22, 22, 24],
+      "frame_incognito": [22, 22, 24],
+      "frame_incognito_inactive": [22, 22, 24],
+      "toolbar": [42, 42, 46],
+      "toolbar_text": [216, 216, 216],
+      "toolbar_button_icon": [176, 176, 182],
+      "tab_text": [216, 216, 216],
+      "tab_background_text": [142, 142, 147],
+      "tab_background_text_inactive": [142, 142, 147],
+      "tab_background_text_incognito": [142, 142, 147],
+      "tab_background_text_incognito_inactive": [142, 142, 147],
+      "bookmark_text": [216, 216, 216],
+      "ntp_background": [22, 22, 24],
+      "ntp_text": [216, 216, 216],
+      "ntp_link": [106, 168, 255],
+      "ntp_header": [42, 42, 46]
+    }
+  }
+}
