@@ -18,7 +18,7 @@ Row {
     var name = ""
     if (appId !== "" && !/^steam_app_/.test(appId)) {
       var parts = appId.split(".")
-      name = parts[parts.length - 1].toLowerCase()
+      name = parts[parts.length - 1]
     }
     if (name === "") name = String(toplevel.title || "")
     return name.length > 24 ? name.slice(0, 23) + "…" : name
