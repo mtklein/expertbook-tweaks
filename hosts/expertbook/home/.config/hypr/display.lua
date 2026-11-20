@@ -121,6 +121,10 @@ local lid_shut = lid_closed()
 
 hl.on("input.keyboard.key", function(code, _, pressed)
   if not lid_shut then return end
+  if not lid_closed() then
+    lid_shut = false
+    return
+  end
   local f = io.open(state .. "lid-closed-keys.log", "a")
   if not f then return end
   f:write(os.date("%Y-%m-%d %H:%M:%S"), " key code ", tostring(code), pressed == 1 and " down" or " up", "\n")
@@ -128,7 +132,7 @@ hl.on("input.keyboard.key", function(code, _, pressed)
 end)
 
 function edp_lid(closed)
-  lid_shut = closed
+  lid_shut = closed or lid_closed()
   if closed and external() then
     hl.monitor({ output = "eDP-1", disabled = true })
   elseif not tv_panel_off then
