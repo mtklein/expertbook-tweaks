@@ -48,7 +48,7 @@ Row {
       var names = []
       for (var j = 0; j < windows.length; j++) {
         var name = root.label(windows[j])
-        if (name !== "") names.push(name)
+        if (name !== "") names.push({ name: name, focused: ws.id === root.activeId && windows[j].activated })
       }
       out.push({ id: ws.id, names: names })
     }
@@ -66,7 +66,7 @@ Row {
     var w = numbered ? spaces.length * numberWidth : 0
     for (var i = 0; i < spaces.length; i++)
       for (var j = 0; j < spaces[i].names.length; j++)
-        w += Math.ceil(metrics.advanceWidth(spaces[i].names[j])) + nameGap
+        w += Math.ceil(metrics.advanceWidth(spaces[i].names[j].name)) + nameGap
     return w
   }
   readonly property bool named: nameCount > 0 && fullWidth <= maxWidth
@@ -110,12 +110,12 @@ Row {
       id: space
       required property var modelData
       height: Theme.barHeight
-      opacity: modelData.id === root.activeId ? 1 : 0.5
 
       Item {
         visible: root.numbered
         width: root.numberWidth
         height: Theme.barHeight
+        opacity: space.modelData.id === root.activeId ? 1 : 0.5
         BarText {
           anchors.centerIn: parent
           text: String(space.modelData.id)
@@ -125,8 +125,9 @@ Row {
       Repeater {
         model: root.named ? space.modelData.names : []
         BarText {
-          required property string modelData
-          text: modelData
+          required property var modelData
+          text: modelData.name
+          opacity: modelData.focused ? 1 : 0.5
           height: Theme.barHeight
           width: implicitWidth + root.nameGap
         }
