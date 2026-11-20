@@ -127,7 +127,7 @@ hl.on("input.keyboard.key", function(code, _, pressed)
   end
   local f = io.open(state .. "lid-closed-keys.log", "a")
   if not f then return end
-  f:write(os.date("%Y-%m-%d %H:%M:%S"), " key code ", tostring(code), pressed == 1 and " down" or " up", "\n")
+  f:write(os.date("!%Y-%m-%dT%H:%M:%SZ"), " key code ", tostring(code), pressed == 1 and " down" or " up", "\n")
   f:close()
 end)
 
