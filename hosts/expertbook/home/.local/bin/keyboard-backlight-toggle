@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import errno
 import os
 import select
 import subprocess
@@ -14,6 +15,10 @@ def level():
     try:
         return int(os.read(fd, 16))
     except ValueError:
+        return None
+    except OSError as error:
+        if error.errno != errno.ENODATA:
+            raise
         return None
 
 
