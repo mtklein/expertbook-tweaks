@@ -23,6 +23,7 @@ Variants {
       anchors.left: parent.left
       anchors.leftMargin: 8
       screen: bar.modelData
+      maxWidth: bar.width / 2 - Theme.slot - 8
     }
 
     Attention {
