@@ -15,8 +15,9 @@ Row {
   function label(toplevel) {
     var ipc = toplevel.lastIpcObject || {}
     var appId = String(ipc["class"] || (toplevel.wayland ? toplevel.wayland.appId : "") || "")
-    var name = ""
-    if (appId !== "" && !/^steam_app_/.test(appId)) {
+    var entry = appId !== "" ? DesktopEntries.heuristicLookup(appId) : null
+    var name = entry ? String(entry.name || "") : ""
+    if (name === "" && appId !== "" && !/^steam_app_/.test(appId)) {
       var parts = appId.split(".")
       name = parts[parts.length - 1]
     }
@@ -31,6 +32,7 @@ Row {
 
   readonly property var spaces: {
     var out = []
+    DesktopEntries.applications.values.length
     var all = Hyprland.workspaces.values
     for (var i = 0; i < all.length; i++) {
       var ws = all[i]
