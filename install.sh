@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WHOLE_DIRS=(.config/quickshell .config/chromium-theme)
+WHOLE_DIRS=(.config/quickshell)
 
 product=$(</sys/class/dmi/id/product_name)
 host=
@@ -66,7 +66,7 @@ if [[ ${1:-} == --system ]]; then
   fi
   dark="${wallpaper%.jpg}-dark.png"
   if [[ -f $wallpaper && ! -f $dark ]]; then
-    magick "$wallpaper" -depth 16 -colorspace RGB -evaluate multiply 0.28 -colorspace sRGB -attenuate 0.004 +noise Uniform -depth 8 "$dark"
+    magick "$wallpaper" -depth 16 -colorspace RGB -channel R -evaluate multiply 0.13 -channel G -evaluate multiply 0.10 -channel B -evaluate multiply 0.19 +channel -colorspace sRGB -attenuate 0.004 +noise Uniform -depth 8 "$dark"
   fi
   pkexec "$R/install-system" "$R" "$H"
 fi

@@ -56,8 +56,7 @@ State: `~/.local/state/ambient-display.json` (evidence), `hdr-brightness` (level
 | `.local/bin/terminal-here` | Super+Return: a terminal in the directory of the focused terminal's shell. |
 | `.local/bin/keyboard-backlight` | `up`, `down`, `cycle` for the keyboard backlight key. |
 | `.bashrc` | A plain shell: `~/.local/bin` on `PATH`, `vim` as the editor, history, completion, a bare prompt. Omarchy's shell setup is not loaded. |
-| `.config/foot/foot.ini` | The terminal: DejaVu Sans Mono Nerd Font, no bell. Dark colours matching the shell's panels: background `#161618`, greys from `#8e8e93` to white for text, and sixteen colours that each stand at 5.5:1 or better against the background, except black, which stays dark because programs put it under and over the others. |
-| `.config/chromium-flags.conf`, `.config/chromium-theme/` | Chromium's launch flags, and a theme in the panels' colours loaded from them: tab strip `#161618`, toolbar and active tab `#2a2a2e`, the terminal's greys for text. Chromium is dark, and tells sites to be, because the desktop's colour preference is dark (`gsettings set org.gnome.desktop.interface color-scheme prefer-dark`, which GTK apps follow too). |
+| `.config/foot/foot.ini` | The terminal: DejaVu Sans Mono Nerd Font, the Tiger light colours, no bell. |
 | `.config/hypr/hyprland.lua` | Our own Hyprland config; loads the files below. Omarchy's Hyprland defaults are not loaded. |
 | `.config/hypr/keys.lua` | Every keybinding: terminal, browser, the menu key, Fn+F8 to cycle the display scale, close window, Super + left-drag to move a window, full screen, workspaces 1-3, copy and paste, volume, brightness, white point, keyboard backlight, lid switch, Fn+F9 (key code 192) to switch spoken replies on and off. |
 | `.config/hypr/console.lua` | The Quake console: a tap of Right Alt toggles it (held for 200 ms, Right Alt is hold-to-talk); sized to half the screen; stray windows opened into it move to the workspace. `console_dictate()` runs `speak-replies dictating`, shows the console and has `dictation-key` send it Alt+K, which `~/.claude/keybindings.json` (not in this repo) binds to voice dictation in place of Space, with `"voice": { "enabled": true, "mode": "tap" }` in `~/.claude/settings.json`: one press starts recording, the next sends. Holding Right Alt does the same on press and on release, for hold-to-talk; if that had to bring the console up, it hides again after the release. |
@@ -164,7 +163,7 @@ Measured here: about 4.8 W for the whole machine idle, about 10.4 W streaming Ge
 - Each read of the light sensor blocks about a second.
 - Stock Hyprland rewrites the keyboard LEDs on every key event, which flickers the attention light; `03-leds-only-on-change` stops that, and `attention` still re-asserts the light in case the Caps Lock state changes.
 - Hyprland's Lua key event carries xkb keycodes (evdev + 8).
-- The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed. The desktop and lock screen show `wallpaper-dark.png`, which `install.sh` makes from it: the same picture at 28% of its light.
+- The Tiger wallpaper is Apple's artwork: fetched by `install.sh`, not committed. The desktop and lock screen show `wallpaper-dark.png`, which `install.sh` makes from it: the same picture in navy, at about an eighth of its light.
 
 ## Omarchy is frozen
 
