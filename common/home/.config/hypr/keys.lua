@@ -31,7 +31,7 @@ o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
 o.bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
 o.bind("SUPER + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 
-for workspace = 1, 3 do
+for workspace = 1, 9 do
   local key = "code:" .. (workspace + 9)
   o.bind("SUPER + " .. key, "Workspace " .. workspace, hl.dsp.focus({ workspace = tostring(workspace) }))
   o.bind("SUPER + SHIFT + " .. key, "Send window to workspace " .. workspace, hl.dsp.window.move({ workspace = tostring(workspace) }))

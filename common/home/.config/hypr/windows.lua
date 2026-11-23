@@ -41,9 +41,8 @@ hl.layer_rule({ match = { namespace = "^shell-.*$" }, no_anim = true, animation 
 
 local function empty_workspace(from)
   local order = {}
-  for id = from + 1, 3 do order[#order + 1] = id end
-  for id = 1, math.min(from - 1, 3) do order[#order + 1] = id end
-  for id = math.max(from + 1, 4), from + 20 do order[#order + 1] = id end
+  for id = from + 1, 9 do order[#order + 1] = id end
+  for id = 1, math.min(from - 1, 9) do order[#order + 1] = id end
   for _, id in ipairs(order) do
     local ws = hl.get_workspace(tostring(id))
     if not ws or ws.is_empty then return id end
