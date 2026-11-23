@@ -54,9 +54,25 @@ hl.device({
   scroll_points = touchpad_scroll_curve(),
 })
 
+local function mouse_curve()
+  local step = 0.05
+  local slow = 0.7
+  local fast = 1.6
+  local knee = 0.4
+  local incline = 0.9
+  local points = {}
+  for i = 0, 63 do
+    local speed = i * step
+    local factor = math.min(fast, slow + incline * math.max(0, speed - knee))
+    factor = factor * math.min(1, 10 * speed + 0.3)
+    points[#points + 1] = string.format("%.4f", factor * speed)
+  end
+  return string.format("custom %g %s", step, table.concat(points, " "))
+end
+
 hl.device({
   name = "keychron-m3-mini-8k-mouse",
-  sensitivity = -0.2,
+  accel_profile = mouse_curve(),
   scroll_factor = 0.8,
 })
 
