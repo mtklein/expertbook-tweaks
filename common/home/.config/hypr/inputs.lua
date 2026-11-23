@@ -54,5 +54,11 @@ hl.device({
   scroll_points = touchpad_scroll_curve(),
 })
 
+hl.device({
+  name = "keychron-m3-mini-8k-mouse",
+  sensitivity = -0.2,
+  scroll_factor = 0.8,
+})
+
 o.window("(foot|console)", { scroll_touchpad = 2.0 })
 o.window({ class = "TUI\\..*", initial_title = "foot" }, { scroll_touchpad = 2.0 })
