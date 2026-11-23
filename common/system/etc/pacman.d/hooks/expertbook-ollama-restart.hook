@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = ollama
+Target = ollama-*
+
+[Action]
+Description = Restarting Ollama on its new version...
+When = PostTransaction
+Exec = /usr/bin/systemctl try-restart ollama.service
