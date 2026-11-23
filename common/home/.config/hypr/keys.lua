@@ -37,6 +37,23 @@ for workspace = 1, 9 do
   o.bind("SUPER + SHIFT + " .. key, "Send window to workspace " .. workspace, hl.dsp.window.move({ workspace = tostring(workspace) }))
 end
 
+local function step_workspace(direction)
+  local monitor = hl.get_active_monitor()
+  local here = monitor and monitor.active_workspace
+  if not here then return end
+  local best
+  for _, ws in ipairs(hl.get_workspaces()) do
+    local id = ws.id
+    local same = not ws.monitor or ws.monitor.name == monitor.name
+    if same and not ws.special and not ws.is_empty and id > 0 and (id - here.id) * direction > 0 then
+      if not best or (id - best) * direction < 0 then best = id end
+    end
+  end
+  if best then hl.dispatch(hl.dsp.focus({ workspace = tostring(best) })) end
+end
+o.bind("SUPER + bracketleft", "Lower workspace", function() step_workspace(-1) end)
+o.bind("SUPER + bracketright", "Higher workspace", function() step_workspace(1) end)
+
 o.bind("SUPER + C", "Copy", function() tap(in_terminal() and "CTRL SHIFT" or "CTRL", "C") end)
 o.bind("SUPER + V", "Paste", function() tap(in_terminal() and "CTRL SHIFT" or "CTRL", "V") end)
 
