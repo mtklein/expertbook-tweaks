@@ -19,9 +19,7 @@ hl.config({
   },
 })
 
-local function touchpad_curve()
-  local units_per_mm = 31
-  local step = 0.2
+local function mac_curve(units_per_inch, step)
   local gain = 1.0
   local linear = 0.960
   local parabolic = 0.830
@@ -29,7 +27,7 @@ local function touchpad_curve()
   local tangent = 7.1
   local root = 18.0
   local frames_per_s = 67
-  local points_per_mm = 96 / 25.4
+  local points_per_inch = 96
   local function rise(x)
     return linear * x + (parabolic * x) ^ 2 + (cubic * x) ^ 3
   end
@@ -42,11 +40,19 @@ local function touchpad_curve()
   end
   local points = {}
   for i = 0, 63 do
-    local mm_per_s = i * step * 1000 / units_per_mm
-    local x = mm_per_s * points_per_mm / frames_per_s
+    local inches_per_s = i * step * 1000 / units_per_inch
+    local x = inches_per_s * points_per_inch / frames_per_s
     points[#points + 1] = string.format("%.4f", gain * points_per_frame(x) * frames_per_s / 1000)
   end
   return string.format("custom %g %s", step, table.concat(points, " "))
+end
+
+local function touchpad_curve()
+  return mac_curve(31 * 25.4, 0.2)
+end
+
+local function mouse_curve()
+  return mac_curve(400, 0.15)
 end
 
 local function touchpad_scroll_curve()
@@ -69,22 +75,6 @@ hl.device({
   accel_profile = touchpad_curve(),
   scroll_points = touchpad_scroll_curve(),
 })
-
-local function mouse_curve()
-  local step = 0.05
-  local slow = 0.7
-  local fast = 1.6
-  local knee = 0.4
-  local incline = 0.9
-  local points = {}
-  for i = 0, 63 do
-    local speed = i * step
-    local factor = math.min(fast, slow + incline * math.max(0, speed - knee))
-    factor = factor * math.min(1, 10 * speed + 0.3)
-    points[#points + 1] = string.format("%.4f", factor * speed)
-  end
-  return string.format("custom %g %s", step, table.concat(points, " "))
-end
 
 hl.device({
   name = "keychron-m3-mini-8k-mouse",
