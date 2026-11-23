@@ -22,7 +22,7 @@ hl.config({
 local function touchpad_curve()
   local units_per_mm = 31
   local step = 0.2
-  local gain = 2.1
+  local gain = 1.68
   local exponent = 0.55
   local points = {}
   for i = 0, 63 do
@@ -36,7 +36,7 @@ end
 local function touchpad_scroll_curve()
   local units_per_mm = 31
   local step = 0.2
-  local gain = 11.7
+  local gain = 9.4
   local pivot = 60
   local exponent = 0.75
   local points = {}
