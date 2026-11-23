@@ -39,6 +39,34 @@ o.window({ class = "GeForceNOW", fullscreen = true }, { tag = "+touch_mouse" })
 
 hl.layer_rule({ match = { namespace = "^shell-.*$" }, no_anim = true, animation = "none" })
 
+local function empty_workspace(from)
+  local order = {}
+  for id = from + 1, 3 do order[#order + 1] = id end
+  for id = 1, math.min(from - 1, 3) do order[#order + 1] = id end
+  for id = math.max(from + 1, 4), from + 20 do order[#order + 1] = id end
+  for _, id in ipairs(order) do
+    local ws = hl.get_workspace(tostring(id))
+    if not ws or ws.is_empty then return id end
+  end
+end
+
+local function shares_workspace(window, ws)
+  for _, other in ipairs(hl.get_workspace_windows(ws)) do
+    if other.address ~= window.address and other.mapped and not other.hidden and not other.pinned then return true end
+  end
+  return false
+end
+
+hl.on("window.fullscreen", function(window)
+  hl.timer(function()
+    if not window or not window.mapped or window.pinned or window.fullscreen < 2 then return end
+    local ws = window.workspace
+    if not ws or ws.special or ws.id < 1 or not shares_workspace(window, ws) then return end
+    local target = empty_workspace(ws.id)
+    if target then hl.dispatch(hl.dsp.window.move({ window = window, workspace = tostring(target) })) end
+  end, { timeout = 1, type = "oneshot" })
+end)
+
 function cycle_window_mode()
   local window = hl.get_active_window()
   if not window then return end
