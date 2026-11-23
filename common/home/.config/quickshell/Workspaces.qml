@@ -48,7 +48,7 @@ Row {
       var names = []
       for (var j = 0; j < windows.length; j++) {
         var name = root.label(windows[j])
-        if (name !== "") names.push({ name: name, focused: ws.id === root.activeId && windows[j].activated })
+        if (name !== "") names.push({ name: name, address: String(windows[j].address || ""), focused: ws.id === root.activeId && windows[j].activated })
       }
       out.push({ id: ws.id, names: names })
     }
@@ -74,6 +74,10 @@ Row {
   visible: numbered || named
   height: Theme.barHeight
   leftPadding: numbered ? 0 : 6
+
+  function go(target) {
+    Quickshell.execDetached(["hyprctl", "eval", "hl.dispatch(hl.dsp.focus({ " + target + " }))"])
+  }
 
   FontMetrics {
     id: metrics
@@ -120,6 +124,10 @@ Row {
           anchors.centerIn: parent
           text: String(space.modelData.id)
         }
+        MouseArea {
+          anchors.fill: parent
+          onClicked: root.go("workspace = \"" + space.modelData.id + "\"")
+        }
       }
 
       Repeater {
@@ -130,6 +138,11 @@ Row {
           opacity: modelData.focused ? 1 : 0.5
           height: Theme.barHeight
           width: implicitWidth + root.nameGap
+          MouseArea {
+            anchors.fill: parent
+            enabled: parent.modelData.address !== ""
+            onClicked: root.go("window = \"address:0x" + parent.modelData.address + "\"")
+          }
         }
       }
     }
