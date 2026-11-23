@@ -84,3 +84,19 @@ hl.device({
 
 o.window("(foot|console)", { scroll_touchpad = 2.0 })
 o.window({ class = "TUI\\..*", initial_title = "foot" }, { scroll_touchpad = 2.0 })
+
+local typing_guard = true
+local function is_game(window)
+  if not window then return false end
+  local class = window.class or ""
+  return window.fullscreen >= 2 or class:match("^steam_app_") ~= nil or class == "GeForceNOW" or class == "gamescope"
+end
+local function guard_touchpad()
+  local wanted = not is_game(hl.get_active_window())
+  if wanted == typing_guard then return end
+  typing_guard = wanted
+  hl.config({ input = { touchpad = { disable_while_typing = wanted } } })
+end
+hl.on("window.active", guard_touchpad)
+hl.on("window.fullscreen", function() hl.timer(guard_touchpad, { timeout = 1, type = "oneshot" }) end)
+hl.timer(guard_touchpad, { timeout = 200, type = "oneshot" })
